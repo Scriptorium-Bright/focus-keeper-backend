@@ -16,7 +16,8 @@ public enum ErrorCode {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized access"),
 
     // Domain specific
-    ENTITY_NOT_FOUND(HttpStatus.NOT_FOUND, "Entity not found");
+    ENTITY_NOT_FOUND(HttpStatus.NOT_FOUND, "Entity not found"),
+    INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "Insufficient wallet balance");
 
     private final HttpStatus status;
     private final String message;

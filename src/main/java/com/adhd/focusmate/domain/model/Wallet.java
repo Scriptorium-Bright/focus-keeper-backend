@@ -27,4 +27,15 @@ public class Wallet extends BaseEntity {
     @Builder.Default
     @Column(name = "balance")
     private Integer balance = 0;
+
+    public void addBalance(int amount) {
+        this.balance += amount;
+    }
+
+    public void subtractBalance(int amount) {
+        if (this.balance < amount) {
+            throw new IllegalStateException("Insufficient balance in domain entity logic");
+        }
+        this.balance -= amount;
+    }
 }
