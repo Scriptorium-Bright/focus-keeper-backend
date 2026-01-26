@@ -1,5 +1,7 @@
 package com.adhd.focusmate.domain.model;
 
+import com.adhd.focusmate.common.exception.BusinessException;
+import com.adhd.focusmate.common.exception.ErrorCode;
 import com.adhd.focusmate.domain.common.BaseEntity;
 import com.adhd.focusmate.domain.model.type.TaskStatus;
 import jakarta.persistence.*;
@@ -48,14 +50,20 @@ public class Task extends BaseEntity {
 
     public void complete() {
         if (this.status == TaskStatus.COMPLETED) {
-            throw new IllegalStateException("Task is already completed");
+            throw new BusinessException(ErrorCode.TASK_ALREADY_COMPLETED);
+        }
+        if (this.status == TaskStatus.FAILED) {
+            throw new BusinessException(ErrorCode.TASK_ALREADY_FINALIZED);
         }
         this.status = TaskStatus.COMPLETED;
     }
 
     public void fail() {
         if (this.status == TaskStatus.COMPLETED) {
-            throw new IllegalStateException("Cannot fail a completed task");
+            throw new BusinessException(ErrorCode.TASK_ALREADY_COMPLETED);
+        }
+        if (this.status == TaskStatus.FAILED) {
+            throw new BusinessException(ErrorCode.TASK_ALREADY_FINALIZED);
         }
         this.status = TaskStatus.FAILED;
     }

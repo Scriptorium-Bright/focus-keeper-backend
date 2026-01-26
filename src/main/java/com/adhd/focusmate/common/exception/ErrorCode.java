@@ -17,7 +17,12 @@ public enum ErrorCode {
 
     // Domain specific
     ENTITY_NOT_FOUND(HttpStatus.NOT_FOUND, "Entity not found"),
-    INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "Insufficient wallet balance");
+    INSUFFICIENT_BALANCE(HttpStatus.BAD_REQUEST, "Insufficient wallet balance"),
+
+    // Task
+    TASK_ALREADY_COMPLETED(HttpStatus.CONFLICT, "Task is already completed"),
+    TASK_ALREADY_FINALIZED(HttpStatus.CONFLICT, "Task is already finalized"),
+    INVALID_TASK_STATUS(HttpStatus.BAD_REQUEST, "Invalid task status for this operation");
 
     private final HttpStatus status;
     private final String message;
