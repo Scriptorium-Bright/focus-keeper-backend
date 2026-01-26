@@ -24,8 +24,7 @@ public class WalletService {
 
     @Transactional
     public WalletResponse charge(CreditChargeRequest request) {
-        Wallet wallet = walletRepository.findByUserId(request.userId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "User wallet not found"));
+        Wallet wallet = findWalletByUserId(request.userId());
 
         wallet.addBalance(request.amount());
 
@@ -35,13 +34,12 @@ public class WalletService {
                 .reason(CreditLogReason.CHARGE)
                 .build());
 
-        return new WalletResponse(wallet.getUser().getId(), wallet.getBalance());
+        return toResponse(wallet);
     }
 
     @Transactional
     public WalletResponse deduct(CreditDeductRequest request) {
-        Wallet wallet = walletRepository.findByUserId(request.userId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "User wallet not found"));
+        Wallet wallet = findWalletByUserId(request.userId());
 
         wallet.subtractBalance(request.amount());
 
@@ -51,13 +49,23 @@ public class WalletService {
                 .reason(request.reason())
                 .build());
 
-        return new WalletResponse(wallet.getUser().getId(), wallet.getBalance());
+        return toResponse(wallet);
     }
 
     @Transactional(readOnly = true)
     public WalletResponse getBalance(Long userId) {
-        Wallet wallet = walletRepository.findByUserId(userId)
+        Wallet wallet = findWalletByUserId(userId);
+        return toResponse(wallet);
+    }
+
+    // ===== Private Helper Methods =====
+
+    private Wallet findWalletByUserId(Long userId) {
+        return walletRepository.findByUserId(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "User wallet not found"));
+    }
+
+    private WalletResponse toResponse(Wallet wallet) {
         return new WalletResponse(wallet.getUser().getId(), wallet.getBalance());
     }
 }
