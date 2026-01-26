@@ -1,5 +1,6 @@
 package com.adhd.focusmate.domain.model;
 
+import com.adhd.focusmate.common.exception.InsufficientBalanceException;
 import com.adhd.focusmate.domain.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

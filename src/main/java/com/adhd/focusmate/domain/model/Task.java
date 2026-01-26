@@ -45,4 +45,18 @@ public class Task extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private TaskStatus status;
+
+    public void complete() {
+        if (this.status == TaskStatus.COMPLETED) {
+            throw new IllegalStateException("Task is already completed");
+        }
+        this.status = TaskStatus.COMPLETED;
+    }
+
+    public void fail() {
+        if (this.status == TaskStatus.COMPLETED) {
+            throw new IllegalStateException("Cannot fail a completed task");
+        }
+        this.status = TaskStatus.FAILED;
+    }
 }
