@@ -29,20 +29,6 @@ public class WalletService {
 
         int newBalance = wallet.getBalance() + request.amount();
 
-        // Update balance using specific method or builder if no setter (Entities
-        // usually have no setters)
-        // Since we don't have a setter, we might need a method in Wallet entity.
-        // For now, let's assume we can modify it or use a domain method.
-        // Wait, @Builder and @Getter only. We should add a domain method
-        // 'updateBalance'.
-        // Refactoring Wallet entity to add business method is cleaner.
-        // BUT, given the constraints, I will use reflection or add the method.
-        // Let's Add a method 'addBalance' and 'subtractBalance' to Wallet using
-        // replace_file_content later if needed.
-        // Or assume we can just replace the object? No, JPA needs update.
-        // I will implement 'updateBalance' method in Wallet entity in next step.
-        // For now, I'll write the logic assuming the method exists.
-
         wallet.addBalance(request.amount());
 
         creditLogRepository.save(CreditLog.builder()
@@ -67,7 +53,7 @@ public class WalletService {
 
         creditLogRepository.save(CreditLog.builder()
                 .wallet(wallet)
-                .amount(-request.amount()) // Negative amount for log? or positive? Usually negative for deduct.
+                .amount(-request.amount())
                 .reason(request.reason())
                 .build());
 
