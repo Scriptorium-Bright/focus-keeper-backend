@@ -37,7 +37,7 @@ public class Task extends BaseEntity {
     private Integer energyLevel;
 
     @Column(name = "estimated_time")
-    private Integer estimatedTime; // in minutes
+    private Integer estimatedTime;
 
     @Column(name = "deadline")
     private LocalDateTime deadline;

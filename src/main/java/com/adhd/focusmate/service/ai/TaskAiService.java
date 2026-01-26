@@ -7,8 +7,6 @@ import org.springframework.ai.chat.prompt.PromptTemplate;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-
 @Service
 public class TaskAiService {
 

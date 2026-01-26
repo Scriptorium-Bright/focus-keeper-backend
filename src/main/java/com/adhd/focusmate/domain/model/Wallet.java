@@ -34,7 +34,7 @@ public class Wallet extends BaseEntity {
 
     public void subtractBalance(int amount) {
         if (this.balance < amount) {
-            throw new IllegalStateException("Insufficient balance in domain entity logic");
+            throw new InsufficientBalanceException();
         }
         this.balance -= amount;
     }

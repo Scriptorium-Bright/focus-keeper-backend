@@ -27,8 +27,6 @@ public class WalletService {
         Wallet wallet = walletRepository.findByUserId(request.userId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "User wallet not found"));
 
-        int newBalance = wallet.getBalance() + request.amount();
-
         wallet.addBalance(request.amount());
 
         creditLogRepository.save(CreditLog.builder()
@@ -44,10 +42,6 @@ public class WalletService {
     public WalletResponse deduct(CreditDeductRequest request) {
         Wallet wallet = walletRepository.findByUserId(request.userId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "User wallet not found"));
-
-        if (wallet.getBalance() < request.amount()) {
-            throw new InsufficientBalanceException();
-        }
 
         wallet.subtractBalance(request.amount());
 
