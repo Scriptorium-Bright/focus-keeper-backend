@@ -25,8 +25,10 @@ public class CreditLog extends BaseEntity {
     @JoinColumn(name = "wallet_id")
     private Wallet wallet;
 
+    @Column(name = "amount")
     private Integer amount;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "reason")
     private CreditLogReason reason;
 }

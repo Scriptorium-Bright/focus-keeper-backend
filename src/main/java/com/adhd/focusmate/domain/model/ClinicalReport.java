@@ -26,10 +26,12 @@ public class ClinicalReport extends BaseEntity {
     private User user;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "report_type")
     private ReportType reportType;
 
+    @Column(name = "s3_url")
     private String s3Url;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "summary_json", columnDefinition = "TEXT")
     private String summaryJson;
 }

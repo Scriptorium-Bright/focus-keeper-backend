@@ -25,5 +25,6 @@ public class Wallet extends BaseEntity {
     private User user;
 
     @Builder.Default
+    @Column(name = "balance")
     private Integer balance = 0;
 }

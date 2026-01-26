@@ -27,17 +27,22 @@ public class Task extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(nullable = false)
+    @Column(name = "title", nullable = false)
     private String title;
 
+    @Column(name = "is_ai_generated")
     private Boolean isAiGenerated;
 
+    @Column(name = "energy_level")
     private Integer energyLevel;
 
+    @Column(name = "estimated_time")
     private Integer estimatedTime; // in minutes
 
+    @Column(name = "deadline")
     private LocalDateTime deadline;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private TaskStatus status;
 }

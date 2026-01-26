@@ -23,14 +23,17 @@ public class User extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
 
+    @Column(name = "nickname")
     private String nickname;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "provider")
     private ProviderType provider;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "role")
     private RoleType role;
 }

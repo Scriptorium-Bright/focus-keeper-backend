@@ -30,8 +30,9 @@ public class ActionLog extends BaseEntity {
     private Task task; // Nullable
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "action_type")
     private ActionType actionType;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "device_context", columnDefinition = "TEXT")
     private String deviceContext;
 }
