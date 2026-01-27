@@ -56,7 +56,12 @@ public class Challenge extends BaseEntity {
     @Builder.Default
     private ChallengeStatus status = ChallengeStatus.PENDING;
 
-    // ===== Domain Methods =====
+    /**
+     * 검증에 필요한 값 (예: GitHub username, 목표 시간 등)
+     */
+
+    @Column(name = "target_value")
+    private String targetValue;
 
     public void complete() {
         if (this.status == ChallengeStatus.COMPLETED) {

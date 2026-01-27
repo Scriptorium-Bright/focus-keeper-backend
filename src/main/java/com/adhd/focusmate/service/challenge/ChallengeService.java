@@ -51,6 +51,7 @@ public class ChallengeService {
                                 .title(request.title())
                                 .description(request.description())
                                 .challengeType(type)
+                                .targetValue(request.targetValue())
                                 .estimatedTime(request.estimatedMinutes())
                                 .deadline(request.deadline())
                                 .energyLevel(request.energyLevel())

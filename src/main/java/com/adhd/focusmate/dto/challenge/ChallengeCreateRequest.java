@@ -9,6 +9,7 @@ public record ChallengeCreateRequest(
         String title,
         String description,
         ChallengeType challengeType,
+        String targetValue, // GitHub username, 목표 시간 등
         Integer estimatedMinutes,
         Integer energyLevel,
         LocalDateTime deadline) {
