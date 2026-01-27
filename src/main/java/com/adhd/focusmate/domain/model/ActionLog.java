@@ -26,8 +26,8 @@ public class ActionLog extends BaseEntity {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "task_id")
-    private Task task; // Nullable
+    @JoinColumn(name = "challenge_id")
+    private Challenge challenge; // Nullable
 
     @Enumerated(EnumType.STRING)
     @Column(name = "action_type")
