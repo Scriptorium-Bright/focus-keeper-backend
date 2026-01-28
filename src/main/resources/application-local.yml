@@ -1,0 +1,46 @@
+# ==============================
+# Local Development Profile
+# Kafka, Redis, AI 비활성화 → 빠른 시작
+# ==============================
+
+spring:
+  application:
+    name: adhd-focus-mate
+
+  # PostgreSQL만 사용
+  datasource:
+    url: jdbc:postgresql://localhost:5432/focusmate
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Kafka 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
+
+  # Redis 비활성화
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+server:
+  port: 8081
+
+logging:
+  level:
+    org.springframework: INFO
+    com.adhd.focusmate: DEBUG

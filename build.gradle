@@ -45,9 +45,6 @@ dependencies {
     // Messaging
     implementation 'org.springframework.kafka:spring-kafka'
 
-    // AI
-    implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter'
-
     // Utils
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -62,12 +59,7 @@ dependencies {
     testImplementation 'org.testcontainers:kafka'
 }
 
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.ai:spring-ai-bom:1.0.0-M5"
-    }
-}
-
 tasks.named('test') {
     useJUnitPlatform()
 }
+

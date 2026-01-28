@@ -35,13 +35,6 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
 
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY:placeholder}
-      chat:
-        options:
-          model: gpt-3.5-turbo
-
 server:
   port: 8081
 
@@ -49,3 +42,4 @@ logging:
   level:
     org.springframework: INFO
     com.adhd.focusmate: DEBUG
+
