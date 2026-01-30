@@ -16,6 +16,11 @@ public interface ChallengeRepository extends JpaRepository<Challenge, Long> {
     List<Challenge> findAllByUserId(Long userId);
 
     /**
+     * [Admin] 상태별 전체 챌린지 조회
+     */
+    List<Challenge> findAllByStatus(ChallengeStatus status);
+
+    /**
      * 특정 상태들에 해당하는 모든 챌린지 조회
      */
     List<Challenge> findAllByStatusIn(List<ChallengeStatus> statuses);

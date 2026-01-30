@@ -57,4 +57,14 @@ public class ChallengeController {
             @Parameter(description = "상태 필터 (선택)") @RequestParam(required = false) ChallengeStatus status) {
         return ResponseEntity.ok(ApiResponse.success(challengeService.getChallenges(userId, status)));
     }
+
+    // ===== Admin Endpoints =====
+
+    @Operation(summary = "[Admin] 전체 챌린지 조회", description = "관리자용: 모든 챌린지를 조회합니다.")
+    // @PreAuthorize("hasRole('ADMIN')") // TODO: OAuth2 구현 후 활성화
+    @GetMapping("/admin/all")
+    public ResponseEntity<ApiResponse<List<ChallengeResponse>>> getAllChallenges(
+            @Parameter(description = "상태 필터 (선택)") @RequestParam(required = false) ChallengeStatus status) {
+        return ResponseEntity.ok(ApiResponse.success(challengeService.getAllChallenges(status)));
+    }
 }

@@ -128,6 +128,20 @@ public class ChallengeService {
                                 .collect(Collectors.toList());
         }
 
+        /**
+         * [Admin] 전체 챌린지 조회
+         */
+        @Transactional(readOnly = true)
+        public List<ChallengeResponse> getAllChallenges(ChallengeStatus status) {
+                List<Challenge> challenges = (status != null)
+                                ? challengeRepository.findAllByStatus(status)
+                                : challengeRepository.findAll();
+
+                return challenges.stream()
+                                .map(ChallengeResponse::from)
+                                .collect(Collectors.toList());
+        }
+
         // ===== Private Helper Methods =====
 
         private Challenge findChallengeById(Long challengeId) {
