@@ -7,6 +7,7 @@ import com.adhd.focusmate.domain.model.UserItem;
 import com.adhd.focusmate.domain.model.Wallet;
 import com.adhd.focusmate.domain.model.type.ChallengeStatus;
 import com.adhd.focusmate.domain.model.type.ItemType;
+import com.adhd.focusmate.dto.settlement.SettlementResult;
 import com.adhd.focusmate.repository.ChallengeRepository;
 import com.adhd.focusmate.repository.UserItemRepository;
 import com.adhd.focusmate.repository.WalletRepository;
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
 /**
- * 범용 정산 서비스
+ * 범용 정산 서비스<br>
  * 챌린지 타입에 무관하게 검증 결과에 따라 정산 처리
  */
 @Slf4j
@@ -38,10 +39,10 @@ public class SettlementService {
 
     /**
      * 챌린지 정산 처리
-     * 
-     * 1. Verifier로 결과 확인
-     * 2. 실패 시 → 면제권 확인 → 있으면 사용하고 성공 처리
-     * 3. 성공 시 → 예치금 환급 + 포인트 지급
+     * <br>
+     * 1. Verifier로 결과 확인 <br>
+     * 2. 실패 시 → 면제권 확인 → 있으면 사용하고 성공 처리<br>
+     * 3. 성공 시 → 예치금 환급 + 포인트 지급<br>
      * 4. 최종 실패 시 → 예치금 몰수 (플랫폼 수익)
      */
     @Transactional

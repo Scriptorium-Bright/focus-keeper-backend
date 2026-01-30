@@ -1,4 +1,4 @@
-package com.adhd.focusmate.service.settlement;
+package com.adhd.focusmate.dto.settlement;
 
 import com.adhd.focusmate.domain.model.type.ChallengeStatus;
 import lombok.Builder;

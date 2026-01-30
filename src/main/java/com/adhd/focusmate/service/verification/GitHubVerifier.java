@@ -37,7 +37,7 @@ public class GitHubVerifier implements ChallengeVerifier {
             log.warn("GitHubVerifier: Challenge [{}] has no targetValue (GitHub username)",
                     challenge.getId());
             throw new BusinessException(ErrorCode.INVALID_INPUT, "GitHub username is required");
-        }
+        } // 뭔가 애매하다 싶은게, 어떤 엔티티는 검증을 자기가하고 어떤 엔티티는 verifier든 service에서 하고, 뭔가 하나의 기준이 있어야하는거같은데 맞나? 아니면 아니라고 말할 수 있어야함.
 
         try {
             // GitHub Events API 호출

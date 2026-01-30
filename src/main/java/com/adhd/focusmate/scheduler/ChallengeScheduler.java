@@ -3,7 +3,7 @@ package com.adhd.focusmate.scheduler;
 import com.adhd.focusmate.domain.model.Challenge;
 import com.adhd.focusmate.domain.model.type.ChallengeStatus;
 import com.adhd.focusmate.repository.ChallengeRepository;
-import com.adhd.focusmate.service.settlement.SettlementResult;
+import com.adhd.focusmate.dto.settlement.SettlementResult;
 import com.adhd.focusmate.service.settlement.SettlementService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -8,6 +8,7 @@ import com.adhd.focusmate.domain.model.Wallet;
 import com.adhd.focusmate.domain.model.type.ChallengeStatus;
 import com.adhd.focusmate.domain.model.type.ChallengeType;
 import com.adhd.focusmate.domain.model.type.ItemType;
+import com.adhd.focusmate.dto.settlement.SettlementResult;
 import com.adhd.focusmate.repository.ChallengeRepository;
 import com.adhd.focusmate.repository.UserItemRepository;
 import com.adhd.focusmate.repository.WalletRepository;

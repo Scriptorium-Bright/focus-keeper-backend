@@ -11,8 +11,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * ChallengeType에 맞는 Verifier를 찾아주는 팩토리
- * Spring이 모든 ChallengeVerifier 구현체를 주입하고,
+ * ChallengeType에 맞는 Verifier를 찾아주는 팩토리<br>
+ * Spring이 모든 ChallengeVerifier 구현체를 주입하고,<br>
  * getSupportedType()을 키로 맵에 저장.
  */
 @Component
