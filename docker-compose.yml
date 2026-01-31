@@ -24,12 +24,20 @@ services:
       retries: 5
 
   app-redis:
-    image: redis:latest
+    image: redis:alpine
     container_name: app-redis
     ports:
       - "6380:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
     networks:
       - focusmate-net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ================================
   # Messaging (Kafka)
@@ -144,6 +152,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   prometheus_data:
   grafana_data:
 

@@ -13,10 +13,11 @@ spring:
       ddl-auto: update
     show-sql: true
     defer-datasource-initialization: true
+    open-in-view: false  # OSIV 비활성화: API 서버 성능 최적화
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        # dialect 삭제: Hibernate 6+에서는 자동 감지됨
 
   sql:
     init:
