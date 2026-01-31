@@ -40,6 +40,19 @@ public class UserService {
     }
 
     /**
+     * 캐시 없이 직접 DB 조회 (성능 비교용)
+     */
+    @Transactional(readOnly = true)
+    public UserProfileResponse getUserProfileNoCache(Long userId) {
+        log.info("No Cache - Direct DB query: userId={}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ENTITY_NOT_FOUND, "User not found"));
+
+        return UserProfileResponse.from(user);
+    }
+
+    /**
      * 사용자 프로필 업데이트 (캐시 무효화)
      * - 업데이트 후 캐시 삭제 → 다음 조회 시 최신 데이터 fetch
      */

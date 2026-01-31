@@ -24,4 +24,11 @@ public class UserController {
             @Parameter(description = "사용자 ID", required = true) @PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success(userService.getUserProfile(userId)));
     }
+
+    @Operation(summary = "프로필 조회 (캐시 없음)", description = "캐시 없이 직접 DB 조회 - 성능 비교용")
+    @GetMapping("/{userId}/profile-nocache")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfileNoCache(
+            @Parameter(description = "사용자 ID", required = true) @PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getUserProfileNoCache(userId)));
+    }
 }
