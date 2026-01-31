@@ -29,6 +29,13 @@ public class ChallengeController {
         return ResponseEntity.ok(ApiResponse.success(challengeService.createChallenge(request)));
     }
 
+    @Operation(summary = "챌린지 상세 조회", description = "단일 챌린지를 조회합니다. (Redis 캐시 적용)")
+    @GetMapping("/{challengeId}")
+    public ResponseEntity<ApiResponse<ChallengeResponse>> getChallengeDetail(
+            @Parameter(description = "챌린지 ID", required = true) @PathVariable Long challengeId) {
+        return ResponseEntity.ok(ApiResponse.success(challengeService.getChallengeDetail(challengeId)));
+    }
+
     @Operation(summary = "챌린지 검증 및 완료", description = "Strategy Pattern으로 검증 후 자동으로 완료/실패 처리합니다.")
     @PatchMapping("/{challengeId}/verify")
     public ResponseEntity<ApiResponse<ChallengeResponse>> verifyChallenge(

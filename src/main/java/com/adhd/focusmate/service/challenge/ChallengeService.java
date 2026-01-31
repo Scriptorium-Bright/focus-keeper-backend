@@ -18,6 +18,8 @@ import com.adhd.focusmate.service.verification.VerifierFactory;
 import com.adhd.focusmate.service.wallet.WalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,10 +64,26 @@ public class ChallengeService {
         }
 
         /**
-         * 챌린지 완료 요청 - Verifier 전략에 따라 검증 후 처리
+         * 단일 챌린지 상세 조회 (캐시 적용)
+         * - 첫 조회: DB Hit → Redis 저장
+         * - 이후 조회: Redis Hit (TTL: 10분)
          */
+        @Cacheable(value = "challengeInfo", key = "#challengeId")
+        @Transactional(readOnly = true)
+        public ChallengeResponse getChallengeDetail(Long challengeId) {
+                log.info("Cache MISS - Fetching challenge from DB: challengeId={}", challengeId);
+                Challenge challenge = findChallengeById(challengeId);
+                return ChallengeResponse.from(challenge);
+        }
+
+        /**
+         * 챌린지 완료 요청 - Verifier 전략에 따라 검증 후 처리
+         * 캐시 무효화: 상태 변경으로 인해 캐시 삭제
+         */
+        @CacheEvict(value = "challengeInfo", key = "#challengeId")
         @Transactional
         public ChallengeResponse verifyAndComplete(Long challengeId) {
+                log.info("Cache EVICT - verifyAndComplete: challengeId={}", challengeId);
                 Challenge challenge = findChallengeById(challengeId);
 
                 // 1. ChallengeType에 맞는 Verifier 조회
@@ -92,9 +110,12 @@ public class ChallengeService {
 
         /**
          * 수동 완료 (Legacy 호환) - 검증 없이 바로 완료 처리
+         * 캐시 무효화: 상태 변경
          */
+        @CacheEvict(value = "challengeInfo", key = "#challengeId")
         @Transactional
         public ChallengeResponse completeChallenge(Long challengeId) {
+                log.info("Cache EVICT - completeChallenge: challengeId={}", challengeId);
                 Challenge challenge = findChallengeById(challengeId);
 
                 challenge.complete();
@@ -103,8 +124,14 @@ public class ChallengeService {
                 return ChallengeResponse.from(challenge);
         }
 
+        /**
+         * 챌린지 실패 처리
+         * 캐시 무효화: 상태 변경
+         */
+        @CacheEvict(value = "challengeInfo", key = "#challengeId")
         @Transactional
         public ChallengeResponse failChallenge(Long challengeId) {
+                log.info("Cache EVICT - failChallenge: challengeId={}", challengeId);
                 Challenge challenge = findChallengeById(challengeId);
 
                 challenge.fail();
