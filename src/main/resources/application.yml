@@ -49,6 +49,9 @@ logging:
   level:
     org.springframework: INFO
     com.adhd.focusmate: DEBUG
+    # Kafka 재시도 로그 확인용
+    org.springframework.kafka.listener: DEBUG
+    org.springframework.kafka.retrytopic: DEBUG
 
 # Actuator & Prometheus
 management:
