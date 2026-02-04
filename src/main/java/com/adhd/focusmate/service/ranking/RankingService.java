@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -99,9 +100,10 @@ public class RankingService {
         }
 
         // rank는 1-based, Redis는 0-based
-        long start = Math.max(0, rank - 3); // 본인 위 2명
+        long start = Math.max(0, rank - 3); // 본인 위 2명, 음수처리를 위해 복잡한 if문 대신 Math.max로 처리
         long end = rank + 1; // 본인 아래 2명
 
+        // 주변 랭킹 조회를 위해, Redis의 zSet을 통해 정렬되어있는 list를 가져와 조회
         Set<ZSetOperations.TypedTuple<Object>> result = redisTemplate.opsForZSet()
                 .reverseRangeWithScores(LEADERBOARD_KEY, start, end);
 
@@ -113,7 +115,7 @@ public class RankingService {
         return result.stream()
                 .map(tuple -> new RankingEntry(
                         (int) currentRank[0]++,
-                        Long.parseLong((String) tuple.getValue()),
+                        Long.parseLong((String) Objects.requireNonNull(tuple.getValue())),
                         tuple.getScore() != null ? tuple.getScore().intValue() : 0))
                 .toList();
     }

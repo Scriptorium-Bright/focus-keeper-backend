@@ -23,7 +23,13 @@ public enum ErrorCode {
     // Task
     TASK_ALREADY_COMPLETED(HttpStatus.CONFLICT, "Task is already completed"),
     TASK_ALREADY_FINALIZED(HttpStatus.CONFLICT, "Task is already finalized"),
-    INVALID_TASK_STATUS(HttpStatus.BAD_REQUEST, "Invalid task status for this operation");
+    INVALID_TASK_STATUS(HttpStatus.BAD_REQUEST, "Invalid task status for this operation"),
+
+    // User
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "User not found"),
+
+    // Follow
+    SELF_FOLLOW_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "Cannot follow yourself");
 
     private final HttpStatus status;
     private final String message;

@@ -55,7 +55,7 @@ public class ShopService {
 
         if (!item.getActive()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Item is not available");
-        } // 검증 여부에 대해서, Service에서 하는게 맞는가? 에 대한 논의를 해볼 필요가 있음.
+        }
 
         // 2. 총 가격 계산
         long totalCost = (long) item.getPrice() * request.quantity();

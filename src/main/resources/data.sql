@@ -34,6 +34,27 @@ VALUES (3, 3, 999999, 999999, NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
 
 -- ===========================================
+-- 2-1. Stress Test Users & Wallets (ID 100-149)
+-- For wallet concurrency testing
+-- ===========================================
+DO $$
+BEGIN
+    FOR i IN 100..149 LOOP
+        INSERT INTO users (id, email, nickname, provider, role, created_at, updated_at)
+        VALUES (i, 'stress' || i || '@test.io', 'StressUser' || i, 'GOOGLE', 'USER', NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING;
+        
+        INSERT INTO wallet (id, user_id, balance, point, created_at, updated_at)
+        VALUES (i, i, 10000, 1000, NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING;
+    END LOOP;
+END $$;
+
+-- Update sequences for stress test users
+SELECT setval('users_id_seq', GREATEST((SELECT MAX(id) FROM users), 149), true);
+SELECT setval('wallet_id_seq', GREATEST((SELECT MAX(id) FROM wallet), 149), true);
+
+-- ===========================================
 -- 3. Items (Shop Items)
 -- ===========================================
 INSERT INTO item (id, name, description, item_type, price, active, created_at)
