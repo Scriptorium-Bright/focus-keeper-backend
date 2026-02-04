@@ -22,6 +22,11 @@ public class WalletService {
     private final WalletRepository walletRepository;
     private final CreditLogRepository creditLogRepository;
 
+    /**
+     * 잔고 충전
+     * @param request
+     * @return
+     */
     @Transactional
     public WalletResponse charge(CreditChargeRequest request) {
         Wallet wallet = findWalletByUserId(request.userId());
@@ -37,6 +42,12 @@ public class WalletService {
         return toResponse(wallet);
     }
 
+    /**
+     * 잔고를 감소시키는 메소드 (검증 및 에러처리는 Domain에 존재)
+     *
+     * @param request
+     * @return
+     */
     @Transactional
     public WalletResponse deduct(CreditDeductRequest request) {
         Wallet wallet = findWalletByUserId(request.userId());

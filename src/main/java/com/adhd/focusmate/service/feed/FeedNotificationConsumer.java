@@ -46,6 +46,11 @@ public class FeedNotificationConsumer {
      * 챌린지 성공 이벤트 처리 (Feed Fan-out)
      * 
      * NotificationConsumer와 다른 GroupId를 사용하여 독립적으로 소비
+     * containerFactory : Kafka Listener가 사용할 설정 Bean 이름을 지정하는 것
+     * 왜 ?
+     * ExponentialBackOff 재시도
+     * Dead Letter Topic 설정
+     * RetryListener 로깅
      */
     @KafkaListener(topics = "challenge-success", groupId = "feed-group", containerFactory = "kafkaListenerContainerFactory")
     public void handleChallengeSuccess(ChallengeSuccessEvent event) {
@@ -67,6 +72,7 @@ public class FeedNotificationConsumer {
             log.info("[Feed] Fan-out to {} followers for user {}", followerIds.size(), event.userId());
 
             // 3. Redis Pipeline으로 Fan-out (최적화)
+            // fan-out -> 하나의 메시지를 여러 대상에 병렬로 동시에 전달하여 처리하는 구조
             fanOutWithPipeline(feedItem, followerIds);
 
             log.info("[Feed] Fan-out completed. {} feeds pushed.", followerIds.size());
@@ -83,7 +89,6 @@ public class FeedNotificationConsumer {
     private FeedItemDto convertToFeedItem(ChallengeSuccessEvent event) {
         // 사용자 정보 조회 (닉네임, 프로필 이미지)
         String writerName = "User" + event.userId();
-        String writerProfileUrl = DEFAULT_PROFILE_URL;
 
         var userOpt = userRepository.findById(event.userId());
         if (userOpt.isPresent()) {
@@ -95,7 +100,7 @@ public class FeedNotificationConsumer {
                 .feedId(UUID.randomUUID().toString())
                 .writerId(event.userId())
                 .writerName(writerName)
-                .writerProfileUrl(writerProfileUrl)
+                .writerProfileUrl(DEFAULT_PROFILE_URL)
                 .challengeId(event.challengeId())
                 .challengeTitle(event.title())
                 .betPoints(event.rewardPoints() != null ? event.rewardPoints().longValue() : 0L)

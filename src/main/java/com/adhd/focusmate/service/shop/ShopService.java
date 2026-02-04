@@ -46,6 +46,7 @@ public class ShopService {
      * 1. 아이템 존재 확인
      * 2. 포인트 차감
      * 3. 인벤토리에 추가
+     * 하드코딩된 에러 메시지들을 전부 모아주는 방향도 고려
      */
     @Transactional
     public BuyItemResponse buyItem(Long userId, BuyItemRequest request) {

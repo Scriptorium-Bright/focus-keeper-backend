@@ -20,7 +20,7 @@ public class TimeVerifier implements ChallengeVerifier {
     private static final LocalTime MORNING_START = LocalTime.of(4, 0);
     private static final LocalTime MORNING_END = LocalTime.of(7, 0);
 
-    private final Clock clock; // localDate와 Clock의 차이를 좀 알아야 할 것 같음.
+    private final Clock clock;
 
     public TimeVerifier() {
         this.clock = Clock.systemDefaultZone();

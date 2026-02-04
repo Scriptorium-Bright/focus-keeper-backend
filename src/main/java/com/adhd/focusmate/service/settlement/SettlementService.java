@@ -102,7 +102,7 @@ public class SettlementService {
     }
 
     /**
-     * 실패 처리: 예치금 몰수 (플랫폼 수익)
+     * 실패 처리: 예치금 몰수 -> 수익 방식에서 수수료를 가져간다던지 예치금을 가져가는 행위는 문제가 될 수 있어 몰수만 하기로 함
      */
     private SettlementResult processFailure(Challenge challenge) {
         challenge.fail();

@@ -5,7 +5,6 @@ import com.adhd.focusmate.domain.model.type.ChallengeType;
 
 /**
  * 챌린지 검증 전략 인터페이스 (Strategy Pattern)
- * 각 ChallengeType에 대응하는 구현체가 있어야 한다.
  */
 public interface ChallengeVerifier {
 

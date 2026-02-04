@@ -27,6 +27,9 @@ public class UserService {
      * 사용자 프로필 조회 (캐시 적용)
      * - 첫 조회: DB Hit → Redis 저장
      * - 이후 조회: Redis Hit (TTL: 30분)
+     *
+     * 왜 캐시를 사용했는가? 캐시는 주로 자주 변하지 않고 데이터가 무겁지 않은(즉, 조인이나 이런게 많지 않은) 상황에서 많이 사용됨, User Profile의 경우 갱신할 일이 많지가 않아서, 캐시를 사용할 경우 프로필 조회 성능향상
+     * (프로필같은 것들이 늦게 열리면 사용자 입장에서는 불편할 수 있음)
      */
     @Cacheable(value = "userProfile", key = "#userId")
     @Transactional(readOnly = true)
@@ -41,6 +44,7 @@ public class UserService {
 
     /**
      * 캐시 없이 직접 DB 조회 (성능 비교용)
+     *
      */
     @Transactional(readOnly = true)
     public UserProfileResponse getUserProfileNoCache(Long userId) {
@@ -55,6 +59,7 @@ public class UserService {
     /**
      * 사용자 프로필 업데이트 (캐시 무효화)
      * - 업데이트 후 캐시 삭제 → 다음 조회 시 최신 데이터 fetch
+     * 캐시 무효화를 하는 이유 ? 캐시에 있는 기존의 데이터를 갱신하지 못했을 때 일부 사용자들이 프로필을 이용할 때, 404 에러 등을 볼 수 있기 때문
      */
     @CacheEvict(value = "userProfile", key = "#userId")
     @Transactional
