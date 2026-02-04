@@ -12,8 +12,6 @@ import lombok.*;
 @Entity
 @Table(name = "follow", uniqueConstraints = {
         @UniqueConstraint(name = "uk_follow_follower_followee", columnNames = { "follower_id", "followee_id" })
-}, indexes = {
-        @Index(name = "idx_follow_followee", columnList = "followee_id")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

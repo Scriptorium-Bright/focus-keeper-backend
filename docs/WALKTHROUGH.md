@@ -1085,18 +1085,78 @@ ERROR [Kafka-DLT] 메시지를 DLT로 전송합니다. Topic: challenge-success.
 
 ---
 
-## 🗺️ Future Roadmap
+## 🚀 Phase 12: Social Feed System (2026-02-04)
 
-### Phase 12: Social Feed System (Fan-out) - NEXT
+### 구현 개요
 
-| 항목 | 내용 |
+| 항목 | 설명 |
 |------|------|
 | **목표** | 팔로워가 사용자의 챌린지 활동을 볼 수 있는 피드 시스템 |
 | **패턴** | Fan-out on Write (Push Model) |
-| **메커니즘** | Kafka Consumer → 팔로워 타임라인에 이벤트 ID Push (Redis List/ZSET) |
-| **의미** | O(N) Write Amplification을 Kafka로 비동기 처리 |
+| **기술** | Spring Kafka, Redis List, Pipeline |
 
-### Phase 13: Big Data Analytics (Spark) - FUTURE
+### 아키텍처
+
+```
+User 2 챌린지 성공
+       ↓ Kafka
+┌──────────────────────────────────────────────────────┐
+│ FeedNotificationConsumer (groupId: feed-group)       │
+│                                                      │
+│ 1. ChallengeSuccessEvent → FeedItemDto 변환          │
+│ 2. followRepository.findFollowerIdsByFolloweeId(2)   │
+│    → [1, 5, 10] (팔로워 목록)                        │
+│ 3. Redis Pipeline                                    │
+│    ├─ LPUSH u:feed:1  {...}                         │
+│    ├─ LTRIM u:feed:1  0 49                          │
+│    └─ ...                                            │
+└──────────────────────────────────────────────────────┘
+```
+
+### 생성된 파일
+
+| 파일 | 설명 |
+|------|------|
+| [Follow.java](file:///Users/jeonjeonghyeon/studyCollection/adhd/src/main/java/com/adhd/focusmate/domain/model/Follow.java) | 팔로우 엔티티 (unique + index) |
+| [FollowRepository.java](file:///Users/jeonjeonghyeon/studyCollection/adhd/src/main/java/com/adhd/focusmate/repository/FollowRepository.java) | Fan-out 핵심 쿼리 |
+| [FollowService.java](file:///Users/jeonjeonghyeon/studyCollection/adhd/src/main/java/com/adhd/focusmate/service/follow/FollowService.java) | toggleFollow 로직 |
+| [FollowController.java](file:///Users/jeonjeonghyeon/studyCollection/adhd/src/main/java/com/adhd/focusmate/controller/follow/FollowController.java) | 팔로우 API |
+| [FeedItemDto.java](file:///Users/jeonjeonghyeon/studyCollection/adhd/src/main/java/com/adhd/focusmate/dto/feed/FeedItemDto.java) | Redis 저장용 DTO |
+| [FeedNotificationConsumer.java](file:///Users/jeonjeonghyeon/studyCollection/adhd/src/main/java/com/adhd/focusmate/service/feed/FeedNotificationConsumer.java) | Kafka → Redis Fan-out |
+
+### API 엔드포인트
+
+```bash
+# 팔로우/언팔로우 토글
+POST /api/v1/follows/{targetUserId}
+
+# 팔로우 상태 확인
+GET /api/v1/follows/{targetUserId}/status
+
+# 팔로워/팔로잉 카운트
+GET /api/v1/follows/{userId}/count
+```
+
+### 검증 결과
+
+```bash
+# Redis에서 확인
+127.0.0.1:6379> LRANGE u:feed:1 0 -1
+1) {"feedId":"f33f5d9f...","writerId":2,"challengeTitle":"GitHub 1커밋","type":"CHALLENGE_SUCCESS",...}
+```
+
+| 항목 | 결과 |
+|------|------|
+| Follow API | ✅ 팔로우/언팔로우 토글 |
+| Kafka Consumer | ✅ feed-group으로 독립 소비 |
+| Redis Fan-out | ✅ Pipeline으로 1 RTT 처리 |
+| 피드 크기 제한 | ✅ LTRIM 0 49 (50개) |
+
+---
+
+## 🗺️ Future Roadmap
+
+### Phase 13: Big Data Analytics (Spark) - NEXT
 
 | 항목 | 내용 |
 |------|------|
@@ -1104,3 +1164,4 @@ ERROR [Kafka-DLT] 메시지를 DLT로 전송합니다. Topic: challenge-success.
 | **기술** | Apache Spark (Batch/Streaming) |
 | **메커니즘** | Kafka 로그 → Data Lake → Spark 처리 |
 | **분석 예시** | 챌린지 타입별 이탈률 계산 |
+
