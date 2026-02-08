@@ -4,5 +4,6 @@ public enum CreditLogReason {
     TASK_FAIL_PENALTY,
     CHARGE,
     DAILY_REWARD,
-    TASK_COMPLETION_REWARD
+    TASK_COMPLETION_REWARD,
+    USE_ITEM
 }

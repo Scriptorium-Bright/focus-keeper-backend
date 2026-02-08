@@ -13,5 +13,6 @@ public enum ChallengeStatus {
     IN_PROGRESS,
     PENDING_VERIFICATION,
     COMPLETED,
-    FAILED
+    FAILED,
+    FROZEN // Grace Period (실패했지만 복구 기회 있음)
 }

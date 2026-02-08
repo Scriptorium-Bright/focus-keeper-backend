@@ -89,4 +89,11 @@ public class Challenge extends BaseEntity {
         }
         this.status = ChallengeStatus.PENDING_VERIFICATION;
     }
+
+    public void freeze() {
+        if (this.status == ChallengeStatus.COMPLETED || this.status == ChallengeStatus.FAILED) {
+            throw new BusinessException(ErrorCode.TASK_ALREADY_FINALIZED);
+        }
+        this.status = ChallengeStatus.FROZEN;
+    }
 }

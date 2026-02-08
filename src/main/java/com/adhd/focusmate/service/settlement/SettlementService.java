@@ -15,6 +15,7 @@ import com.adhd.focusmate.service.verification.ChallengeVerifier;
 import com.adhd.focusmate.service.verification.VerifierFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,17 +34,14 @@ public class SettlementService {
     private final WalletRepository walletRepository;
     private final UserItemRepository userItemRepository;
     private final VerifierFactory verifierFactory;
+    private final RedisTemplate<String, String> redisTemplate; // Redis 추가
 
     private static final int DEFAULT_DEPOSIT = 1000; // 기본 예치금
     private static final long SUCCESS_REWARD_POINTS = 100L; // 성공 보상 포인트
+    private static final long GRACE_PERIOD_HOURS = 24L; // 패자부활전 유예 기간
 
     /**
      * 챌린지 정산 처리
-     * <br>
-     * 1. Verifier로 결과 확인 <br>
-     * 2. 실패 시 → 면제권 확인 → 있으면 사용하고 성공 처리<br>
-     * 3. 성공 시 → 예치금 환급 + 포인트 지급<br>
-     * 4. 최종 실패 시 → 예치금 몰수 (플랫폼 수익)
      */
     @Transactional
     public SettlementResult settleChallenge(Long challengeId) {
@@ -72,8 +70,37 @@ public class SettlementService {
         if (verificationPassed) {
             return processSuccess(challenge, wallet, savedByItem);
         } else {
-            return processFailure(challenge);
+            // Pivot: 실패 시 즉시 몰수가 아닌, FROZEN 상태로 전환 (Grace Period)
+            return processFrozen(challenge);
         }
+    }
+
+    /**
+     * Recovery Quest 완료 처리 (패자부활 성공)
+     */
+    @Transactional
+    public void completeRecoveryQuest(Long challengeId, Long userId) {
+        Challenge challenge = findChallenge(challengeId);
+
+        if (challenge.getStatus() != ChallengeStatus.FROZEN) {
+            throw new BusinessException(ErrorCode.INVALID_TASK_STATUS, "Challenge is not in FROZEN state");
+        }
+
+        // 유효기간 확인 (Redis)
+        String frozenKey = "frozen:challenge:" + challengeId;
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(frozenKey))) {
+            // 기간 만료 -> 이미 Burned 처리되었거나 만료됨 (Batch에서 처리 필요하지만 여기선 예외)
+            throw new BusinessException(ErrorCode.INVALID_TASK_STATUS, "Recovery period expired");
+        }
+
+        // 성공 처리 (포인트 복구)
+        // 예치금은 그대로 유지 (몰수 안 함)
+        challenge.complete();
+
+        // Redis Key 삭제
+        redisTemplate.delete(frozenKey);
+
+        log.info("Recovery Quest Completed: Challenge [{}] restored to COMPLETED.", challengeId);
     }
 
     /**
@@ -102,19 +129,23 @@ public class SettlementService {
     }
 
     /**
-     * 실패 처리: 예치금 몰수 -> 수익 방식에서 수수료를 가져간다던지 예치금을 가져가는 행위는 문제가 될 수 있어 몰수만 하기로 함
+     * 실패 처리 -> FROZEN (Grace Period)
+     * 포인트 차감 없음. Redis에 상태 저장.
      */
-    private SettlementResult processFailure(Challenge challenge) {
-        challenge.fail();
+    private SettlementResult processFrozen(Challenge challenge) {
+        challenge.freeze();
 
-        // 예치금은 환급하지 않음 (=몰수)
-        log.info("Settlement FAIL: Challenge [{}], Deposit burned: {}",
-                challenge.getId(), DEFAULT_DEPOSIT);
+        // Redis에 Grace Period 저장 (24시간)
+        String frozenKey = "frozen:challenge:" + challenge.getId();
+        redisTemplate.opsForValue().set(frozenKey, "FROZEN", java.time.Duration.ofHours(GRACE_PERIOD_HOURS));
+
+        log.info("Settlement FROZEN: Challenge [{}], Logic: Recovery Opportunity for {} hours",
+                challenge.getId(), GRACE_PERIOD_HOURS);
 
         return SettlementResult.builder()
                 .challengeId(challenge.getId())
-                .status(ChallengeStatus.FAILED)
-                .depositRefunded(false)
+                .status(ChallengeStatus.FROZEN)
+                .depositRefunded(false) // 아직 환급 안 됨 (동결)
                 .refundAmount(0)
                 .pointsAwarded(0L)
                 .savedByItem(false)
@@ -123,8 +154,6 @@ public class SettlementService {
 
     /**
      * 면제권(PASS_TICKET) 사용 시도
-     * 
-     * @return 사용 성공 여부
      */
     private boolean tryUsePassTicket(Long userId) {
         Optional<UserItem> passTicketOpt = userItemRepository
