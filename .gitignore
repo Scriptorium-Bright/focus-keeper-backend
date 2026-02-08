@@ -65,3 +65,6 @@ local.properties
 spark-warehouse/
 metastore_db/
 derby.log
+
+### Private Docs ###
+docs/

@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+    
+  # Testcontainers will inject datasource, redis, kafka properties
+  
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+      group-id: test-group
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    org.springframework.test: INFO
+    com.adhd.focusmate: DEBUG

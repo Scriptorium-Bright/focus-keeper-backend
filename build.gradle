@@ -61,6 +61,8 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
     testImplementation 'org.testcontainers:kafka'
+    testImplementation 'org.testcontainers:testcontainers'
+    testImplementation 'org.awaitility:awaitility'
 }
 
 tasks.named('test') {
