@@ -22,6 +22,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.Optional;
 
@@ -47,6 +49,12 @@ class SettlementServiceTest {
 
     @Mock
     private ChallengeVerifier mockVerifier;
+
+    @Mock
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
 
     @InjectMocks
     private SettlementService settlementService;
@@ -152,39 +160,40 @@ class SettlementServiceTest {
     }
 
     @Nested
-    @DisplayName("실패 시나리오 - 아이템 없음")
+    @DisplayName("실패 시나리오 - Healing Pivot (FROZEN)")
     class FailureWithoutItemScenarios {
 
         @Test
-        @DisplayName("검증 실패 + 아이템 없음 → 예치금 몰수")
-        void failure_without_item_should_NOT_refund() {
+        @DisplayName("검증 실패 + 아이템 없음 → FROZEN 상태 (즉시 몰수 안 함)")
+        void failure_without_item_should_freeze_not_fail() {
             // Given: Verifier가 false 반환 (실패)
             when(challengeRepository.findById(CHALLENGE_ID)).thenReturn(Optional.of(testChallenge));
             when(verifierFactory.getVerifier(ChallengeType.MANUAL)).thenReturn(mockVerifier);
             when(mockVerifier.verify(testChallenge)).thenReturn(false); // ❌ 실패
             when(userItemRepository.findByUserIdAndItemTypeForUpdate(USER_ID, ItemType.PASS_TICKET))
                     .thenReturn(Optional.empty()); // 아이템 없음
-            // Wallet은 조회되지만 환급되지 않음
             when(walletRepository.findByUserIdForUpdate(USER_ID)).thenReturn(Optional.of(testWallet));
+            // RedisTemplate stubbing for processFrozen()
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
             // When
             SettlementResult result = settlementService.settleChallenge(CHALLENGE_ID);
 
-            // Then: 실패 결과
-            assertThat(result.getStatus()).isEqualTo(ChallengeStatus.FAILED);
+            // Then: FROZEN 결과 (Healing Pivot - 즉시 차감 없음)
+            assertThat(result.getStatus()).isEqualTo(ChallengeStatus.FROZEN);
             assertThat(result.isDepositRefunded()).isFalse();
             assertThat(result.getRefundAmount()).isEqualTo(0);
             assertThat(result.getPointsAwarded()).isEqualTo(0L);
             assertThat(result.isSavedByItem()).isFalse();
 
-            // Then: Wallet 잔액 변동 없음
+            // Then: Wallet 잔액 변동 없음 (포인트 보호)
             assertThat(testWallet.getBalance()).isEqualTo(0);
             assertThat(testWallet.getPoint()).isEqualTo(0L);
         }
 
         @Test
-        @DisplayName("실패 시 Challenge 상태가 FAILED로 변경")
-        void failure_should_update_challenge_status_to_failed() {
+        @DisplayName("실패 시 Challenge 상태가 FROZEN으로 변경 (Grace Period)")
+        void failure_should_update_challenge_status_to_frozen() {
             // Given
             when(challengeRepository.findById(CHALLENGE_ID)).thenReturn(Optional.of(testChallenge));
             when(verifierFactory.getVerifier(ChallengeType.MANUAL)).thenReturn(mockVerifier);
@@ -192,12 +201,13 @@ class SettlementServiceTest {
             when(userItemRepository.findByUserIdAndItemTypeForUpdate(USER_ID, ItemType.PASS_TICKET))
                     .thenReturn(Optional.empty());
             when(walletRepository.findByUserIdForUpdate(USER_ID)).thenReturn(Optional.of(testWallet));
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
             // When
             settlementService.settleChallenge(CHALLENGE_ID);
 
-            // Then
-            assertThat(testChallenge.getStatus()).isEqualTo(ChallengeStatus.FAILED);
+            // Then: Healing Pivot - FROZEN (not FAILED)
+            assertThat(testChallenge.getStatus()).isEqualTo(ChallengeStatus.FROZEN);
         }
     }
 
@@ -255,8 +265,8 @@ class SettlementServiceTest {
         }
 
         @Test
-        @DisplayName("아이템 수량 0인 경우 부활 실패")
-        void zero_quantity_item_should_not_save() {
+        @DisplayName("아이템 수량 0인 경우 → FROZEN 상태 (부활 실패)")
+        void zero_quantity_item_should_freeze() {
             // Given: 아이템 존재하지만 수량 0
             UserItem emptyPassTicket = UserItem.builder()
                     .id(1L)
@@ -271,12 +281,13 @@ class SettlementServiceTest {
             when(userItemRepository.findByUserIdAndItemTypeForUpdate(USER_ID, ItemType.PASS_TICKET))
                     .thenReturn(Optional.of(emptyPassTicket));
             when(walletRepository.findByUserIdForUpdate(USER_ID)).thenReturn(Optional.of(testWallet));
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
             // When
             SettlementResult result = settlementService.settleChallenge(CHALLENGE_ID);
 
-            // Then: 여전히 실패
-            assertThat(result.getStatus()).isEqualTo(ChallengeStatus.FAILED);
+            // Then: FROZEN (Healing Pivot)
+            assertThat(result.getStatus()).isEqualTo(ChallengeStatus.FROZEN);
             assertThat(result.isSavedByItem()).isFalse();
         }
     }
