@@ -48,7 +48,11 @@ public class UserItem extends BaseEntity {
         if (amount <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Amount must be positive");
         }
-        this.quantity += amount;
+        try {
+            this.quantity = Math.addExact(this.quantity, amount);
+        } catch (ArithmeticException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "Item quantity overflow");
+        }
     }
 
     /**

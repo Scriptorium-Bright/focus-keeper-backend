@@ -47,7 +47,11 @@ public class Wallet extends BaseEntity {
         if (amount <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Amount must be positive");
         }
-        this.balance += amount;
+        try {
+            this.balance = Math.addExact(this.balance, amount);
+        } catch (ArithmeticException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "Balance overflow");
+        }
     }
 
     public void subtractBalance(int amount) {
@@ -73,7 +77,11 @@ public class Wallet extends BaseEntity {
         if (amount <= 0) {
             throw new BusinessException(ErrorCode.INVALID_INPUT, "Amount must be positive");
         }
-        this.point += amount;
+        try {
+            this.point = Math.addExact(this.point, amount);
+        } catch (ArithmeticException e) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT, "Point overflow");
+        }
     }
 
     public void subtractPoint(long amount) {
