@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: FocusKeeper Reboot API
+  version: 0.1.0
+  description: Phase 1 baseline API specification
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Application health check
+      operationId: getAppHealth
+      responses:
+        "200":
+          description: Application is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppHealthResponse"
+  /actuator/health:
+    get:
+      tags: [Actuator]
+      summary: Actuator health endpoint
+      operationId: getActuatorHealth
+      responses:
+        "200":
+          description: Actuator health status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActuatorHealthResponse"
+components:
+  schemas:
+    AppHealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - activeProfiles
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: UP
+        service:
+          type: string
+          example: focuskeeper-reboot
+        activeProfiles:
+          type: array
+          items:
+            type: string
+          example: ["local"]
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-03-03T10:45:00+09:00"
+    ActuatorHealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: UP
+        components:
+          type: object
+          additionalProperties: true
+        groups:
+          type: array
+          items:
+            type: string
