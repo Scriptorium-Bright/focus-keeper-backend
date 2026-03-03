@@ -22,3 +22,7 @@ info:
   app:
     name: FocusKeeper Reboot
     description: Phase 1 bootstrap baseline
+
+logging:
+  pattern:
+    level: "%5p [traceId:%X{traceId:-}]"

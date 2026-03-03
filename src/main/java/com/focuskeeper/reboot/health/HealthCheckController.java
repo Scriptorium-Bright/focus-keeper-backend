@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.health;
 
+import com.focuskeeper.reboot.common.response.ApiResponse;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -19,14 +20,15 @@ public class HealthCheckController {
     }
 
     @GetMapping("/health")
-    public Map<String, Object> health() {
+    public ApiResponse<Map<String, Object>> health() {
         List<String> activeProfiles = List.of(environment.getActiveProfiles());
 
-        return Map.of(
+        Map<String, Object> payload = Map.of(
                 "status", "UP",
                 "service", "focuskeeper-reboot",
                 "activeProfiles", activeProfiles,
                 "timestamp", OffsetDateTime.now().toString()
         );
+        return ApiResponse.success(payload);
     }
 }
