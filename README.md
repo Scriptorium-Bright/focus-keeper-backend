@@ -2,13 +2,14 @@
 
 Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02-28`.
 
-- Master plan: [newPlan.md](./newPlan.md)
+- Master plan: [docs/newPlan.md](./docs/newPlan.md)
 - Design docs index: [docs/README.md](./docs/README.md)
 
-## Phase 1 Status
+## Phase 1~2 Status
 
 - Spring Boot + Gradle bootstrap
 - Environment profiles: `local`, `test`
+- 공통 응답/예외/트레이스 표준 적용
 - Health endpoints:
   - `GET /api/v1/health`
   - `GET /actuator/health`

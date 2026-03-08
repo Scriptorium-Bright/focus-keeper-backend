@@ -24,6 +24,3 @@ logs/
 .env
 *.env
 local.properties
-
-### Documentation ###
-docs/
