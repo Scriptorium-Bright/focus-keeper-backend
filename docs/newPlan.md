@@ -11,6 +11,21 @@
 - 2순위: 최소 비용으로 시장성 신호만 검증
 - 원칙: "채용 경쟁력 향상" 또는 "핵심 시장성 검증"에 기여하지 않는 기능은 보류
 
+## Execution Sprint (2026-03-09 ~ 2026-03-23)
+- 목표: Phase 15 전체 방향은 유지하되, 단기적으로는 P0 Phase를 우선 구현/검증한다.
+- 원칙: `구현 -> 테스트/관측 -> 트리거 판정 -> 기술 도입` 순서로 진행한다.
+- Week 1 (2026-03-09 ~ 2026-03-15):
+  - P0 구현 우선: Phase 4, Phase 5
+  - Phase 3는 착수 보류 (인증/온보딩은 다음 스프린트)
+- Week 2 (2026-03-16 ~ 2026-03-20):
+  - JUnit 통합/회귀 테스트 강화
+  - Grafana 대시보드 기반 실패율/지연/복구시간 측정
+  - 리팩토링 및 OpenAPI-코드 계약 동기화
+- Week 3 (2026-03-21 ~ 2026-03-22):
+  - 지원서 작성/제출 패키지 정리 (프로젝트 개요, 아키텍처, 수치 근거)
+- 2026-03-23:
+  - 채용 지원 최종 제출
+
 ## Strategic Changes (확정)
 - 브랜드명 `FocusKeeper`는 사용하지 않는다. 가칭 `RebootFocus`로 운영하고 정식 네이밍은 별도 확정한다.
 - 초기 ICP는 단일 세그먼트만 운영한다.
@@ -48,6 +63,7 @@
 - `main`: 출시 가능한 단순 경로만 유지 (`Spring Batch + RDB`)
 - `feature/*`: GitHub Flow로 main 반영용 기능 개발
 - `lab/kafka-adapter`: 이벤트 릴레이 실험 브랜치 (메인 기본 비활성)
+- `lab/airflow-orchestration`: 배치 오케스트레이션 실험 브랜치 (메인 기본 비활성)
 - `lab/spark-adapter`: 분석 엔진 실험 브랜치 (메인 기본 비활성)
 - 규칙: `lab/*`의 결과는 트리거 조건 충족 전까지 `main` 기본 경로를 바꾸지 않는다
 
@@ -144,6 +160,14 @@
 - 외부 소비자(서비스) 2개 이상
 - 이벤트 재처리 요구 월 5회 이상
 - 비동기 실패율 0.1% 초과
+
+## Data Pipeline Orchestration Policy
+- Airflow는 실시간 API 경로가 아니라 배치 오케스트레이션에만 사용한다.
+- 1차 도입 대상 DAG:
+  - `daily_kpi_pipeline`: 원천 -> 정제/클렌징 -> KPI mart 적재
+  - `weekly_retrospective_input`: 주간 회고 입력 집계 테이블 생성
+  - `backfill_reprocess`: 기간 파라미터 기반 재처리
+- 사용자 요청 동기 경로(5분 시작, 실패 직후 quick restart)는 Spring 애플리케이션에서 즉시 처리한다.
 
 ## Deferred Scope (Post-Release)
 - Spark 기반 오프라인 대규모 파이프라인

@@ -1,8 +1,8 @@
 # Batch Incremental & Reprocessing Runbook
 
-> Version: v0.1  
-> Updated: 2026-03-03  
-> Scope: Phase 13 분석 배치 + 파생 데이터 재처리
+> Version: v0.2  
+> Updated: 2026-03-08  
+> Scope: Phase 13 분석 배치 + Airflow 오케스트레이션 + 파생 데이터 재처리
 
 ## 1. 목적
 
@@ -45,6 +45,21 @@ create table batch_job_watermarks (
 6. post-check(건수/정합성)
 7. 성공 시 워터마크 갱신
 8. 실패 시 워터마크 유지 + 알림 발송
+
+## 4A. Airflow 적용 범위
+
+- 적용 원칙:
+  - Airflow는 배치 오케스트레이션 전용으로 사용한다.
+  - 사용자 동기 API(예: 5분 시작, quick restart) 경로에는 사용하지 않는다.
+- 1차 DAG 목록:
+  - `daily_kpi_pipeline`:
+    - extract(raw events) -> cleanse -> mart upsert -> quality check
+  - `weekly_retrospective_input`:
+    - 최근 7일 집계 -> 회고 입력 테이블 upsert
+  - `backfill_reprocess`:
+    - `start_date`, `end_date` 파라미터 기반 재처리
+- 실패 처리:
+  - task retry + on-failure 알림 + 워터마크 유지
 
 ## 5. 재처리 시나리오
 
@@ -93,6 +108,9 @@ create table batch_job_watermarks (
 - `batch_failed_runs_total`
 - `batch_watermark_lag_seconds`
 - `batch_reprocess_runs_total`
+- `airflow_dag_success_ratio`
+- `airflow_task_retry_total`
+- `airflow_dag_duration_seconds`
 
 ## 9. 배포/변경 체크리스트
 
@@ -100,3 +118,7 @@ create table batch_job_watermarks (
 - 워터마크 마이그레이션 필요 여부 확인
 - 재처리 계획(기간/영향/롤백) 사전 작성
 - 변경 내용 `docs/refactor.md` 기록
+- Airflow DAG 변경 시:
+  - 로컬/스테이징에서 백필 DAG dry-run 수행
+  - DAG SLA/재시도 횟수/timeout 설정 확인
+  - 배치 품질 임계치(DQ) 알림 정상 동작 확인

@@ -1,8 +1,8 @@
 # Engineering Spec (Reboot Baseline)
 
-> Version: v0.1  
-> Updated: 2026-03-03  
-> Scope: Phase 1~2 기준선 + Phase 15 출시 목표
+> Version: v0.2  
+> Updated: 2026-03-08  
+> Scope: Phase 1~2 구현 기준선 + Phase 4~5 단기 실행 + Phase 15 출시 목표
 
 ## 1. 문제 정의
 
@@ -46,6 +46,11 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
   - Big3 선택
   - Timebox 배정
   - 실패 시 Re-timeboxing 또는 더 작은 다음 행동 제안
+- `FR-009` 배치 파이프라인은 오케스트레이션 계층을 분리해야 한다.
+  - 실시간 경로와 분리된 스케줄/재처리 제어를 지원해야 한다.
+  - 1차 대상: KPI 집계, 주간 회고 입력 집계, 기간 백필
+- `FR-010` Kafka/Outbox 도입 여부는 계측 수치로 판정해야 한다.
+  - JUnit/통합테스트, 부하테스트, Grafana 운영지표로 근거를 남긴다.
 
 ### 3.2 비기능 요구사항 (Non-Functional Requirements)
 
@@ -59,6 +64,7 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 - `NFR-008 Data Quality`: 필수 컬럼 완전성 >= 99.5%, 중복률 0%
 - `NFR-009 Batch Recoverability`: 배치 실패 시 워터마크 기반 재실행 가능
 - `NFR-010 Planning Observability`: PlanExecutionRate/EstimationError를 주간 단위로 추적 가능
+- `NFR-011 Trigger Evidence`: 기술 전환 판단에 사용한 메트릭은 14일 보관 및 비교 가능해야 한다.
 
 ## 4. 시스템 아키텍처
 
@@ -71,7 +77,7 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
   - Event (Stage 0): Domain Event -> Internal Async/Batch Reconcile
   - Event (Stage 1): Domain Event -> Outbox -> Relay Worker -> External Target
   - Event (Stage 2): Domain Event -> Outbox -> Message Broker -> Multi Consumers
-  - Analytics (Track A): RDB -> Spring Batch -> RDB
+  - Analytics (Track A): RDB -> Spring Batch (Job) -> Airflow (Orchestration) -> RDB
 
 ### 4.2 기술 스택 및 근거
 
@@ -80,6 +86,7 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 - Redis: 캐시/랭킹/저지연 조회
 - Outbox 패턴: 비동기 전달에서 유실 허용 불가 시 원자성 보장
 - Spring Batch: 현재 데이터 규모에서 비용 대비 최적
+- Airflow: 배치 스케줄링/재처리/운영 가시성 오케스트레이션
 
 ### 4.3 확장 구조 (Port/Adapter 최소화)
 
@@ -141,13 +148,33 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
   - 이벤트 처리량 >= 1000 TPS
   - 월간 재처리/재구동 이슈 >= 5회
 
-## 8. 변경 관리
+### 7.4 트리거 판정 증빙 방식
+
+- 테스트 증빙:
+  - JUnit/통합테스트 리포트로 실패 시나리오 재현 가능성 확인
+- 운영 증빙:
+  - Grafana에서 비동기 실패율, 수동 복구시간, lag 추세를 캡처
+- 판정 규칙:
+  - 단발성 이상치가 아니라 7일 추세 기준으로 전환 여부를 결정
+
+## 8. 단기 실행 계획 (2026-03-09 ~ 2026-03-23)
+
+- 2026-03-09 ~ 2026-03-15:
+  - Phase 4/5 구현 완료
+- 2026-03-16 ~ 2026-03-20:
+  - 테스트/관측 강화, 리팩토링, 계약 문서 동기화
+- 2026-03-21 ~ 2026-03-22:
+  - 지원서용 기술/운영 근거 패키지 정리
+- 2026-03-23:
+  - 채용 지원 제출
+
+## 9. 변경 관리
 
 - 기술 의사결정은 ADR로 기록한다.
 - 요구사항 수치 변경 시 이 문서 버전을 갱신한다.
 - 구현이 문서와 불일치하면 "코드 또는 문서" 중 하나를 즉시 수정한다.
 
-## 9. 관련 운영 문서
+## 10. 관련 운영 문서
 
 - 데이터 품질 기준: `docs/spec/DATA_QUALITY.md`
 - 배치 증분/재처리 절차: `docs/spec/BATCH_RUNBOOK.md`

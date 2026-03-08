@@ -1,8 +1,8 @@
 # KPI Tracks (Career vs Venture)
 
-> Version: v0.1  
-> Updated: 2026-03-03  
-> Scope: 취업 우선(80) + 창업 검증(20) 운영 기준
+> Version: v0.2  
+> Updated: 2026-03-08  
+> Scope: 취업 우선(80) + 창업 검증(20) + 기술 도입 트리거 운영 기준
 
 ## 1. 목적
 
@@ -52,3 +52,17 @@
 - Career KPI: 주 1회
 - Venture KPI: 베타 기간 중 주 2회
 - Phase 종료 시: `docs/refactor.md`에 High/Mid/Low와 함께 요약
+
+## 7. Trigger Evidence KPI (Kafka/Outbox 판정용)
+
+| KPI | 임계치 | 의미 |
+|---|---|---|
+| AsyncFailureRate(7d) | > 0.1% | 비동기 처리 안정성 한계 |
+| ManualRecoveryTimeAvg | > 30분 | 운영 복구 비용 증가 |
+| RelayReprocessCount(month) | >= 5회 | 재처리 운영 부담 증가 |
+| EventConsumers | >= 2 | 브로커 기반 분리 필요성 |
+
+운영 규칙:
+- 트리거 KPI는 Grafana에서 7일 추세로 확인한다.
+- 임계치 초과 시 `lab/kafka-adapter` 검증 결과와 함께 도입 여부를 결정한다.
+- 단발성 스파이크만으로 기본 경로를 변경하지 않는다.
