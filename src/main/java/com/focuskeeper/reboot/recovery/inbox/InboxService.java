@@ -18,18 +18,18 @@ public class InboxService {
     }
 
     @Transactional
-    public List<InboxItemDto> saveItems(String userId, List<String> contents) {
+    public List<InboxItemResponse> saveItems(String userId, List<String> contents) {
         return contents.stream()
                 .map(content -> InboxItemEntity.create(userId, content, OffsetDateTime.now()))
                 .map(inboxItemRepository::save)
-                .map(InboxItemEntity::toDto)
+                .map(InboxItemEntity::toResponse)
                 .toList();
     }
 
-    public List<InboxItemDto> findItemsByIds(String userId, List<String> itemIds) {
-        Map<String, InboxItemDto> indexedItems = new LinkedHashMap<>();
+    public List<InboxItemResponse> findItemsByIds(String userId, List<String> itemIds) {
+        Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
         inboxItemRepository.findAllByUserIdAndIdIn(userId, itemIds).stream()
-                .map(InboxItemEntity::toDto)
+                .map(InboxItemEntity::toResponse)
                 .forEach(item -> indexedItems.put(item.id(), item));
 
         return itemIds.stream()

@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning;
 
-import com.focuskeeper.reboot.recovery.inbox.InboxItemDto;
+import com.focuskeeper.reboot.recovery.inbox.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.inbox.InboxItemEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -63,12 +63,12 @@ public class Big3SelectionEntity {
         }
     }
 
-    public Big3SelectionDto toDto() {
-        List<InboxItemDto> items = selectedItems.stream()
+    public Big3SelectionResponse toResponse() {
+        List<InboxItemResponse> items = selectedItems.stream()
                 .sorted((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()))
-                .map(Big3SelectionItemEntity::toInboxItemDto)
+                .map(Big3SelectionItemEntity::toInboxItemResponse)
                 .toList();
-        return new Big3SelectionDto(userId, selectedDate, selectedAt, items);
+        return new Big3SelectionResponse(userId, selectedDate, selectedAt, items);
     }
 
     public String getUserId() {

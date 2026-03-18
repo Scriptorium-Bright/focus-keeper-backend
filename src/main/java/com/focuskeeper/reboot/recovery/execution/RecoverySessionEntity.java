@@ -85,8 +85,15 @@ public class RecoverySessionEntity {
         this.endedAt = endedAt;
     }
 
-    public RecoverySessionDto toDto() {
-        return new RecoverySessionDto(id, userId, timeboxId, status, startedAt, endedAt, createdAt);
+    public RecoverySessionResponse toResponse() {
+        return new RecoverySessionResponse(
+                id,
+                timeboxId,
+                status.name(),
+                startedAt.toString(),
+                endedAt == null ? null : endedAt.toString(),
+                createdAt.toString()
+        );
     }
 
     public RecoverySessionStatus getStatus() {

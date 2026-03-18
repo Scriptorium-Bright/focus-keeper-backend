@@ -32,7 +32,7 @@ public class Big3Service {
     }
 
     @Transactional
-    public Big3SelectionDto selectTodayBig3(String userId, List<String> itemIds) {
+    public Big3SelectionResponse selectTodayBig3(String userId, List<String> itemIds) {
         List<String> uniqueItemIds = deduplicate(itemIds);
         if (uniqueItemIds.size() != itemIds.size()) {
             throw new BusinessException(
@@ -62,12 +62,12 @@ public class Big3Service {
                 .orElseGet(() -> Big3SelectionEntity.create(userId, selectedDate, selectedAt));
         selection.replaceItems(selectedItems, selectedAt);
 
-        return big3SelectionRepository.save(selection).toDto();
+        return big3SelectionRepository.save(selection).toResponse();
     }
 
-    public Big3SelectionDto getTodayBig3OrThrow(String userId) {
+    public Big3SelectionResponse getTodayBig3OrThrow(String userId) {
         return big3SelectionRepository.findByUserIdAndSelectedDate(userId, LocalDate.now())
-                .map(Big3SelectionEntity::toDto)
+                .map(Big3SelectionEntity::toResponse)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of(

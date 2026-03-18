@@ -2,7 +2,7 @@ package com.focuskeeper.reboot.recovery.planning;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.inbox.InboxItemDto;
+import com.focuskeeper.reboot.recovery.inbox.InboxItemResponse;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -25,21 +25,21 @@ public class TimeboxService {
     }
 
     @Transactional
-    public List<TimeboxDto> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
+    public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
         validateFirstRecoveryBlock(commands);
 
-        Big3SelectionDto selection = big3Service.getTodayBig3OrThrow(userId);
-        Map<String, InboxItemDto> selectedItems = indexSelectedItems(selection);
+        Big3SelectionResponse selection = big3Service.getTodayBig3OrThrow(userId);
+        Map<String, InboxItemResponse> selectedItems = indexSelectedItems(selection);
         validateSelectedItems(commands, selectedItems);
 
         List<TimeboxEntity> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
         validateOverlaps(
                 userId,
-                requestedTimeboxes.stream().map(TimeboxEntity::toDto).toList()
+                requestedTimeboxes.stream().map(TimeboxEntity::toResponse).toList()
         );
 
         return timeboxRepository.saveAll(requestedTimeboxes).stream()
-                .map(TimeboxEntity::toDto)
+                .map(TimeboxEntity::toResponse)
                 .toList();
     }
 
@@ -63,15 +63,15 @@ public class TimeboxService {
         }
     }
 
-    private Map<String, InboxItemDto> indexSelectedItems(Big3SelectionDto selection) {
-        Map<String, InboxItemDto> indexedItems = new LinkedHashMap<>();
-        for (InboxItemDto item : selection.selectedItems()) {
+    private Map<String, InboxItemResponse> indexSelectedItems(Big3SelectionResponse selection) {
+        Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
+        for (InboxItemResponse item : selection.selectedItems()) {
             indexedItems.put(item.id(), item);
         }
         return indexedItems;
     }
 
-    private void validateSelectedItems(List<TimeboxCommand> commands, Map<String, InboxItemDto> selectedItems) {
+    private void validateSelectedItems(List<TimeboxCommand> commands, Map<String, InboxItemResponse> selectedItems) {
         List<String> invalidItemIds = commands.stream()
                 .map(TimeboxCommand::itemId)
                 .filter(itemId -> !selectedItems.containsKey(itemId))
@@ -92,7 +92,7 @@ public class TimeboxService {
     private List<TimeboxEntity> materializeTimeboxes(
             String userId,
             List<TimeboxCommand> commands,
-            Map<String, InboxItemDto> selectedItems
+            Map<String, InboxItemResponse> selectedItems
     ) {
         List<TimeboxEntity> requestedTimeboxes = new ArrayList<>();
         for (TimeboxCommand command : commands) {
@@ -105,7 +105,7 @@ public class TimeboxService {
                 );
             }
 
-            InboxItemDto sourceItem = selectedItems.get(command.itemId());
+            InboxItemResponse sourceItem = selectedItems.get(command.itemId());
             requestedTimeboxes.add(TimeboxEntity.create(
                     userId,
                     sourceItem.id(),
@@ -130,22 +130,22 @@ public class TimeboxService {
         }
     }
 
-    private void validateOverlaps(String userId, List<TimeboxDto> requestedTimeboxes) {
-        List<TimeboxDto> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId).stream()
-                .map(TimeboxEntity::toDto)
+    private void validateOverlaps(String userId, List<TimeboxResponse> requestedTimeboxes) {
+        List<TimeboxResponse> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId).stream()
+                .map(TimeboxEntity::toResponse)
                 .toList();
 
         for (int index = 0; index < requestedTimeboxes.size(); index++) {
-            TimeboxDto current = requestedTimeboxes.get(index);
+            TimeboxResponse current = requestedTimeboxes.get(index);
 
             for (int otherIndex = index + 1; otherIndex < requestedTimeboxes.size(); otherIndex++) {
-                TimeboxDto other = requestedTimeboxes.get(otherIndex);
+                TimeboxResponse other = requestedTimeboxes.get(otherIndex);
                 if (overlaps(current, other.startAt(), other.endAt())) {
                     throw conflictException(current);
                 }
             }
 
-            for (TimeboxDto existing : existingTimeboxes) {
+            for (TimeboxResponse existing : existingTimeboxes) {
                 if (overlaps(existing, current.startAt(), current.endAt())) {
                     throw conflictException(existing);
                 }
@@ -153,17 +153,21 @@ public class TimeboxService {
         }
     }
 
-    private boolean overlaps(TimeboxDto timebox, OffsetDateTime otherStartAt, OffsetDateTime otherEndAt) {
-        return timebox.startAt().isBefore(otherEndAt) && timebox.endAt().isAfter(otherStartAt);
+    private boolean overlaps(TimeboxResponse timebox, String otherStartAt, String otherEndAt) {
+        OffsetDateTime startAt = parseDateTime("startAt", timebox.startAt());
+        OffsetDateTime endAt = parseDateTime("endAt", timebox.endAt());
+        OffsetDateTime otherStart = parseDateTime("otherStartAt", otherStartAt);
+        OffsetDateTime otherEnd = parseDateTime("otherEndAt", otherEndAt);
+        return startAt.isBefore(otherEnd) && endAt.isAfter(otherStart);
     }
 
-    private BusinessException conflictException(TimeboxDto conflictingTimebox) {
+    private BusinessException conflictException(TimeboxResponse conflictingTimebox) {
         return new BusinessException(
                 ErrorCode.CONFLICT,
                 Map.of(
-                        "conflictingTimeboxId", conflictingTimebox.id(),
-                        "startAt", conflictingTimebox.startAt().toString(),
-                        "endAt", conflictingTimebox.endAt().toString()
+                        "conflictingTimeboxId", conflictingTimebox.timeboxId(),
+                        "startAt", conflictingTimebox.startAt(),
+                        "endAt", conflictingTimebox.endAt()
                 )
         );
     }

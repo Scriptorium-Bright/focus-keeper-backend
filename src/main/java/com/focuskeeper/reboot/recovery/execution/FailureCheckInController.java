@@ -43,7 +43,7 @@ public class FailureCheckInController {
                 result.failureEvent().reason().name(),
                 result.failureEvent().note(),
                 result.failureEvent().occurredAt().toString(),
-                result.recoverySession().status().name()
+                result.recoverySession().status()
         );
         return ApiResponse.success(response, "FAILURE_CHECKED_IN");
     }

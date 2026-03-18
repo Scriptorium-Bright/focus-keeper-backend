@@ -82,7 +82,7 @@ public class FailureEventEntity {
         );
     }
 
-    public FailureEventDto toDto() {
-        return new FailureEventDto(id, userId, sessionId, timeboxId, reason, note, occurredAt);
+    public FailureEventResponse toResponse() {
+        return new FailureEventResponse(id, sessionId, timeboxId, reason, note, occurredAt);
     }
 }

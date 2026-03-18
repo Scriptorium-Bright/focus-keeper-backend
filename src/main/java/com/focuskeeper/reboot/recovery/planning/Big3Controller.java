@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.inbox.InboxItemDto;
+import com.focuskeeper.reboot.recovery.inbox.InboxItemResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,7 +32,7 @@ public class Big3Controller {
     public ApiResponse<SelectBig3Response> selectBig3(
             @Valid @RequestBody SelectBig3Request request
     ) {
-        Big3SelectionDto selection = big3Service.selectTodayBig3(request.userId(), request.itemIds());
+        Big3SelectionResponse selection = big3Service.selectTodayBig3(request.userId(), request.itemIds());
         List<Big3Item> selectedItems = selection.selectedItems().stream()
                 .map(Big3Item::from)
                 .toList();
@@ -67,7 +67,7 @@ public class Big3Controller {
             String itemId,
             String content
     ) {
-        static Big3Item from(InboxItemDto item) {
+        static Big3Item from(InboxItemResponse item) {
             return new Big3Item(item.id(), item.content());
         }
     }

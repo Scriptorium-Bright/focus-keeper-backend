@@ -34,7 +34,7 @@ public class InboxController {
         List<String> contents = request.items().stream()
                 .map(SaveInboxItemsRequest.InboxItemPayload::content)
                 .toList();
-        List<InboxItemDto> savedItems = inboxService.saveItems(request.userId(), contents);
+        List<InboxItemResponse> savedItems = inboxService.saveItems(request.userId(), contents);
 
         List<SavedInboxItem> responseItems = savedItems.stream()
                 .map(item -> new SavedInboxItem(item.id(), item.content(), item.createdAt()))

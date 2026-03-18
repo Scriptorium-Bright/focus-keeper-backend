@@ -25,16 +25,16 @@ public class FailureEventService {
     @Transactional
     public FailureCheckInResult checkIn(String userId, String sessionId, String reasonValue, String note) {
         FailureReason reason = parseReason(reasonValue);
-        RecoverySessionDto interruptedSession = recoverySessionService.interruptSession(userId, sessionId);
+        RecoverySessionResponse interruptedSession = recoverySessionService.interruptSession(userId, sessionId);
 
-        FailureEventDto failureEvent = failureEventRepository.save(FailureEventEntity.create(
+        FailureEventResponse failureEvent = failureEventRepository.save(FailureEventEntity.create(
                 userId,
-                interruptedSession.id(),
+                interruptedSession.sessionId(),
                 interruptedSession.timeboxId(),
                 reason,
                 note,
                 OffsetDateTime.now()
-        )).toDto();
+        )).toResponse();
 
         return new FailureCheckInResult(failureEvent, interruptedSession);
     }
@@ -51,8 +51,8 @@ public class FailureEventService {
     }
 
     public record FailureCheckInResult(
-            FailureEventDto failureEvent,
-            RecoverySessionDto recoverySession
+            FailureEventResponse failureEvent,
+            RecoverySessionResponse recoverySession
     ) {
     }
 }

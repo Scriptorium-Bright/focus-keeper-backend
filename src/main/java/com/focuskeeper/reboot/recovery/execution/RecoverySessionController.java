@@ -28,8 +28,8 @@ public class RecoverySessionController {
     public ApiResponse<RecoverySessionResponse> startSession(
             @Valid @RequestBody StartRecoverySessionRequest request
     ) {
-        RecoverySessionDto session = recoverySessionService.startSession(request.userId(), request.timeboxId());
-        return ApiResponse.success(toResponse(session), "RECOVERY_SESSION_STARTED");
+        RecoverySessionResponse session = recoverySessionService.startSession(request.userId(), request.timeboxId());
+        return ApiResponse.success(session, "RECOVERY_SESSION_STARTED");
     }
 
     @PostMapping("/complete")
@@ -37,8 +37,8 @@ public class RecoverySessionController {
     public ApiResponse<RecoverySessionResponse> completeSession(
             @Valid @RequestBody UpdateRecoverySessionRequest request
     ) {
-        RecoverySessionDto session = recoverySessionService.completeSession(request.userId(), request.sessionId());
-        return ApiResponse.success(toResponse(session), "RECOVERY_SESSION_COMPLETED");
+        RecoverySessionResponse session = recoverySessionService.completeSession(request.userId(), request.sessionId());
+        return ApiResponse.success(session, "RECOVERY_SESSION_COMPLETED");
     }
 
     @PostMapping("/interrupt")
@@ -46,19 +46,8 @@ public class RecoverySessionController {
     public ApiResponse<RecoverySessionResponse> interruptSession(
             @Valid @RequestBody UpdateRecoverySessionRequest request
     ) {
-        RecoverySessionDto session = recoverySessionService.interruptSession(request.userId(), request.sessionId());
-        return ApiResponse.success(toResponse(session), "RECOVERY_SESSION_INTERRUPTED");
-    }
-
-    private RecoverySessionResponse toResponse(RecoverySessionDto session) {
-        return new RecoverySessionResponse(
-                session.id(),
-                session.timeboxId(),
-                session.status().name(),
-                session.startedAt().toString(),
-                session.endedAt() == null ? null : session.endedAt().toString(),
-                session.createdAt().toString()
-        );
+        RecoverySessionResponse session = recoverySessionService.interruptSession(request.userId(), request.sessionId());
+        return ApiResponse.success(session, "RECOVERY_SESSION_INTERRUPTED");
     }
 
     public record StartRecoverySessionRequest(
@@ -77,13 +66,4 @@ public class RecoverySessionController {
     ) {
     }
 
-    public record RecoverySessionResponse(
-            String sessionId,
-            String timeboxId,
-            String status,
-            String startedAt,
-            String endedAt,
-            String createdAt
-    ) {
-    }
 }

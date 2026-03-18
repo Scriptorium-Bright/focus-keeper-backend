@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning;
 
-import com.focuskeeper.reboot.recovery.inbox.InboxItemDto;
+import com.focuskeeper.reboot.recovery.inbox.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.inbox.InboxItemEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -59,8 +59,8 @@ public class Big3SelectionItemEntity {
         return new Big3SelectionItemEntity(UUID.randomUUID().toString(), selection, inboxItem, sortOrder);
     }
 
-    public InboxItemDto toInboxItemDto() {
-        return inboxItem.toDto();
+    public InboxItemResponse toInboxItemResponse() {
+        return inboxItem.toResponse();
     }
 
     public int getSortOrder() {

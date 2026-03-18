@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,20 +41,20 @@ public class TimeboxController {
                 ))
                 .toList();
 
-        List<TimeboxDto> allocatedTimeboxes = timeboxService.allocateTimeboxes(request.userId(), commands);
+        List<TimeboxResponse> allocatedTimeboxes = timeboxService.allocateTimeboxes(request.userId(), commands);
         List<AllocatedTimebox> responseItems = allocatedTimeboxes.stream()
                 .map(timebox -> new AllocatedTimebox(
-                        timebox.id(),
+                        timebox.timeboxId(),
                         timebox.itemId(),
-                        timebox.itemContent(),
-                        timebox.startAt().toString(),
-                        timebox.endAt().toString(),
+                        timebox.content(),
+                        timebox.startAt(),
+                        timebox.endAt(),
                         timebox.firstRecoveryBlock(),
-                        timebox.createdAt().toString()
+                        timebox.createdAt()
                 ))
                 .toList();
 
-        String plannedDate = allocatedTimeboxes.getFirst().startAt().toLocalDate().toString();
+        String plannedDate = OffsetDateTime.parse(allocatedTimeboxes.getFirst().startAt()).toLocalDate().toString();
         AllocateTimeboxesResponse response = new AllocateTimeboxesResponse(
                 plannedDate,
                 responseItems.size(),
