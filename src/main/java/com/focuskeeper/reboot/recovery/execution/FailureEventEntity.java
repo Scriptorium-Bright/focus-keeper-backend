@@ -82,7 +82,7 @@ public class FailureEventEntity {
         );
     }
 
-    public FailureEvent toDomain() {
-        return new FailureEvent(id, userId, sessionId, timeboxId, reason, note, occurredAt);
+    public FailureEventDto toDto() {
+        return new FailureEventDto(id, userId, sessionId, timeboxId, reason, note, occurredAt);
     }
 }

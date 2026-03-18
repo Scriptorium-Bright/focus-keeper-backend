@@ -44,8 +44,8 @@ public class InboxItemEntity {
         return new InboxItemEntity(UUID.randomUUID().toString(), userId, content, createdAt);
     }
 
-    public InboxItem toDomain() {
-        return new InboxItem(id, userId, content, createdAt.toString());
+    public InboxItemDto toDto() {
+        return new InboxItemDto(id, userId, content, createdAt.toString());
     }
 
     public String getId() {

@@ -40,7 +40,7 @@ public class TimeboxController {
                 ))
                 .toList();
 
-        List<Timebox> allocatedTimeboxes = timeboxService.allocateTimeboxes(request.userId(), commands);
+        List<TimeboxDto> allocatedTimeboxes = timeboxService.allocateTimeboxes(request.userId(), commands);
         List<AllocatedTimebox> responseItems = allocatedTimeboxes.stream()
                 .map(timebox -> new AllocatedTimebox(
                         timebox.id(),

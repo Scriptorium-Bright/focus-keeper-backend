@@ -86,7 +86,7 @@ public class TimeboxEntity {
         );
     }
 
-    public Timebox toDomain() {
-        return new Timebox(id, userId, itemId, itemContent, startAt, endAt, firstRecoveryBlock, createdAt);
+    public TimeboxDto toDto() {
+        return new TimeboxDto(id, userId, itemId, itemContent, startAt, endAt, firstRecoveryBlock, createdAt);
     }
 }

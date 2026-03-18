@@ -28,7 +28,7 @@ public class RecoverySessionController {
     public ApiResponse<RecoverySessionResponse> startSession(
             @Valid @RequestBody StartRecoverySessionRequest request
     ) {
-        RecoverySession session = recoverySessionService.startSession(request.userId(), request.timeboxId());
+        RecoverySessionDto session = recoverySessionService.startSession(request.userId(), request.timeboxId());
         return ApiResponse.success(toResponse(session), "RECOVERY_SESSION_STARTED");
     }
 
@@ -37,7 +37,7 @@ public class RecoverySessionController {
     public ApiResponse<RecoverySessionResponse> completeSession(
             @Valid @RequestBody UpdateRecoverySessionRequest request
     ) {
-        RecoverySession session = recoverySessionService.completeSession(request.userId(), request.sessionId());
+        RecoverySessionDto session = recoverySessionService.completeSession(request.userId(), request.sessionId());
         return ApiResponse.success(toResponse(session), "RECOVERY_SESSION_COMPLETED");
     }
 
@@ -46,11 +46,11 @@ public class RecoverySessionController {
     public ApiResponse<RecoverySessionResponse> interruptSession(
             @Valid @RequestBody UpdateRecoverySessionRequest request
     ) {
-        RecoverySession session = recoverySessionService.interruptSession(request.userId(), request.sessionId());
+        RecoverySessionDto session = recoverySessionService.interruptSession(request.userId(), request.sessionId());
         return ApiResponse.success(toResponse(session), "RECOVERY_SESSION_INTERRUPTED");
     }
 
-    private RecoverySessionResponse toResponse(RecoverySession session) {
+    private RecoverySessionResponse toResponse(RecoverySessionDto session) {
         return new RecoverySessionResponse(
                 session.id(),
                 session.timeboxId(),

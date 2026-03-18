@@ -25,7 +25,7 @@ public class RecoverySessionService {
     }
 
     @Transactional
-    public RecoverySession startSession(String userId, String timeboxId) {
+    public RecoverySessionDto startSession(String userId, String timeboxId) {
         timeboxService.getTimeboxOrThrow(userId, timeboxId);
 
         boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus(
@@ -41,38 +41,38 @@ public class RecoverySessionService {
 
         return recoverySessionRepository.save(
                 RecoverySessionEntity.start(userId, timeboxId, OffsetDateTime.now())
-        ).toDomain();
+        ).toDto();
     }
 
     @Transactional
-    public RecoverySession completeSession(String userId, String sessionId) {
+    public RecoverySessionDto completeSession(String userId, String sessionId) {
         RecoverySessionEntity session = getSessionEntityOrThrow(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
             throw invalidTransition(sessionId, session.getStatus(), "COMPLETED");
         }
 
         session.complete(OffsetDateTime.now());
-        return recoverySessionRepository.save(session).toDomain();
+        return recoverySessionRepository.save(session).toDto();
     }
 
     @Transactional
-    public RecoverySession interruptSession(String userId, String sessionId) {
+    public RecoverySessionDto interruptSession(String userId, String sessionId) {
         RecoverySessionEntity session = getSessionEntityOrThrow(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
             throw invalidTransition(sessionId, session.getStatus(), "INTERRUPTED");
         }
 
         session.interrupt(OffsetDateTime.now());
-        return recoverySessionRepository.save(session).toDomain();
+        return recoverySessionRepository.save(session).toDto();
     }
 
-    public RecoverySession getSessionOrThrow(String userId, String sessionId) {
-        return getSessionEntityOrThrow(userId, sessionId).toDomain();
+    public RecoverySessionDto getSessionOrThrow(String userId, String sessionId) {
+        return getSessionEntityOrThrow(userId, sessionId).toDto();
     }
 
-    public List<RecoverySession> findSessions(String userId) {
+    public List<RecoverySessionDto> findSessions(String userId) {
         return recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId).stream()
-                .map(RecoverySessionEntity::toDomain)
+                .map(RecoverySessionEntity::toDto)
                 .toList();
     }
 
