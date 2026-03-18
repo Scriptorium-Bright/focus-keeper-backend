@@ -1,0 +1,186 @@
+package com.focuskeeper.reboot.recovery.planning.service;
+
+import com.focuskeeper.reboot.common.error.BusinessException;
+import com.focuskeeper.reboot.common.error.ErrorCode;
+import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
+import com.focuskeeper.reboot.recovery.planning.entity.TimeboxEntity;
+import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional(readOnly = true)
+public class TimeboxService {
+
+    private final Big3Service big3Service;
+    private final TimeboxRepository timeboxRepository;
+
+    public TimeboxService(Big3Service big3Service, TimeboxRepository timeboxRepository) {
+        this.big3Service = big3Service;
+        this.timeboxRepository = timeboxRepository;
+    }
+
+    @Transactional
+    public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
+        validateFirstRecoveryBlock(commands);
+
+        Big3SelectionResponse selection = big3Service.getTodayBig3OrThrow(userId);
+        Map<String, InboxItemResponse> selectedItems = indexSelectedItems(selection);
+        validateSelectedItems(commands, selectedItems);
+
+        List<TimeboxEntity> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
+        validateOverlaps(
+                userId,
+                requestedTimeboxes.stream().map(TimeboxEntity::toResponse).toList()
+        );
+
+        return timeboxRepository.saveAll(requestedTimeboxes).stream()
+                .map(TimeboxEntity::toResponse)
+                .toList();
+    }
+
+    public void getTimeboxOrThrow(String userId, String timeboxId) {
+        timeboxRepository.findByIdAndUserId(timeboxId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        Map.of("timeboxId", timeboxId)
+                ));
+    }
+
+    private void validateFirstRecoveryBlock(List<TimeboxCommand> commands) {
+        long firstRecoveryBlockCount = commands.stream()
+                .filter(TimeboxCommand::firstRecoveryBlock)
+                .count();
+        if (firstRecoveryBlockCount != 1) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of("timeboxes", "첫 복귀 블록은 정확히 1개여야 합니다.")
+            );
+        }
+    }
+
+    private Map<String, InboxItemResponse> indexSelectedItems(Big3SelectionResponse selection) {
+        Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
+        for (InboxItemResponse item : selection.selectedItems()) {
+            indexedItems.put(item.id(), item);
+        }
+        return indexedItems;
+    }
+
+    private void validateSelectedItems(List<TimeboxCommand> commands, Map<String, InboxItemResponse> selectedItems) {
+        List<String> invalidItemIds = commands.stream()
+                .map(TimeboxCommand::itemId)
+                .filter(itemId -> !selectedItems.containsKey(itemId))
+                .distinct()
+                .toList();
+
+        if (!invalidItemIds.isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of(
+                            "invalidItemIds", invalidItemIds,
+                            "itemIds", "오늘의 Big3에 포함된 항목만 timebox로 배정할 수 있습니다."
+                    )
+            );
+        }
+    }
+
+    private List<TimeboxEntity> materializeTimeboxes(
+            String userId,
+            List<TimeboxCommand> commands,
+            Map<String, InboxItemResponse> selectedItems
+    ) {
+        List<TimeboxEntity> requestedTimeboxes = new ArrayList<>();
+        for (TimeboxCommand command : commands) {
+            OffsetDateTime startAt = parseDateTime("startAt", command.startAt());
+            OffsetDateTime endAt = parseDateTime("endAt", command.endAt());
+            if (!startAt.isBefore(endAt)) {
+                throw new BusinessException(
+                        ErrorCode.COMMON_BAD_REQUEST,
+                        Map.of("timeboxes", "startAt은 endAt보다 빨라야 합니다.")
+                );
+            }
+
+            InboxItemResponse sourceItem = selectedItems.get(command.itemId());
+            requestedTimeboxes.add(TimeboxEntity.create(
+                    userId,
+                    sourceItem.id(),
+                    sourceItem.content(),
+                    startAt,
+                    endAt,
+                    command.firstRecoveryBlock(),
+                    OffsetDateTime.now()
+            ));
+        }
+        return requestedTimeboxes;
+    }
+
+    private OffsetDateTime parseDateTime(String fieldName, String value) {
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (DateTimeParseException exception) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of(fieldName, "ISO-8601 형식의 날짜시간이어야 합니다.")
+            );
+        }
+    }
+
+    private void validateOverlaps(String userId, List<TimeboxResponse> requestedTimeboxes) {
+        List<TimeboxResponse> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId).stream()
+                .map(TimeboxEntity::toResponse)
+                .toList();
+
+        for (int index = 0; index < requestedTimeboxes.size(); index++) {
+            TimeboxResponse current = requestedTimeboxes.get(index);
+
+            for (int otherIndex = index + 1; otherIndex < requestedTimeboxes.size(); otherIndex++) {
+                TimeboxResponse other = requestedTimeboxes.get(otherIndex);
+                if (overlaps(current, other.startAt(), other.endAt())) {
+                    throw conflictException(current);
+                }
+            }
+
+            for (TimeboxResponse existing : existingTimeboxes) {
+                if (overlaps(existing, current.startAt(), current.endAt())) {
+                    throw conflictException(existing);
+                }
+            }
+        }
+    }
+
+    private boolean overlaps(TimeboxResponse timebox, String otherStartAt, String otherEndAt) {
+        OffsetDateTime startAt = parseDateTime("startAt", timebox.startAt());
+        OffsetDateTime endAt = parseDateTime("endAt", timebox.endAt());
+        OffsetDateTime otherStart = parseDateTime("otherStartAt", otherStartAt);
+        OffsetDateTime otherEnd = parseDateTime("otherEndAt", otherEndAt);
+        return startAt.isBefore(otherEnd) && endAt.isAfter(otherStart);
+    }
+
+    private BusinessException conflictException(TimeboxResponse conflictingTimebox) {
+        return new BusinessException(
+                ErrorCode.CONFLICT,
+                Map.of(
+                        "conflictingTimeboxId", conflictingTimebox.timeboxId(),
+                        "startAt", conflictingTimebox.startAt(),
+                        "endAt", conflictingTimebox.endAt()
+                )
+        );
+    }
+
+    public record TimeboxCommand(
+            String itemId,
+            String startAt,
+            String endAt,
+            boolean firstRecoveryBlock
+    ) {
+    }
+}

@@ -1,0 +1,67 @@
+package com.focuskeeper.reboot.recovery.planning.controller;
+
+import com.focuskeeper.reboot.common.response.ApiResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.AllocateTimeboxesRequest;
+import com.focuskeeper.reboot.recovery.planning.dto.AllocateTimeboxesResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.AllocatedTimeboxResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
+import com.focuskeeper.reboot.recovery.planning.service.TimeboxService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.time.OffsetDateTime;
+import java.util.List;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Validated
+@RestController
+@RequestMapping("/api/v1/recovery")
+@Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
+public class TimeboxController {
+
+    private final TimeboxService timeboxService;
+
+    public TimeboxController(TimeboxService timeboxService) {
+        this.timeboxService = timeboxService;
+    }
+
+    @PostMapping("/timeboxes")
+    @Operation(summary = "Allocate recovery timeboxes", description = "Assigns daily timeboxes and requires exactly one first recovery block.")
+    public ApiResponse<AllocateTimeboxesResponse> allocateTimeboxes(
+            @Valid @RequestBody AllocateTimeboxesRequest request
+    ) {
+        List<TimeboxService.TimeboxCommand> commands = request.timeboxes().stream()
+                .map(timebox -> new TimeboxService.TimeboxCommand(
+                        timebox.itemId(),
+                        timebox.startAt(),
+                        timebox.endAt(),
+                        timebox.firstRecoveryBlock()
+                ))
+                .toList();
+
+        List<TimeboxResponse> allocatedTimeboxes = timeboxService.allocateTimeboxes(request.userId(), commands);
+        List<AllocatedTimeboxResponse> responseItems = allocatedTimeboxes.stream()
+                .map(timebox -> new AllocatedTimeboxResponse(
+                        timebox.timeboxId(),
+                        timebox.itemId(),
+                        timebox.content(),
+                        timebox.startAt(),
+                        timebox.endAt(),
+                        timebox.firstRecoveryBlock(),
+                        timebox.createdAt()
+                ))
+                .toList();
+
+        String plannedDate = OffsetDateTime.parse(allocatedTimeboxes.getFirst().startAt()).toLocalDate().toString();
+        AllocateTimeboxesResponse response = new AllocateTimeboxesResponse(
+                plannedDate,
+                responseItems.size(),
+                responseItems
+        );
+        return ApiResponse.success(response, "TIMEBOXES_ALLOCATED");
+    }
+}
