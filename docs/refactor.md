@@ -28,7 +28,7 @@
 | 2026-03-16 | 4 | 4.3 | `feature/core-conventions` | `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test --no-daemon` | PASS | `39c462b` |
 | 2026-03-16 | 4 | 4.4 | `feature/core-conventions` | `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test --no-daemon` | PASS | `4ba4d74` |
 | 2026-03-16 | 4 | 4.5 | `feature/core-conventions` | `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test --no-daemon` | PASS | `8e5da4c` |
-| 2026-03-19 | 4 | 4.6 | `feature/core-conventions` | `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test --no-daemon` | PASS | `(pending)` |
+| 2026-03-19 | 4 | 4.6 | `feature/core-conventions` | `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test --no-daemon` | PASS | `67a9e80` |
 
 ## Phase 종료 리팩토링 정리
 
