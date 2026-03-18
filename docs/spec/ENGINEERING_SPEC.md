@@ -1,13 +1,13 @@
 # Engineering Spec (Reboot Baseline)
 
-> Version: v0.2  
-> Updated: 2026-03-08  
-> Scope: Phase 1~2 구현 기준선 + Phase 4~5 단기 실행 + Phase 15 출시 목표
+> Version: v0.5  
+> Updated: 2026-03-14  
+> Scope: Phase 1~2 구현 기준선 + 복귀 지표 팩 + Phase 15 출시 목표
 
 ## 1. 문제 정의
 
-FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하는 자기관리 서비스다.  
-리부트 목표는 복잡한 초기 설계를 줄이고, 데이터 신뢰성과 운영 안정성을 우선 확보하는 것이다.
+RebootFocus는 전날 계획이 무너지면 다음날까지 다시 못 붙잡는 25~34세 지식노동 직장인을 위해, 놓친 일을 실패 맥락에 맞는 다음 행동과 첫 복귀 블록으로 다시 시작하게 만드는 복귀 코치 서비스다.  
+리부트 목표는 범용 생산성 앱처럼 넓게 가지 않고, "실패 다음날 복귀"라는 하나의 문제에 맞춰 데이터 신뢰성과 운영 안정성을 우선 확보하는 것이다.
 
 ## 2. 목표 및 비목표
 
@@ -36,7 +36,7 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
   - Hard-consistency 이벤트: 동기 트랜잭션 우선
   - Soft-consistency 이벤트: 단순 비동기/배치 재생성 허용
   - High-critical async 이벤트: Outbox 단계 도입
-- `FR-005` 번아웃 지수 계산은 배치로 수행되고 결과를 조회 API에서 제공해야 한다. (Phase 13)
+- `FR-005` 복귀 실패 패턴/과부하 신호 계산은 배치로 수행되고 결과를 조회 API에서 제공해야 한다. (Phase 13)
 - `FR-006` 주간 AI 회고는 비동기 작업으로 생성되어야 한다. (Phase 15)
 - `FR-007` 확장 실험을 위해 최소 Port 2개를 유지해야 한다.
   - `EventRelayPort`: DB Relay 기본, Kafka Relay 확장
@@ -46,18 +46,23 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
   - Big3 선택
   - Timebox 배정
   - 실패 시 Re-timeboxing 또는 더 작은 다음 행동 제안
+  - 이 루프는 범용 계획 관리가 아니라 실패 다음날 복귀를 위한 보조 루프여야 한다.
+  - 집중 세션/뽀모도로 타이머는 핵심 가치가 아니라 복귀 행동 실행을 보조하는 인터랙션이어야 한다.
 - `FR-009` 배치 파이프라인은 오케스트레이션 계층을 분리해야 한다.
   - 실시간 경로와 분리된 스케줄/재처리 제어를 지원해야 한다.
   - 1차 대상: KPI 집계, 주간 회고 입력 집계, 기간 백필
 - `FR-010` Kafka/Outbox 도입 여부는 계측 수치로 판정해야 한다.
   - JUnit/통합테스트, 부하테스트, Grafana 운영지표로 근거를 남긴다.
+- `FR-011` 복귀 지표는 단일 지표가 아니라 Metric Pack으로 정의해야 한다.
+  - `Recovery24`(메인), `Recovery48`(보조)
+  - `RestartCount24/48`, `TTR`, `CycleCompletionRate`, `EffectiveFocusMinutes`
 
 ### 3.2 비기능 요구사항 (Non-Functional Requirements)
 
 - `NFR-001 Performance`: 일반 조회 API p95 < 300ms (50 RPS 기준)
 - `NFR-002 Throughput`: 단일 인스턴스에서 100 RPS까지 기능 저하 없이 처리
 - `NFR-003 Availability`: 월간 99.5% 이상 (초기), 출시 안정화 후 99.9% 목표
-- `NFR-004 Consistency`: 정산/지갑/Outbox 기록은 Strong Consistency
+- `NFR-004 Consistency`: 계획 상태/복귀 핵심 이벤트/Outbox 기록은 Strong Consistency
 - `NFR-005 Event Delivery`: Outbox 도입 시 relay 처리 지연 p95 < 5s
 - `NFR-006 Recovery`: 장애 복구 시 데이터 유실 0건(영속 스토리지 기준)
 - `NFR-007 Observability`: 에러율, 지연시간, Outbox lag, 배치 시간 메트릭 수집
@@ -65,6 +70,7 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 - `NFR-009 Batch Recoverability`: 배치 실패 시 워터마크 기반 재실행 가능
 - `NFR-010 Planning Observability`: PlanExecutionRate/EstimationError를 주간 단위로 추적 가능
 - `NFR-011 Trigger Evidence`: 기술 전환 판단에 사용한 메트릭은 14일 보관 및 비교 가능해야 한다.
+- `NFR-012 Metric Integrity`: 복귀 지표 계산에서 중복/스팸 이벤트가 필터링되어야 한다.
 
 ## 4. 시스템 아키텍처
 
@@ -105,12 +111,12 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 ## 5. 일관성 정책
 
 - Strong Consistency:
-  - 챌린지 상태 변경
-  - 지갑 잔액/거래 내역
-  - outbox_events insert
+  - Brain Dump / Big3 / Timebox 상태 변경
+  - failure / restart / recovery session 핵심 이벤트 기록
+  - outbox_events insert (Stage 1 이상)
 - Eventual Consistency:
-  - 알림 발송
-  - 피드 fan-out
+  - 다음날 오전 복귀 알림 발송
+  - 휴면/이탈 복귀 메시지 fan-out
   - 분석 결과 캐시 반영
 
 ## 6. 출시 수용 기준 (Release Acceptance)
@@ -127,8 +133,8 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 
 | 도메인 | 유실 영향 | 기본 전략 |
 |---|---|---|
-| 정산/지갑 | 금전/정합성 사고 | 동기 트랜잭션 확정, 이벤트 의존 금지 |
-| 알림/피드 | UX 저하, 재생성 가능 | 단순 비동기 + 배치 재동기화 |
+| 계획/복귀 코어 | 핵심 복귀 루프 오류, 사용자 신뢰 저하 | 동기 트랜잭션 확정, 필요 시 Stage 1 Outbox |
+| 알림/복귀 메시지 | UX 저하, 재생성 가능 | 단순 비동기 + 배치 재동기화 |
 | 분석/AI 회고 | 통계 왜곡, 재집계 가능 | 배치 재집계 우선 |
 
 ### 7.2 Stage 전략
@@ -168,6 +174,18 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 - 2026-03-23:
   - 채용 지원 제출
 
+### 8.1 Execution Algorithm (5-Step)
+
+1. 요구사항에 의문 제기
+2. 불필요한 과정 삭제
+3. 단순화/최적화
+4. 사이클 타임 가속
+5. 자동화는 마지막
+
+적용 원칙:
+- `Recovery48` 단일 KPI 대신 `Recovery24` 중심 Metric Pack으로 재정의한다.
+- 지표 정의/품질 보정이 확정되기 전에는 자동화 확장을 우선하지 않는다.
+
 ## 9. 변경 관리
 
 - 기술 의사결정은 ADR로 기록한다.
@@ -178,4 +196,5 @@ FocusKeeper는 ADHD 사용자에게 "실행-유지-회고" 루프를 제공하�
 
 - 데이터 품질 기준: `docs/spec/DATA_QUALITY.md`
 - 배치 증분/재처리 절차: `docs/spec/BATCH_RUNBOOK.md`
+- 복귀 지표 정의: `docs/spec/RECOVERY_METRICS.md`
 - 취업/사업 KPI 분리: `docs/spec/KPI_TRACKS.md`

@@ -1,13 +1,13 @@
 # Data Quality Spec
 
-> Version: v0.1  
-> Updated: 2026-03-03  
+> Version: v0.3  
+> Updated: 2026-03-14  
 > Scope: OLTP + Batch + Analytics 품질 기준
 
 ## 1. 목적
 
 - 데이터 품질을 "느낌"이 아니라 수치로 관리한다.
-- 배치/분석 결과의 신뢰도를 운영 지표로 추적한다.
+- 복귀 지표와 회고 결과의 신뢰도를 운영 지표로 추적한다.
 - 취업 포트폴리오 관점에서 데이터 엔지니어링 기본 역량(검증/재처리/알림)을 명시한다.
 
 ## 2. 품질 차원과 기준
@@ -22,23 +22,25 @@
 
 ## 3. 핵심 체크 항목
 
-### 3.1 세션/챌린지 데이터
+### 3.1 계획/복귀 세션 데이터
 
-- `user_id`, `started_at`, `status` 필수
-- `status`는 허용 enum만 사용
-- 동일 세션 식별자 중복 금지
+- `inbox_items.content` 누락 금지, 최대 길이 200자 유지
+- `timeboxes`는 동일 사용자 기준 겹침 금지
+- `recovery_sessions`는 `user_id`, `status`, `started_at` 필수
+- 종료된 세션은 `ended_at >= started_at` 보장
 
-### 3.2 지갑/정산 데이터
+### 3.2 복귀 이벤트 데이터
 
-- `wallet_transactions` 누락 금지
-- 잔액 음수 금지
-- 검증식: `wallets.balance == sum(wallet_transactions.delta)`
+- `failure_events`, `restart_events`는 `event_id` 중복 금지
+- 3분 미만 재시작은 `is_effective_restart=false`로 분리 저장
+- `restart_events`는 대응되는 `failure_event` 또는 `timebox` 문맥을 가져야 함
+- `cycle_completed`는 대응되는 `cycle_started`가 존재해야 함
 
 ### 3.3 분석/회고 데이터
 
-- `burnout_scores`는 `(user_id, score_date)` 중복 금지
+- `recovery_friction_signals`는 `(user_id, signal_date)` 중복 금지
 - `ai_retrospectives`는 `(user_id, week_start)` 중복 금지
-- 원천 데이터 없는 사용자의 점수 생성 금지
+- 원천 데이터 없는 사용자의 신호/회고 생성 금지
 
 ## 4. 검증 레이어
 

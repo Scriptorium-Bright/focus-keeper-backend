@@ -42,5 +42,5 @@
 
 ## Follow-up
 
-- Outbox DDL/Relay/멱등 테스트를 Phase 12.9에서 우선 완료
+- Outbox DDL/Relay/멱등 테스트를 핵심 복귀 이벤트 기준으로 검증
 - 성능 임계치 초과 시 Track B ADR 추가 작성

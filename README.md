@@ -7,14 +7,24 @@ Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02
 - Master plan: [docs/newPlan.md](./docs/newPlan.md)
 - Design docs index: [docs/README.md](./docs/README.md)
 
-## Phase 1~2 Status
+## Current Status
 
-- Spring Boot + Gradle bootstrap
-- Environment profiles: `local`, `test`
+- Phase 4 core implemented
+  - Brain Dump
+  - Big3
+  - 첫 복귀 블록 Timebox
+  - 복귀 세션 시작/완료/중단
+  - 실패 체크인
 - 공통 응답/예외/트레이스 표준 적용
+- Swagger/OpenAPI 문서 노출
+- Spring Data JPA + H2 기반 영속 저장소 적용
 - Health endpoints:
   - `GET /api/v1/health`
   - `GET /actuator/health`
+
+## Current Gap
+
+- `F-006` 10분 복귀 재시작 API는 아직 미구현
 
 ## Run
 

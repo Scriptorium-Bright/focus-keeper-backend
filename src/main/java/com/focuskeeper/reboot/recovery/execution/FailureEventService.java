@@ -4,35 +4,37 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import java.time.OffsetDateTime;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class FailureEventService {
 
-    private final AtomicLong sequence = new AtomicLong(1);
-    private final Map<String, FailureEvent> failureEventStore = new ConcurrentHashMap<>();
     private final RecoverySessionService recoverySessionService;
+    private final FailureEventRepository failureEventRepository;
 
-    public FailureEventService(RecoverySessionService recoverySessionService) {
+    public FailureEventService(
+            RecoverySessionService recoverySessionService,
+            FailureEventRepository failureEventRepository
+    ) {
         this.recoverySessionService = recoverySessionService;
+        this.failureEventRepository = failureEventRepository;
     }
 
+    @Transactional
     public FailureCheckInResult checkIn(String userId, String sessionId, String reasonValue, String note) {
         FailureReason reason = parseReason(reasonValue);
         RecoverySession interruptedSession = recoverySessionService.interruptSession(userId, sessionId);
 
-        FailureEvent failureEvent = new FailureEvent(
-                String.valueOf(sequence.getAndIncrement()),
+        FailureEvent failureEvent = failureEventRepository.save(FailureEventEntity.create(
                 userId,
                 interruptedSession.id(),
                 interruptedSession.timeboxId(),
                 reason,
                 note,
                 OffsetDateTime.now()
-        );
-        failureEventStore.put(failureEvent.id(), failureEvent);
+        )).toDomain();
 
         return new FailureCheckInResult(failureEvent, interruptedSession);
     }

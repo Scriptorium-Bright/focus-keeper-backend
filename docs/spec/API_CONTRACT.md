@@ -1,7 +1,7 @@
 # API Contract
 
-> Version: v0.1  
-> Updated: 2026-03-03  
+> Version: v0.2  
+> Updated: 2026-03-12  
 > Scope: 공통 응답/에러/버전 정책 + 현재 구현 엔드포인트 기준
 
 ## 1. API 스타일
@@ -71,7 +71,7 @@
 - 하위 호환 가능한 필드 추가는 `v1` 유지
 - 필드 제거/의미 변경은 deprecation 기간 후 제거
 
-## 7. 현재 구현 API (Phase 1)
+## 7. 현재 구현 API
 
 - `GET /api/v1/health`
   - 설명: 앱 기본 헬스체크
@@ -79,5 +79,19 @@
 - `GET /actuator/health`
   - 설명: Spring Actuator 헬스체크
   - 현재 응답: 컴포넌트별 상태 JSON
+- `POST /api/v1/recovery/inbox-items`
+  - 설명: Brain Dump 항목 등록(F-001)
+  - 제약: `items` 1~20개, `content` 최대 200자
+  - 성공 메시지: `INBOX_ITEMS_SAVED`
+- `POST /api/v1/recovery/big3`
+  - 설명: 오늘 Big3 선택(F-002)
+  - 제약: `itemIds` 1~3개, 중복 itemId 금지
+  - 에러: `itemIds` 3개 초과 시 `COMMON-400`, inbox 미존재 항목 시 `RESOURCE-404`
+  - 성공 메시지: `BIG3_SELECTED`
+- `POST /api/v1/recovery/timeboxes`
+  - 설명: Big3 기반 첫 복귀 블록 포함 타임박스 배정(F-003)
+  - 제약: `timeboxes` 1~3개, 첫 복귀 블록은 정확히 1개, 오늘 Big3 항목만 배정 가능
+  - 에러: 첫 복귀 블록 규칙/시간 형식 오류 시 `COMMON-400`, 겹치는 블록 시 `CONFLICT-409`, Big3 미선택 시 `RESOURCE-404`
+  - 성공 메시지: `TIMEBOXES_ALLOCATED`
 
 상세 스키마는 `api/openapi.yaml`을 기준으로 한다.

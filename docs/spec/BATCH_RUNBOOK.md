@@ -1,8 +1,8 @@
 # Batch Incremental & Reprocessing Runbook
 
-> Version: v0.2  
-> Updated: 2026-03-08  
-> Scope: Phase 13 분석 배치 + Airflow 오케스트레이션 + 파생 데이터 재처리
+> Version: v0.4  
+> Updated: 2026-03-14  
+> Scope: Phase 13 복귀 마찰 신호 분석 배치 + Airflow 오케스트레이션 + 파생 데이터 재처리
 
 ## 1. 목적
 
@@ -50,10 +50,10 @@ create table batch_job_watermarks (
 
 - 적용 원칙:
   - Airflow는 배치 오케스트레이션 전용으로 사용한다.
-  - 사용자 동기 API(예: 5분 시작, quick restart) 경로에는 사용하지 않는다.
+  - 사용자 동기 API(예: 복귀 시작, 10분 복귀 재시작) 경로에는 사용하지 않는다.
 - 1차 DAG 목록:
   - `daily_kpi_pipeline`:
-    - extract(raw events) -> cleanse -> mart upsert -> quality check
+    - extract(raw events) -> cleanse -> recovery metric pack 집계 -> mart upsert -> quality check
   - `weekly_retrospective_input`:
     - 최근 7일 집계 -> 회고 입력 테이블 upsert
   - `backfill_reprocess`:
@@ -111,6 +111,9 @@ create table batch_job_watermarks (
 - `airflow_dag_success_ratio`
 - `airflow_task_retry_total`
 - `airflow_dag_duration_seconds`
+- `recovery24_ratio`
+- `recovery48_ratio`
+- `cycle_completion_rate`
 
 ## 9. 배포/변경 체크리스트
 

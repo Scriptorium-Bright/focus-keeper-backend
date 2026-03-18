@@ -6,27 +6,32 @@ import com.focuskeeper.reboot.recovery.planning.TimeboxService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class RecoverySessionService {
 
-    private final AtomicLong sequence = new AtomicLong(1);
-    private final Map<String, RecoverySession> sessionStore = new ConcurrentHashMap<>();
     private final TimeboxService timeboxService;
+    private final RecoverySessionRepository recoverySessionRepository;
 
-    public RecoverySessionService(TimeboxService timeboxService) {
+    public RecoverySessionService(
+            TimeboxService timeboxService,
+            RecoverySessionRepository recoverySessionRepository
+    ) {
         this.timeboxService = timeboxService;
+        this.recoverySessionRepository = recoverySessionRepository;
     }
 
+    @Transactional
     public RecoverySession startSession(String userId, String timeboxId) {
         timeboxService.getTimeboxOrThrow(userId, timeboxId);
 
-        boolean hasActiveSession = sessionStore.values().stream()
-                .anyMatch(session -> session.userId().equals(userId)
-                        && session.status() == RecoverySessionStatus.STARTED);
+        boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus(
+                userId,
+                RecoverySessionStatus.STARTED
+        );
         if (hasActiveSession) {
             throw new BusinessException(
                     ErrorCode.CONFLICT,
@@ -34,56 +39,49 @@ public class RecoverySessionService {
             );
         }
 
-        RecoverySession session = new RecoverySession(
-                String.valueOf(sequence.getAndIncrement()),
-                userId,
-                timeboxId,
-                RecoverySessionStatus.STARTED,
-                OffsetDateTime.now(),
-                null,
-                OffsetDateTime.now()
-        );
-        sessionStore.put(session.id(), session);
-        return session;
+        return recoverySessionRepository.save(
+                RecoverySessionEntity.start(userId, timeboxId, OffsetDateTime.now())
+        ).toDomain();
     }
 
+    @Transactional
     public RecoverySession completeSession(String userId, String sessionId) {
-        RecoverySession session = getSessionOrThrow(userId, sessionId);
-        if (session.status() != RecoverySessionStatus.STARTED) {
-            throw invalidTransition(sessionId, session.status(), "COMPLETED");
+        RecoverySessionEntity session = getSessionEntityOrThrow(userId, sessionId);
+        if (session.getStatus() != RecoverySessionStatus.STARTED) {
+            throw invalidTransition(sessionId, session.getStatus(), "COMPLETED");
         }
 
-        RecoverySession completedSession = session.complete(OffsetDateTime.now());
-        sessionStore.put(sessionId, completedSession);
-        return completedSession;
+        session.complete(OffsetDateTime.now());
+        return recoverySessionRepository.save(session).toDomain();
     }
 
+    @Transactional
     public RecoverySession interruptSession(String userId, String sessionId) {
-        RecoverySession session = getSessionOrThrow(userId, sessionId);
-        if (session.status() != RecoverySessionStatus.STARTED) {
-            throw invalidTransition(sessionId, session.status(), "INTERRUPTED");
+        RecoverySessionEntity session = getSessionEntityOrThrow(userId, sessionId);
+        if (session.getStatus() != RecoverySessionStatus.STARTED) {
+            throw invalidTransition(sessionId, session.getStatus(), "INTERRUPTED");
         }
 
-        RecoverySession interruptedSession = session.interrupt(OffsetDateTime.now());
-        sessionStore.put(sessionId, interruptedSession);
-        return interruptedSession;
+        session.interrupt(OffsetDateTime.now());
+        return recoverySessionRepository.save(session).toDomain();
     }
 
     public RecoverySession getSessionOrThrow(String userId, String sessionId) {
-        RecoverySession session = sessionStore.get(sessionId);
-        if (session == null || !session.userId().equals(userId)) {
-            throw new BusinessException(
-                    ErrorCode.RESOURCE_NOT_FOUND,
-                    Map.of("sessionId", sessionId)
-            );
-        }
-        return session;
+        return getSessionEntityOrThrow(userId, sessionId).toDomain();
     }
 
     public List<RecoverySession> findSessions(String userId) {
-        return sessionStore.values().stream()
-                .filter(session -> session.userId().equals(userId))
+        return recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId).stream()
+                .map(RecoverySessionEntity::toDomain)
                 .toList();
+    }
+
+    private RecoverySessionEntity getSessionEntityOrThrow(String userId, String sessionId) {
+        return recoverySessionRepository.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        Map.of("sessionId", sessionId)
+                ));
     }
 
     private BusinessException invalidTransition(

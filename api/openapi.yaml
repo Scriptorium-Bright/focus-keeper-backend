@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: FocusKeeper Reboot API
+  title: RebootFocus API
   version: 0.1.0
-  description: Phase 1 baseline API specification
+  description: Recovery coach API baseline for office workers
 servers:
   - url: http://localhost:8080
 paths:
@@ -30,8 +30,401 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActuatorHealthResponse"
+  /api/v1/recovery/inbox-items:
+    post:
+      tags: [Recovery]
+      summary: Save Brain Dump inbox items
+      operationId: saveInboxItems
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveInboxItemsRequest"
+      responses:
+        "200":
+          description: Inbox items saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSaveInboxItems"
+  /api/v1/recovery/big3:
+    post:
+      tags: [Recovery]
+      summary: Select today's Big3
+      operationId: selectBig3
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SelectBig3Request"
+      responses:
+        "200":
+          description: Big3 selected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseSelectBig3"
+  /api/v1/recovery/timeboxes:
+    post:
+      tags: [Recovery]
+      summary: Allocate recovery timeboxes
+      operationId: allocateTimeboxes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AllocateTimeboxesRequest"
+      responses:
+        "200":
+          description: Recovery timeboxes allocated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseAllocateTimeboxes"
+        "409":
+          description: Conflicting timebox detected
+  /api/v1/recovery/sessions/start:
+    post:
+      tags: [Recovery]
+      summary: Start a recovery session
+      operationId: startRecoverySession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRecoverySessionRequest"
+      responses:
+        "200":
+          description: Recovery session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRecoverySession"
+  /api/v1/recovery/sessions/complete:
+    post:
+      tags: [Recovery]
+      summary: Complete a recovery session
+      operationId: completeRecoverySession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecoverySessionRequest"
+      responses:
+        "200":
+          description: Recovery session completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRecoverySession"
+  /api/v1/recovery/sessions/interrupt:
+    post:
+      tags: [Recovery]
+      summary: Interrupt a recovery session
+      operationId: interruptRecoverySession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRecoverySessionRequest"
+      responses:
+        "200":
+          description: Recovery session interrupted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRecoverySession"
+  /api/v1/recovery/failures/check-in:
+    post:
+      tags: [Recovery]
+      summary: Check in a recovery failure
+      operationId: checkInFailure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FailureCheckInRequest"
+      responses:
+        "200":
+          description: Failure check-in recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseFailureCheckIn"
 components:
   schemas:
+    ApiResponseSaveInboxItems:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/SaveInboxItemsResponse"
+        message:
+          type: string
+          example: INBOX_ITEMS_SAVED
+        traceId:
+          type: string
+    ApiResponseSelectBig3:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/SelectBig3Response"
+        message:
+          type: string
+          example: BIG3_SELECTED
+        traceId:
+          type: string
+    ApiResponseAllocateTimeboxes:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/AllocateTimeboxesResponse"
+        message:
+          type: string
+          example: TIMEBOXES_ALLOCATED
+        traceId:
+          type: string
+    ApiResponseRecoverySession:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/RecoverySessionResponse"
+        message:
+          type: string
+          example: RECOVERY_SESSION_STARTED
+        traceId:
+          type: string
+    ApiResponseFailureCheckIn:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/FailureCheckInResponse"
+        message:
+          type: string
+          example: FAILURE_CHECKED_IN
+        traceId:
+          type: string
+    SaveInboxItemsRequest:
+      type: object
+      required: [userId, items]
+      properties:
+        userId:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/InboxItemPayload"
+    InboxItemPayload:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          maxLength: 200
+    SaveInboxItemsResponse:
+      type: object
+      properties:
+        savedCount:
+          type: integer
+        savedItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedInboxItem"
+    SavedInboxItem:
+      type: object
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    SelectBig3Request:
+      type: object
+      required: [userId, itemIds]
+      properties:
+        userId:
+          type: string
+        itemIds:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            type: string
+    SelectBig3Response:
+      type: object
+      properties:
+        selectedDate:
+          type: string
+          format: date
+        selectedAt:
+          type: string
+          format: date-time
+        selectedCount:
+          type: integer
+        selectedItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/Big3Item"
+    Big3Item:
+      type: object
+      properties:
+        itemId:
+          type: string
+        content:
+          type: string
+    AllocateTimeboxesRequest:
+      type: object
+      required: [userId, timeboxes]
+      properties:
+        userId:
+          type: string
+        timeboxes:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            $ref: "#/components/schemas/TimeboxPayload"
+    TimeboxPayload:
+      type: object
+      required: [itemId, startAt, endAt]
+      properties:
+        itemId:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        firstRecoveryBlock:
+          type: boolean
+    AllocateTimeboxesResponse:
+      type: object
+      properties:
+        plannedDate:
+          type: string
+          format: date
+        allocatedCount:
+          type: integer
+        timeboxes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AllocatedTimebox"
+    AllocatedTimebox:
+      type: object
+      properties:
+        timeboxId:
+          type: string
+        itemId:
+          type: string
+        content:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        firstRecoveryBlock:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    StartRecoverySessionRequest:
+      type: object
+      required: [userId, timeboxId]
+      properties:
+        userId:
+          type: string
+        timeboxId:
+          type: string
+    UpdateRecoverySessionRequest:
+      type: object
+      required: [userId, sessionId]
+      properties:
+        userId:
+          type: string
+        sessionId:
+          type: string
+    RecoverySessionResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        timeboxId:
+          type: string
+        status:
+          type: string
+          enum: [STARTED, COMPLETED, INTERRUPTED]
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    FailureCheckInRequest:
+      type: object
+      required: [userId, sessionId, reason]
+      properties:
+        userId:
+          type: string
+        sessionId:
+          type: string
+        reason:
+          type: string
+          enum: [TOO_BIG, INTERRUPTION, LOW_ENERGY, UNCLEAR_NEXT_ACTION, CONTEXT_SWITCHED]
+        note:
+          type: string
+          maxLength: 200
+    FailureCheckInResponse:
+      type: object
+      properties:
+        failureEventId:
+          type: string
+        sessionId:
+          type: string
+        timeboxId:
+          type: string
+        reason:
+          type: string
+        note:
+          type: string
+          nullable: true
+        occurredAt:
+          type: string
+          format: date-time
+        sessionStatus:
+          type: string
+          enum: [INTERRUPTED]
     AppHealthResponse:
       type: object
       required:
@@ -45,7 +438,7 @@ components:
           example: UP
         service:
           type: string
-          example: focuskeeper-reboot
+          example: rebootfocus-api
         activeProfiles:
           type: array
           items:

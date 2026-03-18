@@ -9,22 +9,22 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional(readOnly = true)
 public class TimeboxService {
 
-    private final AtomicLong sequence = new AtomicLong(1);
-    private final Map<String, List<Timebox>> timeboxStore = new ConcurrentHashMap<>();
     private final Big3Service big3Service;
+    private final TimeboxRepository timeboxRepository;
 
-    public TimeboxService(Big3Service big3Service) {
+    public TimeboxService(Big3Service big3Service, TimeboxRepository timeboxRepository) {
         this.big3Service = big3Service;
+        this.timeboxRepository = timeboxRepository;
     }
 
+    @Transactional
     public List<Timebox> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
         validateFirstRecoveryBlock(commands);
 
@@ -32,18 +32,19 @@ public class TimeboxService {
         Map<String, InboxItem> selectedItems = indexSelectedItems(selection);
         validateSelectedItems(commands, selectedItems);
 
-        List<Timebox> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
-        validateOverlaps(userId, requestedTimeboxes);
+        List<TimeboxEntity> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
+        validateOverlaps(
+                userId,
+                requestedTimeboxes.stream().map(TimeboxEntity::toDomain).toList()
+        );
 
-        List<Timebox> userTimeboxes = timeboxStore.computeIfAbsent(userId, key -> new ArrayList<>());
-        userTimeboxes.addAll(requestedTimeboxes);
-        return requestedTimeboxes;
+        return timeboxRepository.saveAll(requestedTimeboxes).stream()
+                .map(TimeboxEntity::toDomain)
+                .toList();
     }
 
-    public Timebox getTimeboxOrThrow(String userId, String timeboxId) {
-        return timeboxStore.getOrDefault(userId, List.of()).stream()
-                .filter(timebox -> timebox.id().equals(timeboxId))
-                .findFirst()
+    public void getTimeboxOrThrow(String userId, String timeboxId) {
+        timeboxRepository.findByIdAndUserId(timeboxId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("timeboxId", timeboxId)
@@ -88,12 +89,12 @@ public class TimeboxService {
         }
     }
 
-    private List<Timebox> materializeTimeboxes(
+    private List<TimeboxEntity> materializeTimeboxes(
             String userId,
             List<TimeboxCommand> commands,
             Map<String, InboxItem> selectedItems
     ) {
-        List<Timebox> requestedTimeboxes = new ArrayList<>();
+        List<TimeboxEntity> requestedTimeboxes = new ArrayList<>();
         for (TimeboxCommand command : commands) {
             OffsetDateTime startAt = parseDateTime("startAt", command.startAt());
             OffsetDateTime endAt = parseDateTime("endAt", command.endAt());
@@ -105,8 +106,7 @@ public class TimeboxService {
             }
 
             InboxItem sourceItem = selectedItems.get(command.itemId());
-            requestedTimeboxes.add(new Timebox(
-                    String.valueOf(sequence.getAndIncrement()),
+            requestedTimeboxes.add(TimeboxEntity.create(
                     userId,
                     sourceItem.id(),
                     sourceItem.content(),
@@ -131,7 +131,10 @@ public class TimeboxService {
     }
 
     private void validateOverlaps(String userId, List<Timebox> requestedTimeboxes) {
-        List<Timebox> existingTimeboxes = timeboxStore.getOrDefault(userId, List.of());
+        List<Timebox> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId).stream()
+                .map(TimeboxEntity::toDomain)
+                .toList();
+
         for (int index = 0; index < requestedTimeboxes.size(); index++) {
             Timebox current = requestedTimeboxes.get(index);
 

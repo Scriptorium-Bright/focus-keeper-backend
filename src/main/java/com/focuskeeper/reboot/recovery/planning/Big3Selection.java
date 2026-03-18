@@ -1,0 +1,14 @@
+package com.focuskeeper.reboot.recovery.planning;
+
+import com.focuskeeper.reboot.recovery.inbox.InboxItem;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.List;
+
+public record Big3Selection(
+        String userId,
+        LocalDate selectedDate,
+        OffsetDateTime selectedAt,
+        List<InboxItem> selectedItems
+) {
+}
