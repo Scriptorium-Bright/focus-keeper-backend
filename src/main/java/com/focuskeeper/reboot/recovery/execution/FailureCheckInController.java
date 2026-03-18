@@ -1,6 +1,8 @@
 package com.focuskeeper.reboot.recovery.execution;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequestMapping("/api/v1/recovery/failures")
+@Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
 public class FailureCheckInController {
 
     private final FailureEventService failureEventService;
@@ -22,6 +25,7 @@ public class FailureCheckInController {
     }
 
     @PostMapping("/check-in")
+    @Operation(summary = "Check in a recovery failure", description = "Records a failure reason for the current session and interrupts the active recovery session.")
     public ApiResponse<FailureCheckInResponse> checkIn(
             @Valid @RequestBody FailureCheckInRequest request
     ) {

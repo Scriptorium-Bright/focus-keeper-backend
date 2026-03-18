@@ -1,6 +1,8 @@
 package com.focuskeeper.reboot.recovery.planning;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequestMapping("/api/v1/recovery")
+@Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
 public class TimeboxController {
 
     private final TimeboxService timeboxService;
@@ -24,6 +27,7 @@ public class TimeboxController {
     }
 
     @PostMapping("/timeboxes")
+    @Operation(summary = "Allocate recovery timeboxes", description = "Assigns daily timeboxes and requires exactly one first recovery block.")
     public ApiResponse<AllocateTimeboxesResponse> allocateTimeboxes(
             @Valid @RequestBody AllocateTimeboxesRequest request
     ) {

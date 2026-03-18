@@ -1,6 +1,8 @@
 package com.focuskeeper.reboot.recovery.execution;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.validation.annotation.Validated;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequestMapping("/api/v1/recovery/sessions")
+@Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
 public class RecoverySessionController {
 
     private final RecoverySessionService recoverySessionService;
@@ -21,6 +24,7 @@ public class RecoverySessionController {
     }
 
     @PostMapping("/start")
+    @Operation(summary = "Start a recovery session", description = "Starts a recovery session for a selected timebox.")
     public ApiResponse<RecoverySessionResponse> startSession(
             @Valid @RequestBody StartRecoverySessionRequest request
     ) {
@@ -29,6 +33,7 @@ public class RecoverySessionController {
     }
 
     @PostMapping("/complete")
+    @Operation(summary = "Complete a recovery session", description = "Marks an active recovery session as completed.")
     public ApiResponse<RecoverySessionResponse> completeSession(
             @Valid @RequestBody UpdateRecoverySessionRequest request
     ) {
@@ -37,6 +42,7 @@ public class RecoverySessionController {
     }
 
     @PostMapping("/interrupt")
+    @Operation(summary = "Interrupt a recovery session", description = "Marks an active recovery session as interrupted.")
     public ApiResponse<RecoverySessionResponse> interruptSession(
             @Valid @RequestBody UpdateRecoverySessionRequest request
     ) {

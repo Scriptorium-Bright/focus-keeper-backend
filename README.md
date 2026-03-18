@@ -1,6 +1,8 @@
-# FocusKeeper Reboot
+# RebootFocus Reboot
 
 Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02-28`.
+
+- One-liner: 하루가 한 번 무너지면 다음날까지 끌려가는 직장인을 위해, 실패 직후 10분 재시작과 24시간 내 복귀를 설계한 복귀 코치
 
 - Master plan: [docs/newPlan.md](./docs/newPlan.md)
 - Design docs index: [docs/README.md](./docs/README.md)
@@ -19,6 +21,11 @@ Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 ```
+
+## API Docs
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8080/api-docs`
 
 ## Test
 
