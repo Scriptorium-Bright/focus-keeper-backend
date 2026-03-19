@@ -8,6 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.entity.RecoverySessionEntity;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -28,11 +32,18 @@ class RestartControllerIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private RestartEventRepository restartEventRepository;
+
+    @Autowired
+    private RecoverySessionRepository recoverySessionRepository;
+
     @Test
     void restartReturnsRestartEventAndNewRecoverySession() throws Exception {
         String userId = "restart-success-user";
         String sessionId = startSessionForUser(userId);
         String failureEventId = checkInFailure(userId, sessionId);
+        long restartEventCountBefore = restartEventRepository.count();
 
         MvcResult result = mockMvc.perform(
                         post("/api/v1/recovery/restarts")
@@ -57,7 +68,16 @@ class RestartControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.restartSuggestion.restartType").value("TEN_MINUTE_RESTART"))
                 .andReturn();
 
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        String restartedSessionId = body.path("data").path("recoverySession").path("sessionId").asText();
+
         assertThat(readTraceIdFromBody(result)).isEqualTo(result.getResponse().getHeader("X-Trace-Id"));
+        assertThat(restartEventRepository.count()).isEqualTo(restartEventCountBefore + 1);
+
+        List<RecoverySessionEntity> sessions = recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId);
+        assertThat(sessions).hasSize(2);
+        assertThat(restartedSessionId).isNotEqualTo(sessionId);
+        assertThat(sessions.get(sessions.size() - 1).getStatus()).isEqualTo(RecoverySessionStatus.STARTED);
     }
 
     @Test
