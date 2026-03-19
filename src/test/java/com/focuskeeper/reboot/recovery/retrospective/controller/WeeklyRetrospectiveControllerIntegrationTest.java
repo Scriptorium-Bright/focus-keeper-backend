@@ -1,6 +1,7 @@
 package com.focuskeeper.reboot.recovery.retrospective.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -117,6 +118,63 @@ class WeeklyRetrospectiveControllerIntegrationTest {
         assertThat(weeklyRetrospectiveRepository.findByUserIdAndWeekStart(userId, LocalDate.parse(weekStart))).isPresent();
         assertThat(secondBody.path("data").path("retrospectiveId").asText())
                 .isEqualTo(firstBody.path("data").path("retrospectiveId").asText());
+    }
+
+    @Test
+    void getWeeklyRetrospectiveReturnsGeneratedRetrospective() throws Exception {
+        String userId = "weekly-retrospective-get-user";
+        String sessionId = startSessionForUser(userId, 9);
+        completeSession(userId, sessionId);
+        String weekStart = currentWeekStart();
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/retrospectives/weekly")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "weekStart": "%s"
+                                        }
+                                        """.formatted(userId, weekStart))
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        get("/api/v1/recovery/retrospectives/weekly")
+                                .param("userId", userId)
+                                .param("weekStart", weekStart)
+                )
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Trace-Id"))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("WEEKLY_RETROSPECTIVE_FETCHED"))
+                .andExpect(jsonPath("$.data.weekStart").value(weekStart))
+                .andExpect(jsonPath("$.data.sessionCompletedCount").value(1));
+    }
+
+    @Test
+    void getWeeklyRetrospectiveReturnsNotFoundWhenRetrospectiveDoesNotExist() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/recovery/retrospectives/weekly")
+                                .param("userId", "missing-weekly-retro-user")
+                                .param("weekStart", currentWeekStart())
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("RESOURCE-404"));
+    }
+
+    @Test
+    void getWeeklyRetrospectiveReturnsBadRequestWhenWeekStartIsInvalid() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/recovery/retrospectives/weekly")
+                                .param("userId", "invalid-week-start-user")
+                                .param("weekStart", "2026/03/16")
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+                .andExpect(jsonPath("$.error.details.weekStart").value("yyyy-MM-dd 형식의 날짜여야 합니다."));
     }
 
     private String currentWeekStart() {
