@@ -1,5 +1,7 @@
 package com.focuskeeper.reboot.recovery.retrospective.service;
 
+import com.focuskeeper.reboot.common.error.BusinessException;
+import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
@@ -11,6 +13,7 @@ import com.focuskeeper.reboot.recovery.retrospective.repository.WeeklyRetrospect
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -120,5 +123,17 @@ public class WeeklyRetrospectiveService {
                 ));
 
         return weeklyRetrospectiveRepository.save(retrospective).toResponse();
+    }
+
+    public WeeklyRetrospectiveResponse get(String userId, LocalDate weekStart) {
+        return weeklyRetrospectiveRepository.findByUserIdAndWeekStart(userId, weekStart)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        Map.of(
+                                "userId", userId,
+                                "weekStart", weekStart.toString()
+                        )
+                ))
+                .toResponse();
     }
 }
