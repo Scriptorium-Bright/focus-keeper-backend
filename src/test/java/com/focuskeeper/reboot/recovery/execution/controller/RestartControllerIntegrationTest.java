@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
-import com.focuskeeper.reboot.recovery.execution.entity.RecoverySessionEntity;
+import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import java.util.ArrayList;
@@ -74,7 +74,7 @@ class RestartControllerIntegrationTest {
         assertThat(readTraceIdFromBody(result)).isEqualTo(result.getResponse().getHeader("X-Trace-Id"));
         assertThat(restartEventRepository.count()).isEqualTo(restartEventCountBefore + 1);
 
-        List<RecoverySessionEntity> sessions = recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId);
+        List<RecoverySession> sessions = recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId);
         assertThat(sessions).hasSize(2);
         assertThat(restartedSessionId).isNotEqualTo(sessionId);
         assertThat(sessions.get(sessions.size() - 1).getStatus()).isEqualTo(RecoverySessionStatus.STARTED);
