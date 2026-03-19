@@ -74,7 +74,9 @@ class WeeklyRetrospectiveControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.failureCount").value(1))
                 .andExpect(jsonPath("$.data.restartCount").value(1))
                 .andExpect(jsonPath("$.data.dominantFailureReason").value("TOO_BIG"))
-                .andExpect(jsonPath("$.data.summary").value("이번 주에는 일이 너무 크게 느껴져 첫 복귀 블록 진입 장벽이 높았다."));
+                .andExpect(jsonPath("$.data.summary").value("이번 주에는 일이 너무 크게 느껴져 첫 복귀 블록 진입 장벽이 높았다."))
+                .andExpect(jsonPath("$.data.antiSlipAction.actionCode").value("SPLIT_FIRST_BLOCK"))
+                .andExpect(jsonPath("$.data.antiSlipAction.title").value("첫 복귀 블록을 25분 이하로 쪼개기"));
 
         assertThat(weeklyRetrospectiveRepository.findByUserIdAndWeekStart(userId, LocalDate.parse(weekStart))).isPresent();
     }
@@ -149,7 +151,8 @@ class WeeklyRetrospectiveControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("WEEKLY_RETROSPECTIVE_FETCHED"))
                 .andExpect(jsonPath("$.data.weekStart").value(weekStart))
-                .andExpect(jsonPath("$.data.sessionCompletedCount").value(1));
+                .andExpect(jsonPath("$.data.sessionCompletedCount").value(1))
+                .andExpect(jsonPath("$.data.antiSlipAction.actionCode").value("KEEP_RESTART_SMALL"));
     }
 
     @Test
