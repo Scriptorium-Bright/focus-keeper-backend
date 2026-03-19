@@ -195,4 +195,16 @@ public class DailyKpiMetric {
                 generatedAt.toString()
         );
     }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public LocalDate getMetricDate() {
+        return metricDate;
+    }
+
+    public boolean isActivation() {
+        return activation;
+    }
 }
