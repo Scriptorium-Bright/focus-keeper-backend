@@ -187,12 +187,14 @@ class RestartControllerIntegrationTest {
                                               "itemId": "%s",
                                               "startAt": "2026-03-19T09:00:00+09:00",
                                               "endAt": "2026-03-19T09:30:00+09:00",
+                                              "type": "WORK",
                                               "firstRecoveryBlock": true
                                             },
                                             {
                                               "itemId": "%s",
                                               "startAt": "2026-03-19T10:00:00+09:00",
                                               "endAt": "2026-03-19T10:25:00+09:00",
+                                              "type": "WORK",
                                               "firstRecoveryBlock": false
                                             }
                                           ]

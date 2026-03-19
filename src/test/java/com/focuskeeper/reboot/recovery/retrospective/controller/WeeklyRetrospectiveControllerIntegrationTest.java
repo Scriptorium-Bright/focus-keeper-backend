@@ -275,12 +275,14 @@ class WeeklyRetrospectiveControllerIntegrationTest {
                                               "itemId": "%s",
                                               "startAt": "2026-03-19T%02d:00:00+09:00",
                                               "endAt": "2026-03-19T%02d:30:00+09:00",
+                                              "type": "WORK",
                                               "firstRecoveryBlock": true
                                             },
                                             {
                                               "itemId": "%s",
                                               "startAt": "2026-03-19T%02d:00:00+09:00",
                                               "endAt": "2026-03-19T%02d:25:00+09:00",
+                                              "type": "WORK",
                                               "firstRecoveryBlock": false
                                             }
                                           ]

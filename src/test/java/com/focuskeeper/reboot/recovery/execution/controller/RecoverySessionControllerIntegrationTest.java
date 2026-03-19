@@ -121,7 +121,31 @@ class RecoverySessionControllerIntegrationTest {
                 .andExpect(jsonPath("$.error.details.currentStatus").value("COMPLETED"));
     }
 
+    @Test
+    void startSessionReturnsConflictWhenTargetTimeboxIsBreak() throws Exception {
+        String breakTimeboxId = allocateWorkAndBreakTimeboxes("session-break-user").get(1);
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/sessions/start")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "session-break-user",
+                                          "timeboxId": "%s"
+                                        }
+                                        """.formatted(breakTimeboxId))
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
+                .andExpect(jsonPath("$.error.details.timeboxId").value("BREAK timebox로는 복귀 세션을 시작할 수 없습니다."));
+    }
+
     private String allocateFirstRecoveryTimebox(String userId) throws Exception {
+        return allocateWorkAndBreakTimeboxes(userId).get(0);
+    }
+
+    private List<String> allocateWorkAndBreakTimeboxes(String userId) throws Exception {
         List<String> itemIds = saveInboxItems(userId);
         selectBig3(userId, itemIds.subList(0, 2));
 
@@ -136,12 +160,14 @@ class RecoverySessionControllerIntegrationTest {
                                               "itemId": "%s",
                                               "startAt": "2026-03-16T09:00:00+09:00",
                                               "endAt": "2026-03-16T09:30:00+09:00",
+                                              "type": "WORK",
                                               "firstRecoveryBlock": true
                                             },
                                             {
                                               "itemId": "%s",
-                                              "startAt": "2026-03-16T10:00:00+09:00",
-                                              "endAt": "2026-03-16T10:25:00+09:00",
+                                              "startAt": "2026-03-16T09:30:00+09:00",
+                                              "endAt": "2026-03-16T09:40:00+09:00",
+                                              "type": "BREAK",
                                               "firstRecoveryBlock": false
                                             }
                                           ]
@@ -152,7 +178,12 @@ class RecoverySessionControllerIntegrationTest {
                 .andReturn();
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        return body.path("data").path("timeboxes").get(0).path("timeboxId").asText();
+        JsonNode timeboxes = body.path("data").path("timeboxes");
+        List<String> timeboxIds = new ArrayList<>();
+        for (JsonNode timebox : timeboxes) {
+            timeboxIds.add(timebox.path("timeboxId").asText());
+        }
+        return timeboxIds;
     }
 
     private List<String> saveInboxItems(String userId) throws Exception {

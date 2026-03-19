@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
+import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -45,6 +46,7 @@ class TimeboxOverlapValidatorTest {
                 "user-1",
                 itemId,
                 "content-" + itemId,
+                TimeboxType.WORK,
                 OffsetDateTime.parse(startAt),
                 OffsetDateTime.parse(endAt),
                 false,

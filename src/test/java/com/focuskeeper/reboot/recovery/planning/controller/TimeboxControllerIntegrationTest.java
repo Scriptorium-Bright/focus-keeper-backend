@@ -41,12 +41,14 @@ class TimeboxControllerIntegrationTest {
                       "itemId": "%s",
                       "startAt": "2026-03-16T09:00:00+09:00",
                       "endAt": "2026-03-16T09:30:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": true
                     },
                     {
                       "itemId": "%s",
                       "startAt": "2026-03-16T10:00:00+09:00",
                       "endAt": "2026-03-16T10:25:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": false
                     }
                   ]
@@ -66,6 +68,7 @@ class TimeboxControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.plannedDate").value("2026-03-16"))
                 .andExpect(jsonPath("$.data.timeboxes[0].timeboxId").isString())
                 .andExpect(jsonPath("$.data.timeboxes[0].firstRecoveryBlock").value(true))
+                .andExpect(jsonPath("$.data.timeboxes[0].type").value("WORK"))
                 .andExpect(jsonPath("$.traceId").isString())
                 .andReturn();
 
@@ -87,12 +90,14 @@ class TimeboxControllerIntegrationTest {
                       "itemId": "%s",
                       "startAt": "2026-03-16T09:00:00+09:00",
                       "endAt": "2026-03-16T09:30:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": false
                     },
                     {
                       "itemId": "%s",
                       "startAt": "2026-03-16T10:00:00+09:00",
                       "endAt": "2026-03-16T10:25:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": false
                     }
                   ]
@@ -124,12 +129,14 @@ class TimeboxControllerIntegrationTest {
                       "itemId": "%s",
                       "startAt": "2026-03-16T09:00:00+09:00",
                       "endAt": "2026-03-16T09:30:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": true
                     },
                     {
                       "itemId": "%s",
                       "startAt": "2026-03-16T09:20:00+09:00",
                       "endAt": "2026-03-16T09:50:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": false
                     }
                   ]
@@ -161,6 +168,7 @@ class TimeboxControllerIntegrationTest {
                       "itemId": "%s",
                       "startAt": "2026-03-16T09:00:00+09:00",
                       "endAt": "2026-03-16T09:30:00+09:00",
+                      "type": "WORK",
                       "firstRecoveryBlock": true
                     }
                   ]
@@ -177,6 +185,37 @@ class TimeboxControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("COMMON-400"))
                 .andExpect(jsonPath("$.error.details.invalidItemIds[0]").value(itemIds.get(2)));
+    }
+
+    @Test
+    void allocateTimeboxesReturnsBadRequestWhenBreakIsMarkedAsFirstRecoveryBlock() throws Exception {
+        List<String> itemIds = saveInboxItems("timebox-break-first-user");
+        selectBig3("timebox-break-first-user", itemIds.subList(0, 2));
+
+        String requestBody = """
+                {
+                  "userId": "timebox-break-first-user",
+                  "timeboxes": [
+                    {
+                      "itemId": "%s",
+                      "startAt": "2026-03-16T09:00:00+09:00",
+                      "endAt": "2026-03-16T09:10:00+09:00",
+                      "type": "BREAK",
+                      "firstRecoveryBlock": true
+                    }
+                  ]
+                }
+                """.formatted(itemIds.get(0));
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/timeboxes")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+                .andExpect(jsonPath("$.error.details.timeboxes").value("BREAK timebox는 첫 복귀 블록이 될 수 없습니다."));
     }
 
     private List<String> saveInboxItems(String userId) throws Exception {
