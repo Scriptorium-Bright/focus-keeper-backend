@@ -34,19 +34,22 @@ public class DailyKpiPipelineService {
     private final FailureEventRepository failureEventRepository;
     private final RestartEventRepository restartEventRepository;
     private final TimeboxRepository timeboxRepository;
+    private final DailyKpiWatermarkService dailyKpiWatermarkService;
 
     public DailyKpiPipelineService(
             DailyKpiMetricRepository dailyKpiMetricRepository,
             RecoverySessionRepository recoverySessionRepository,
             FailureEventRepository failureEventRepository,
             RestartEventRepository restartEventRepository,
-            TimeboxRepository timeboxRepository
+            TimeboxRepository timeboxRepository,
+            DailyKpiWatermarkService dailyKpiWatermarkService
     ) {
         this.dailyKpiMetricRepository = dailyKpiMetricRepository;
         this.recoverySessionRepository = recoverySessionRepository;
         this.failureEventRepository = failureEventRepository;
         this.restartEventRepository = restartEventRepository;
         this.timeboxRepository = timeboxRepository;
+        this.dailyKpiWatermarkService = dailyKpiWatermarkService;
     }
 
     public DailyKpiMetric generate(String userId, LocalDate metricDate) {
@@ -181,7 +184,9 @@ public class DailyKpiPipelineService {
                         generatedAt
                 ));
 
-        return dailyKpiMetricRepository.save(dailyKpiMetric);
+        DailyKpiMetric savedMetric = dailyKpiMetricRepository.save(dailyKpiMetric);
+        dailyKpiWatermarkService.advance(userId, metricDate, generatedAt);
+        return savedMetric;
     }
 
     private BigDecimal ratio(int numerator, int denominator) {

@@ -3,10 +3,15 @@ package com.focuskeeper.reboot.recovery.analytics.controller;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.common.response.ApiResponse;
+import com.focuskeeper.reboot.recovery.analytics.dto.BackfillDailyKpiRequest;
+import com.focuskeeper.reboot.recovery.analytics.dto.BackfillDailyKpiResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiResponse;
+import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiWatermarkResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.GenerateDailyKpiRequest;
 import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiBatchLauncher;
+import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiBackfillService;
 import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiQueryService;
+import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiWatermarkService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -29,13 +34,19 @@ public class DailyKpiController {
 
     private final DailyKpiBatchLauncher dailyKpiBatchLauncher;
     private final DailyKpiQueryService dailyKpiQueryService;
+    private final DailyKpiBackfillService dailyKpiBackfillService;
+    private final DailyKpiWatermarkService dailyKpiWatermarkService;
 
     public DailyKpiController(
             DailyKpiBatchLauncher dailyKpiBatchLauncher,
-            DailyKpiQueryService dailyKpiQueryService
+            DailyKpiQueryService dailyKpiQueryService,
+            DailyKpiBackfillService dailyKpiBackfillService,
+            DailyKpiWatermarkService dailyKpiWatermarkService
     ) {
         this.dailyKpiBatchLauncher = dailyKpiBatchLauncher;
         this.dailyKpiQueryService = dailyKpiQueryService;
+        this.dailyKpiBackfillService = dailyKpiBackfillService;
+        this.dailyKpiWatermarkService = dailyKpiWatermarkService;
     }
 
     @PostMapping("/kpis/daily")
@@ -57,6 +68,26 @@ public class DailyKpiController {
     ) {
         DailyKpiResponse response = dailyKpiQueryService.get(userId, parseMetricDate(metricDate));
         return ApiResponse.success(response, "DAILY_KPI_FETCHED");
+    }
+
+    @PostMapping("/kpis/daily/backfill")
+    @Operation(summary = "Backfill daily KPI mart", description = "Recomputes daily KPI mart rows for the given user and date range, and advances the pipeline watermark.")
+    public ApiResponse<BackfillDailyKpiResponse> backfillDailyKpi(
+            @Valid @RequestBody BackfillDailyKpiRequest request
+    ) {
+        BackfillDailyKpiResponse response = dailyKpiBackfillService.backfill(
+                request.userId(),
+                parseMetricDate(request.startDate()),
+                parseMetricDate(request.endDate())
+        );
+        return ApiResponse.success(response, "DAILY_KPI_BACKFILL_COMPLETED");
+    }
+
+    @GetMapping("/kpis/daily/watermark")
+    @Operation(summary = "Get daily KPI pipeline watermark", description = "Returns the latest processed date and update timestamp for the daily KPI pipeline.")
+    public ApiResponse<DailyKpiWatermarkResponse> getDailyKpiWatermark(@RequestParam String userId) {
+        DailyKpiWatermarkResponse response = dailyKpiWatermarkService.get(userId);
+        return ApiResponse.success(response, "DAILY_KPI_WATERMARK_FETCHED");
     }
 
     private LocalDate parseMetricDate(String metricDate) {
