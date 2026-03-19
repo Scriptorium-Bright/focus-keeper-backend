@@ -31,6 +31,17 @@ public interface RecoverySessionRepository extends JpaRepository<RecoverySession
     );
 
     @Query("""
+            select count(distinct s.userId)
+            from RecoverySession s
+            where s.startedAt >= :start
+              and s.startedAt < :end
+            """)
+    long countDistinctUsersStartedBetween(
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
             select s.id as sessionId,
                    s.timeboxId as timeboxId,
                    s.status as status,

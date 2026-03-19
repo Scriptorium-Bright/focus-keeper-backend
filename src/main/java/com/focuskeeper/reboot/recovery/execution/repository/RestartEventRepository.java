@@ -16,6 +16,17 @@ public interface RestartEventRepository extends JpaRepository<RestartEvent, Stri
     );
 
     @Query("""
+            select count(distinct r.userId)
+            from RestartEvent r
+            where r.occurredAt >= :start
+              and r.occurredAt < :end
+            """)
+    long countDistinctUsersOccurredBetween(
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
             select r.failureEventId as failureEventId,
                    r.restartType as restartType,
                    r.occurredAt as occurredAt

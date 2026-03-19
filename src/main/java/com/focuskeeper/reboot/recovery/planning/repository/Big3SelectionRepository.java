@@ -10,4 +10,6 @@ public interface Big3SelectionRepository extends JpaRepository<Big3Selection, St
 
     @EntityGraph(attributePaths = {"selectedItems", "selectedItems.inboxItem"})
     Optional<Big3Selection> findByUserIdAndSelectedDate(String userId, LocalDate selectedDate);
+
+    long countBySelectedDate(LocalDate selectedDate);
 }

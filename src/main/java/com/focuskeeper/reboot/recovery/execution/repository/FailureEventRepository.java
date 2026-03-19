@@ -20,6 +20,17 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
     );
 
     @Query("""
+            select count(distinct f.userId)
+            from FailureEvent f
+            where f.occurredAt >= :start
+              and f.occurredAt < :end
+            """)
+    long countDistinctUsersOccurredBetween(
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
             select f.id as failureEventId,
                    f.sessionId as sessionId,
                    f.timeboxId as timeboxId,
