@@ -40,7 +40,8 @@ public class TimeboxController {
                         timebox.itemId(),
                         timebox.startAt(),
                         timebox.endAt(),
-                        timebox.firstRecoveryBlock()
+                        timebox.firstRecoveryBlock(),
+                        timebox.type()
                 ))
                 .toList();
 
@@ -53,6 +54,7 @@ public class TimeboxController {
                         timebox.startAt(),
                         timebox.endAt(),
                         timebox.firstRecoveryBlock(),
+                        timebox.type(),
                         timebox.createdAt()
                 ))
                 .toList();

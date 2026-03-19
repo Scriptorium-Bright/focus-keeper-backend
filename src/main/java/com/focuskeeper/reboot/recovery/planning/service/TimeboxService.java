@@ -3,6 +3,7 @@ package com.focuskeeper.reboot.recovery.planning.service;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
+import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
@@ -47,6 +48,7 @@ public class TimeboxService {
      */
     @Transactional
     public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
+        timeboxAllocationValidator.validateTypes(commands);
         timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
 
         Big3SelectionResponse selection = big3Service.getTodayBig3(userId);
@@ -65,11 +67,17 @@ public class TimeboxService {
     }
 
     public void getTimebox(String userId, String timeboxId) {
-        timeboxRepository.findByIdAndUserId(timeboxId, userId)
+        Timebox timebox = timeboxRepository.findByIdAndUserId(timeboxId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("timeboxId", timeboxId)
                 ));
+        if (timebox.getType() != TimeboxType.WORK) {
+            throw new BusinessException(
+                    ErrorCode.CONFLICT,
+                    Map.of("timeboxId", "BREAK timebox로는 복귀 세션을 시작할 수 없습니다.")
+            );
+        }
     }
 
     private Map<String, InboxItemResponse> indexSelectedItems(Big3SelectionResponse selection) {
@@ -108,6 +116,7 @@ public class TimeboxService {
                     userId,
                     sourceItem.id(),
                     sourceItem.content(),
+                    parseType(command.type()),
                     startAt,
                     endAt,
                     command.firstRecoveryBlock(),
@@ -115,6 +124,17 @@ public class TimeboxService {
             ));
         }
         return requestedTimeboxes;
+    }
+
+    private TimeboxType parseType(String rawType) {
+        try {
+            return TimeboxType.valueOf(rawType);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of("type", "지원하지 않는 timebox type입니다.")
+            );
+        }
     }
 
     // Q. 다시 말했듯 검증 로직이 비즈니스 로직까지 들어와야 하는가? 지금 TimeBoxService에서 담당하는 부분이 너무 많은거같은데, 이거에 대한 의견이 필요함

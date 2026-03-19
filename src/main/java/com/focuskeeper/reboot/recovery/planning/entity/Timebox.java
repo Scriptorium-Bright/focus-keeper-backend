@@ -1,8 +1,11 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
+import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
@@ -31,6 +34,10 @@ public class Timebox {
     @Column(name = "item_content", nullable = false, length = 200)
     private String itemContent;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "timebox_type", nullable = false, length = 20)
+    private TimeboxType type;
+
     @Column(name = "start_at", nullable = false)
     private OffsetDateTime startAt;
 
@@ -51,6 +58,7 @@ public class Timebox {
             String userId,
             String itemId,
             String itemContent,
+            TimeboxType type,
             OffsetDateTime startAt,
             OffsetDateTime endAt,
             boolean firstRecoveryBlock,
@@ -60,6 +68,7 @@ public class Timebox {
         this.userId = userId;
         this.itemId = itemId;
         this.itemContent = itemContent;
+        this.type = type;
         this.startAt = startAt;
         this.endAt = endAt;
         this.firstRecoveryBlock = firstRecoveryBlock;
@@ -70,6 +79,7 @@ public class Timebox {
             String userId,
             String itemId,
             String itemContent,
+            TimeboxType type,
             OffsetDateTime startAt,
             OffsetDateTime endAt,
             boolean firstRecoveryBlock,
@@ -80,6 +90,7 @@ public class Timebox {
                 userId,
                 itemId,
                 itemContent,
+                type,
                 startAt,
                 endAt,
                 firstRecoveryBlock,
@@ -88,7 +99,16 @@ public class Timebox {
     }
 
     public TimeboxResponse toResponse() {
-        return new TimeboxResponse(id, itemId, itemContent, startAt.toString(), endAt.toString(), firstRecoveryBlock, createdAt.toString());
+        return new TimeboxResponse(
+                id,
+                itemId,
+                itemContent,
+                startAt.toString(),
+                endAt.toString(),
+                firstRecoveryBlock,
+                type.name(),
+                createdAt.toString()
+        );
     }
 
     public String getId() {
@@ -101,5 +121,9 @@ public class Timebox {
 
     public OffsetDateTime getEndAt() {
         return endAt;
+    }
+
+    public TimeboxType getType() {
+        return type;
     }
 }

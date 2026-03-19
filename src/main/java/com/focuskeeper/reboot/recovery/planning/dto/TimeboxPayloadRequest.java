@@ -9,6 +9,8 @@ public record TimeboxPayloadRequest(
         String startAt,
         @NotBlank(message = "endAt은 비어 있을 수 없습니다.")
         String endAt,
-        boolean firstRecoveryBlock
+        boolean firstRecoveryBlock,
+        @NotBlank(message = "type은 비어 있을 수 없습니다.")
+        String type
 ) {
 }

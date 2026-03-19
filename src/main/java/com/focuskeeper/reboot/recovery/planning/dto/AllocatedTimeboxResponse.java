@@ -7,6 +7,7 @@ public record AllocatedTimeboxResponse(
         String startAt,
         String endAt,
         boolean firstRecoveryBlock,
+        String type,
         String createdAt
 ) {
 }
