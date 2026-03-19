@@ -131,21 +131,100 @@
 
 ## 5. Phase 11 High / Mid / Low
 
+## 5. 11.4 워터마크와 백필
+
+### 처음 상태
+
+- 일간 KPI mart를 생성할 수는 있었지만, 특정 기간을 다시 계산하는 경로와 마지막 처리 지점을 추적하는 기준선이 없었다.
+- 이 상태에서는 “배치는 있다”까지만 말할 수 있고, 운영 가능한 데이터 파이프라인이라고 설명하기는 어려웠다.
+
+### 왜 바꿨나
+
+- 데이터 엔지니어링 포트폴리오에서는 단순 집계보다 `재처리 가능성`과 `진행 상태 추적`이 중요하다.
+- 특히 잘못 계산된 날짜를 다시 돌리거나, 어느 날짜까지 적재가 끝났는지 보여주는 구조가 필요했다.
+
+### 무엇을 바꿨나
+
+- `daily_kpi_watermarks` 엔티티와 repository를 추가해 사용자별 `lastProcessedDate`를 저장하도록 했다.
+- `POST /api/v1/recovery/analytics/kpis/daily/backfill`로 기간 백필 API를 추가했다.
+- `GET /api/v1/recovery/analytics/kpis/daily/watermark`로 현재 워터마크를 조회할 수 있게 했다.
+- `dailyKpiPipelineService.generate()`가 mart 적재 후 워터마크를 전진시키도록 연결했다.
+
+### 결과
+
+- 특정 날짜 범위를 다시 계산하고, 그 결과가 워터마크에 반영되는 흐름을 실제로 검증할 수 있게 됐다.
+- 대상 통합 테스트에서 `2일 백필 -> mart 2건 생성 -> 워터마크 최종 날짜 갱신` 경로를 검증했다.
+
+### 기대 효과
+
+- Phase 11 산출물이 “한 번 계산하는 분석 API”가 아니라 “다시 돌릴 수 있는 배치 파이프라인”이라는 설명이 가능해졌다.
+- 이후 Airflow DAG나 운영 알림을 붙일 때 기준 상태를 제공한다.
+
+### 포트폴리오 평가
+
+- 가능 여부: 가능
+- 점수: `9/10`
+- 이유: `백필 + 워터마크`는 데이터 엔지니어링 포트폴리오에서 설명력이 높고, mart 생성 흐름을 운영 가능한 형태로 끌어올린다.
+
+## 6. 11.5 데이터 품질 리포트
+
+### 처음 상태
+
+- mart/cohort/funnel은 생성되지만, 결과를 신뢰할 수 있는지 보여주는 품질 계층은 없었다.
+- 특히 중복 재시작, 끊어진 참조, BREAK 세션, 시간대 불일치 같은 이상 징후는 로그를 직접 뒤져야만 알 수 있었다.
+
+### 왜 바꿨나
+
+- 데이터 엔지니어링 포트폴리오에서 `지표를 만든다`와 `지표를 믿을 수 있게 만든다`는 다른 단계다.
+- Phase 11을 마감하려면 최소한의 DQ 검사를 넣어, mart 생성과 함께 품질 리포트가 남는 구조가 필요했다.
+
+### 무엇을 바꿨나
+
+- `daily_kpi_quality_reports` 엔티티와 repository를 추가했다.
+- 일간 KPI 생성 시 아래 이슈를 함께 검사하도록 했다.
+  - 동일 failure에 대한 중복 restart link
+  - 존재하지 않는 failure를 가리키는 orphan restart
+  - failure보다 먼저 기록된 restart
+  - 48시간을 넘긴 late restart link
+  - BREAK timebox에 연결된 세션
+  - 존재하지 않는 timebox를 가리키는 세션
+  - `+09:00` 기준과 다른 timezone offset
+- `GET /api/v1/recovery/analytics/kpis/daily/quality` 조회 API를 추가했다.
+
+### 결과
+
+- 일간 KPI를 생성하면 품질 리포트도 함께 upsert되어, 지표와 품질 상태를 같은 날짜 기준으로 읽을 수 있게 됐다.
+- 대상 통합 테스트에서 의도적으로 잘못된 데이터를 주입해 각 이슈 카운트와 총합을 검증했다.
+
+### 기대 효과
+
+- 복귀 지표가 왜곡될 수 있는 이상 징후를 보고서 수준에서 확인할 수 있다.
+- 이후 alerting, dashboard, SLA와 연결할 수 있는 최소 DQ 기반이 생겼다.
+
+### 포트폴리오 평가
+
+- 가능 여부: 가능
+- 점수: `8/10`
+- 이유: DQ를 `mart 생성 흐름 안에 결합했다`는 점은 강하지만, 아직 배치 알림/임계치/운영 메트릭까지는 가지 않았다.
+
+## 7. Phase 11 High / Mid / Low
+
 ### High
 
-- `daily_kpi_metrics`는 현재 배치 job을 API에서 직접 실행하는 구조라, 진짜 운영 환경의 스케줄/워터마크/백필 흐름과는 아직 분리되지 않았다.
-- `Recovery24/48` 계산은 현재 일자 기준 생성 경로에 집중돼 있어, 기간 재처리와 지각 이벤트 처리까지는 아직 완성되지 않았다.
+- `daily_kpi_metrics`는 여전히 API 트리거 중심이다. Airflow DAG, 스케줄링, 실패 재시도, 운영 경보까지는 아직 붙지 않았다.
+- DQ는 현재 rule-based 리포트 수준이며, 임계치 초과 시 배치를 실패시키거나 알림으로 연결하는 운영 흐름은 남아 있다.
 
 ### Mid
 
 - cohort 기준이 현재는 `첫 activation 날짜` 하나로 고정돼 있다. `첫 failure`, `첫 recovery` 기준 비교가 아직 없다.
 - 퍼널은 날짜별 distinct user 기준이라, 세션 수/실패 이유/세그먼트 기준 drill-down은 후속 구현이 필요하다.
+- 워터마크는 현재 사용자별 단일 `lastProcessedDate`만 저장한다. 부분 실패 지점이나 세부 스테이지별 watermark 분리는 아직 없다.
 
 ### Low
 
 - analytics 응답이 아직 dashboard 전용 조회라기보다 API 응답 중심이다.
-- batch metric, DQ 경고, airflow DAG 메타데이터는 현재 별도 구조로 확장할 여지가 있다.
+- timezone 기준은 현재 `+09:00` 고정이라, 이후 사용자별 timezone 모델이 들어오면 계산 기준을 다시 분리해야 한다.
 
-## 6. Phase 11 한 줄 정리
+## 8. Phase 11 한 줄 정리
 
-Phase 11에서는 복귀 행동 이벤트를 `일간 KPI mart`, `cohort retention report`, `daily funnel report`로 승격해, 기능 구현 단계를 넘어 제품 효과를 데이터로 설명할 수 있는 상태를 만들었다.
+Phase 11에서는 복귀 행동 이벤트를 `일간 KPI mart`, `cohort retention report`, `daily funnel report`, `watermark/backfill`, `data quality report`로 승격해, 기능 구현 단계를 넘어 제품 효과와 데이터 신뢰성을 함께 설명할 수 있는 상태를 만들었다.
