@@ -6,6 +6,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RecoverySessionRepository extends JpaRepository<RecoverySession, String> {
 
@@ -27,4 +29,34 @@ public interface RecoverySessionRepository extends JpaRepository<RecoverySession
             OffsetDateTime start,
             OffsetDateTime end
     );
+
+    @Query("""
+            select s.id as sessionId,
+                   s.timeboxId as timeboxId,
+                   s.status as status,
+                   s.startedAt as startedAt,
+                   s.endedAt as endedAt
+            from RecoverySession s
+            where s.userId = :userId
+              and s.startedAt >= :start
+              and s.startedAt < :end
+            order by s.startedAt asc
+            """)
+    List<SessionSlice> findSlicesByUserIdAndStartedAtBetween(
+            @Param("userId") String userId,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    interface SessionSlice {
+        String getSessionId();
+
+        String getTimeboxId();
+
+        RecoverySessionStatus getStatus();
+
+        OffsetDateTime getStartedAt();
+
+        OffsetDateTime getEndedAt();
+    }
 }

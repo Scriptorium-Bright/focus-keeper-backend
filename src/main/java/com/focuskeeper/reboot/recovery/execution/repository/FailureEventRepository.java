@@ -20,6 +20,24 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
     );
 
     @Query("""
+            select f.id as failureEventId,
+                   f.sessionId as sessionId,
+                   f.timeboxId as timeboxId,
+                   f.reason as reason,
+                   f.occurredAt as occurredAt
+            from FailureEvent f
+            where f.userId = :userId
+              and f.occurredAt >= :start
+              and f.occurredAt < :end
+            order by f.occurredAt asc
+            """)
+    List<FailureSlice> findSlicesByUserIdAndOccurredAtBetween(
+            @Param("userId") String userId,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end
+    );
+
+    @Query("""
             select f.reason as reason, count(f) as total
             from FailureEvent f
             where f.userId = :userId
@@ -45,5 +63,17 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
         FailureReason getReason();
 
         long getTotal();
+    }
+
+    interface FailureSlice {
+        String getFailureEventId();
+
+        String getSessionId();
+
+        String getTimeboxId();
+
+        FailureReason getReason();
+
+        OffsetDateTime getOccurredAt();
     }
 }
