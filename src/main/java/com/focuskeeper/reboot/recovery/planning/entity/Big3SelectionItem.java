@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
-import com.focuskeeper.reboot.recovery.inbox.entity.InboxItemEntity;
+import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,7 +19,7 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_big3_selection_items_order", columnNames = {"selection_id", "sort_order"})
         }
 )
-public class Big3SelectionItemEntity {
+public class Big3SelectionItem {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -27,22 +27,22 @@ public class Big3SelectionItemEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "selection_id", nullable = false)
-    private Big3SelectionEntity selection;
+    private Big3Selection selection;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "inbox_item_id", nullable = false)
-    private InboxItemEntity inboxItem;
+    private InboxItem inboxItem;
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
 
-    protected Big3SelectionItemEntity() {
+    protected Big3SelectionItem() {
     }
 
-    private Big3SelectionItemEntity(
+    private Big3SelectionItem(
             String id,
-            Big3SelectionEntity selection,
-            InboxItemEntity inboxItem,
+            Big3Selection selection,
+            InboxItem inboxItem,
             int sortOrder
     ) {
         this.id = id;
@@ -51,12 +51,12 @@ public class Big3SelectionItemEntity {
         this.sortOrder = sortOrder;
     }
 
-    public static Big3SelectionItemEntity create(
-            Big3SelectionEntity selection,
-            InboxItemEntity inboxItem,
+    public static Big3SelectionItem create(
+            Big3Selection selection,
+            InboxItem inboxItem,
             int sortOrder
     ) {
-        return new Big3SelectionItemEntity(UUID.randomUUID().toString(), selection, inboxItem, sortOrder);
+        return new Big3SelectionItem(UUID.randomUUID().toString(), selection, inboxItem, sortOrder);
     }
 
     public InboxItemResponse toInboxItemResponse() {

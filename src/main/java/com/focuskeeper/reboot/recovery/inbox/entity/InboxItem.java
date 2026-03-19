@@ -10,13 +10,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "inbox_items",
-        indexes = {
-                @Index(name = "idx_inbox_items_user_created_at", columnList = "user_id, created_at")
-        }
-)
-public class InboxItemEntity {
+@Table(name = "inbox_items")
+public class InboxItem {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -31,18 +26,18 @@ public class InboxItemEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    protected InboxItemEntity() {
+    protected InboxItem() {
     }
 
-    private InboxItemEntity(String id, String userId, String content, OffsetDateTime createdAt) {
+    private InboxItem(String id, String userId, String content, OffsetDateTime createdAt) {
         this.id = id;
         this.userId = userId;
         this.content = content;
         this.createdAt = createdAt;
     }
 
-    public static InboxItemEntity create(String userId, String content, OffsetDateTime createdAt) {
-        return new InboxItemEntity(UUID.randomUUID().toString(), userId, content, createdAt);
+    public static InboxItem create(String userId, String content, OffsetDateTime createdAt) {
+        return new InboxItem(UUID.randomUUID().toString(), userId, content, createdAt);
     }
 
     public InboxItemResponse toResponse() {

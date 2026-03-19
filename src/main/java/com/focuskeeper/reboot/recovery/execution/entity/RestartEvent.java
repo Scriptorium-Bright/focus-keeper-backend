@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "restart_events")
-public class RestartEventEntity {
+public class RestartEvent {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -35,10 +35,10 @@ public class RestartEventEntity {
     @Column(name = "occurred_at", nullable = false)
     private OffsetDateTime occurredAt;
 
-    protected RestartEventEntity() {
+    protected RestartEvent() {
     }
 
-    private RestartEventEntity(
+    private RestartEvent(
             String id,
             String userId,
             String failureEventId,
@@ -54,14 +54,14 @@ public class RestartEventEntity {
         this.occurredAt = occurredAt;
     }
 
-    public static RestartEventEntity create(
+    public static RestartEvent create(
             String userId,
             String failureEventId,
             RestartType restartType,
             int suggestedMinutes,
             OffsetDateTime occurredAt
     ) {
-        return new RestartEventEntity(
+        return new RestartEvent(
                 UUID.randomUUID().toString(),
                 userId,
                 failureEventId,

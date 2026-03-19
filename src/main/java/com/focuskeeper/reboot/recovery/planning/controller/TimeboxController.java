@@ -5,6 +5,7 @@ import com.focuskeeper.reboot.recovery.planning.dto.AllocateTimeboxesRequest;
 import com.focuskeeper.reboot.recovery.planning.dto.AllocateTimeboxesResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.AllocatedTimeboxResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
+import com.focuskeeper.reboot.recovery.planning.service.TimeboxCommand;
 import com.focuskeeper.reboot.recovery.planning.service.TimeboxService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,8 +35,8 @@ public class TimeboxController {
     public ApiResponse<AllocateTimeboxesResponse> allocateTimeboxes(
             @Valid @RequestBody AllocateTimeboxesRequest request
     ) {
-        List<TimeboxService.TimeboxCommand> commands = request.timeboxes().stream()
-                .map(timebox -> new TimeboxService.TimeboxCommand(
+        List<TimeboxCommand> commands = request.timeboxes().stream()
+                .map(timebox -> new TimeboxCommand(
                         timebox.itemId(),
                         timebox.startAt(),
                         timebox.endAt(),

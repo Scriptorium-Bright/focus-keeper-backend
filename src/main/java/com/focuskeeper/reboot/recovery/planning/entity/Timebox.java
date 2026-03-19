@@ -16,7 +16,7 @@ import java.util.UUID;
                 @Index(name = "idx_recovery_timeboxes_user_start_at", columnList = "user_id, start_at")
         }
 )
-public class TimeboxEntity {
+public class Timebox {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -43,10 +43,10 @@ public class TimeboxEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    protected TimeboxEntity() {
+    protected Timebox() {
     }
 
-    private TimeboxEntity(
+    private Timebox(
             String id,
             String userId,
             String itemId,
@@ -66,7 +66,7 @@ public class TimeboxEntity {
         this.createdAt = createdAt;
     }
 
-    public static TimeboxEntity create(
+    public static Timebox create(
             String userId,
             String itemId,
             String itemContent,
@@ -75,7 +75,7 @@ public class TimeboxEntity {
             boolean firstRecoveryBlock,
             OffsetDateTime createdAt
     ) {
-        return new TimeboxEntity(
+        return new Timebox(
                 UUID.randomUUID().toString(),
                 userId,
                 itemId,
@@ -89,5 +89,17 @@ public class TimeboxEntity {
 
     public TimeboxResponse toResponse() {
         return new TimeboxResponse(id, itemId, itemContent, startAt.toString(), endAt.toString(), firstRecoveryBlock, createdAt.toString());
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public OffsetDateTime getStartAt() {
+        return startAt;
+    }
+
+    public OffsetDateTime getEndAt() {
+        return endAt;
     }
 }

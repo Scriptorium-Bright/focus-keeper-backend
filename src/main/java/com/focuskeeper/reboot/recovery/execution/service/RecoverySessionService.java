@@ -4,7 +4,7 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
-import com.focuskeeper.reboot.recovery.execution.entity.RecoverySessionEntity;
+import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.planning.service.TimeboxService;
 import java.time.OffsetDateTime;
@@ -30,7 +30,7 @@ public class RecoverySessionService {
 
     @Transactional
     public RecoverySessionResponse startSession(String userId, String timeboxId) {
-        timeboxService.getTimeboxOrThrow(userId, timeboxId);
+        timeboxService.getTimebox(userId, timeboxId);
 
         boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus(
                 userId,
@@ -44,13 +44,13 @@ public class RecoverySessionService {
         }
 
         return recoverySessionRepository.save(
-                RecoverySessionEntity.start(userId, timeboxId, OffsetDateTime.now())
+                RecoverySession.start(userId, timeboxId, OffsetDateTime.now())
         ).toResponse();
     }
 
     @Transactional
     public RecoverySessionResponse completeSession(String userId, String sessionId) {
-        RecoverySessionEntity session = getSessionEntityOrThrow(userId, sessionId);
+        RecoverySession session = getSessionRecordOrThrow(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
             throw invalidTransition(sessionId, session.getStatus(), "COMPLETED");
         }
@@ -61,7 +61,7 @@ public class RecoverySessionService {
 
     @Transactional
     public RecoverySessionResponse interruptSession(String userId, String sessionId) {
-        RecoverySessionEntity session = getSessionEntityOrThrow(userId, sessionId);
+        RecoverySession session = getSessionRecordOrThrow(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
             throw invalidTransition(sessionId, session.getStatus(), "INTERRUPTED");
         }
@@ -71,16 +71,16 @@ public class RecoverySessionService {
     }
 
     public RecoverySessionResponse getSessionOrThrow(String userId, String sessionId) {
-        return getSessionEntityOrThrow(userId, sessionId).toResponse();
+        return getSessionRecordOrThrow(userId, sessionId).toResponse();
     }
 
     public List<RecoverySessionResponse> findSessions(String userId) {
         return recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId).stream()
-                .map(RecoverySessionEntity::toResponse)
+                .map(RecoverySession::toResponse)
                 .toList();
     }
 
-    private RecoverySessionEntity getSessionEntityOrThrow(String userId, String sessionId) {
+    private RecoverySession getSessionRecordOrThrow(String userId, String sessionId) {
         return recoverySessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,

@@ -19,7 +19,7 @@ import java.util.UUID;
                 @Index(name = "idx_recovery_sessions_user_status", columnList = "user_id, status")
         }
 )
-public class RecoverySessionEntity {
+public class RecoverySession {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -44,10 +44,10 @@ public class RecoverySessionEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    protected RecoverySessionEntity() {
+    protected RecoverySession() {
     }
 
-    private RecoverySessionEntity(
+    private RecoverySession(
             String id,
             String userId,
             String timeboxId,
@@ -65,8 +65,8 @@ public class RecoverySessionEntity {
         this.createdAt = createdAt;
     }
 
-    public static RecoverySessionEntity start(String userId, String timeboxId, OffsetDateTime startedAt) {
-        return new RecoverySessionEntity(
+    public static RecoverySession start(String userId, String timeboxId, OffsetDateTime startedAt) {
+        return new RecoverySession(
                 UUID.randomUUID().toString(),
                 userId,
                 timeboxId,

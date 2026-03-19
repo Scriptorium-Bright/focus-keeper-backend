@@ -1,13 +1,13 @@
 package com.focuskeeper.reboot.recovery.planning.repository;
 
-import com.focuskeeper.reboot.recovery.planning.entity.Big3SelectionEntity;
+import com.focuskeeper.reboot.recovery.planning.entity.Big3Selection;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface Big3SelectionRepository extends JpaRepository<Big3SelectionEntity, String> {
+public interface Big3SelectionRepository extends JpaRepository<Big3Selection, String> {
 
     @EntityGraph(attributePaths = {"selectedItems", "selectedItems.inboxItem"})
-    Optional<Big3SelectionEntity> findByUserIdAndSelectedDate(String userId, LocalDate selectedDate);
+    Optional<Big3Selection> findByUserIdAndSelectedDate(String userId, LocalDate selectedDate);
 }

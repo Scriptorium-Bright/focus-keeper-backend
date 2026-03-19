@@ -6,7 +6,7 @@ import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartSuggestionResponse;
-import com.focuskeeper.reboot.recovery.execution.entity.RestartEventEntity;
+import com.focuskeeper.reboot.recovery.execution.entity.RestartEvent;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class RestartService {
         RestartSuggestionResponse suggestion = restartSuggestionPolicy.suggest(failureEvent.reason());
         RecoverySessionResponse recoverySession = recoverySessionService.startSession(userId, failureEvent.timeboxId());
         RestartEventResponse restartEvent = restartEventRepository.save(
-                RestartEventEntity.create(
+                RestartEvent.create(
                         userId,
                         failureEvent.id(),
                         RestartType.TEN_MINUTE_RESTART,

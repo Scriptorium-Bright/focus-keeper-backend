@@ -6,7 +6,7 @@ import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartSuggestionResponse;
-import com.focuskeeper.reboot.recovery.execution.entity.FailureEventEntity;
+import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -36,7 +36,7 @@ public class FailureEventService {
         FailureReason reason = parseReason(reasonValue);
         RecoverySessionResponse interruptedSession = recoverySessionService.interruptSession(userId, sessionId);
 
-        FailureEventResponse failureEvent = failureEventRepository.save(FailureEventEntity.create(
+        FailureEventResponse failureEvent = failureEventRepository.save(FailureEvent.create(
                 userId,
                 interruptedSession.sessionId(),
                 interruptedSession.timeboxId(),

@@ -19,7 +19,7 @@ import java.util.UUID;
                 @Index(name = "idx_failure_events_user_occurred_at", columnList = "user_id, occurred_at")
         }
 )
-public class FailureEventEntity {
+public class FailureEvent {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -44,10 +44,10 @@ public class FailureEventEntity {
     @Column(name = "occurred_at", nullable = false)
     private OffsetDateTime occurredAt;
 
-    protected FailureEventEntity() {
+    protected FailureEvent() {
     }
 
-    private FailureEventEntity(
+    private FailureEvent(
             String id,
             String userId,
             String sessionId,
@@ -65,7 +65,7 @@ public class FailureEventEntity {
         this.occurredAt = occurredAt;
     }
 
-    public static FailureEventEntity create(
+    public static FailureEvent create(
             String userId,
             String sessionId,
             String timeboxId,
@@ -73,7 +73,7 @@ public class FailureEventEntity {
             String note,
             OffsetDateTime occurredAt
     ) {
-        return new FailureEventEntity(
+        return new FailureEvent(
                 UUID.randomUUID().toString(),
                 userId,
                 sessionId,

@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.execution.repository;
 
-import com.focuskeeper.reboot.recovery.execution.entity.RestartEventEntity;
+import com.focuskeeper.reboot.recovery.execution.entity.RestartEvent;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface RestartEventRepository extends JpaRepository<RestartEventEntity, String> {
+public interface RestartEventRepository extends JpaRepository<RestartEvent, String> {
 }

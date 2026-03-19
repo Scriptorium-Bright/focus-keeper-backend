@@ -5,8 +5,10 @@ import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
-import com.focuskeeper.reboot.recovery.planning.entity.TimeboxEntity;
+import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.planning.validation.TimeboxAllocationValidator;
+import com.focuskeeper.reboot.recovery.planning.validation.TimeboxOverlapValidator;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -22,49 +24,52 @@ public class TimeboxService {
 
     private final Big3Service big3Service;
     private final TimeboxRepository timeboxRepository;
+    private final TimeboxAllocationValidator timeboxAllocationValidator;
+    private final TimeboxOverlapValidator timeboxOverlapValidator;
 
-    public TimeboxService(Big3Service big3Service, TimeboxRepository timeboxRepository) {
+    public TimeboxService(
+            Big3Service big3Service,
+            TimeboxRepository timeboxRepository,
+            TimeboxAllocationValidator timeboxAllocationValidator,
+            TimeboxOverlapValidator timeboxOverlapValidator
+    ) {
         this.big3Service = big3Service;
         this.timeboxRepository = timeboxRepository;
+        this.timeboxAllocationValidator = timeboxAllocationValidator;
+        this.timeboxOverlapValidator = timeboxOverlapValidator;
     }
 
+    /**
+     *
+     * @param userId
+     * @param commands
+     * @return Big3중 하나를 언제부터 언제까지 다시 붙잡을지 정하는 것, 즉 시간을 정해두는 거라고 보면 됨
+     */
     @Transactional
     public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
-        validateFirstRecoveryBlock(commands);
+        timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
 
-        Big3SelectionResponse selection = big3Service.getTodayBig3OrThrow(userId);
+        Big3SelectionResponse selection = big3Service.getTodayBig3(userId);
         Map<String, InboxItemResponse> selectedItems = indexSelectedItems(selection);
-        validateSelectedItems(commands, selectedItems);
+        timeboxAllocationValidator.validateSelectedItems(commands, selectedItems);
 
-        List<TimeboxEntity> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
-        validateOverlaps(
-                userId,
-                requestedTimeboxes.stream().map(TimeboxEntity::toResponse).toList()
+        List<Timebox> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
+        timeboxOverlapValidator.validate(
+                timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId),
+                requestedTimeboxes
         );
 
         return timeboxRepository.saveAll(requestedTimeboxes).stream()
-                .map(TimeboxEntity::toResponse)
+                .map(Timebox::toResponse)
                 .toList();
     }
 
-    public void getTimeboxOrThrow(String userId, String timeboxId) {
+    public void getTimebox(String userId, String timeboxId) {
         timeboxRepository.findByIdAndUserId(timeboxId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("timeboxId", timeboxId)
                 ));
-    }
-
-    private void validateFirstRecoveryBlock(List<TimeboxCommand> commands) {
-        long firstRecoveryBlockCount = commands.stream()
-                .filter(TimeboxCommand::firstRecoveryBlock)
-                .count();
-        if (firstRecoveryBlockCount != 1) {
-            throw new BusinessException(
-                    ErrorCode.COMMON_BAD_REQUEST,
-                    Map.of("timeboxes", "첫 복귀 블록은 정확히 1개여야 합니다.")
-            );
-        }
     }
 
     private Map<String, InboxItemResponse> indexSelectedItems(Big3SelectionResponse selection) {
@@ -75,30 +80,19 @@ public class TimeboxService {
         return indexedItems;
     }
 
-    private void validateSelectedItems(List<TimeboxCommand> commands, Map<String, InboxItemResponse> selectedItems) {
-        List<String> invalidItemIds = commands.stream()
-                .map(TimeboxCommand::itemId)
-                .filter(itemId -> !selectedItems.containsKey(itemId))
-                .distinct()
-                .toList();
+    /**
+     *
+     * @param userId
+     * @param commands
+     * @param selectedItems
+     * @return TimeBox를 구체화하는 로직
+     */
 
-        if (!invalidItemIds.isEmpty()) {
-            throw new BusinessException(
-                    ErrorCode.COMMON_BAD_REQUEST,
-                    Map.of(
-                            "invalidItemIds", invalidItemIds,
-                            "itemIds", "오늘의 Big3에 포함된 항목만 timebox로 배정할 수 있습니다."
-                    )
-            );
-        }
-    }
-
-    private List<TimeboxEntity> materializeTimeboxes(
+    private List<Timebox> materializeTimeboxes(
             String userId,
             List<TimeboxCommand> commands,
-            Map<String, InboxItemResponse> selectedItems
-    ) {
-        List<TimeboxEntity> requestedTimeboxes = new ArrayList<>();
+            Map<String, InboxItemResponse> selectedItems) {
+        List<Timebox> requestedTimeboxes = new ArrayList<>();
         for (TimeboxCommand command : commands) {
             OffsetDateTime startAt = parseDateTime("startAt", command.startAt());
             OffsetDateTime endAt = parseDateTime("endAt", command.endAt());
@@ -110,7 +104,7 @@ public class TimeboxService {
             }
 
             InboxItemResponse sourceItem = selectedItems.get(command.itemId());
-            requestedTimeboxes.add(TimeboxEntity.create(
+            requestedTimeboxes.add(Timebox.create(
                     userId,
                     sourceItem.id(),
                     sourceItem.content(),
@@ -123,6 +117,12 @@ public class TimeboxService {
         return requestedTimeboxes;
     }
 
+    // Q. 다시 말했듯 검증 로직이 비즈니스 로직까지 들어와야 하는가? 지금 TimeBoxService에서 담당하는 부분이 너무 많은거같은데, 이거에 대한 의견이 필요함
+    // A. 날짜 문자열 파싱과 입력 형식 검증은 엄밀히 말하면 DTO/컨트롤러 쪽 책임에 더 가깝다.
+    // A. 지금은 service command가 String을 들고 있어서 여기서 처리하지만, 나중에는 OffsetDateTime으로 올려보내면 책임을 줄일 수 있다.
+    // RQ. 두 시간 구간이라는 것이 무엇을 의미하는지?
+    // A. 예를 들면 [09:00, 09:25] 같은 하나의 timebox 범위와 [09:10, 09:30] 같은 다른 범위를 비교하는 걸 뜻한다.
+    // A. 결국 "한 사용자의 두 timebox가 같은 시각대를 동시에 차지하는가"를 보는 시간 범위 비교라고 이해하면 된다.
     private OffsetDateTime parseDateTime(String fieldName, String value) {
         try {
             return OffsetDateTime.parse(value);
@@ -132,55 +132,5 @@ public class TimeboxService {
                     Map.of(fieldName, "ISO-8601 형식의 날짜시간이어야 합니다.")
             );
         }
-    }
-
-    private void validateOverlaps(String userId, List<TimeboxResponse> requestedTimeboxes) {
-        List<TimeboxResponse> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId).stream()
-                .map(TimeboxEntity::toResponse)
-                .toList();
-
-        for (int index = 0; index < requestedTimeboxes.size(); index++) {
-            TimeboxResponse current = requestedTimeboxes.get(index);
-
-            for (int otherIndex = index + 1; otherIndex < requestedTimeboxes.size(); otherIndex++) {
-                TimeboxResponse other = requestedTimeboxes.get(otherIndex);
-                if (overlaps(current, other.startAt(), other.endAt())) {
-                    throw conflictException(current);
-                }
-            }
-
-            for (TimeboxResponse existing : existingTimeboxes) {
-                if (overlaps(existing, current.startAt(), current.endAt())) {
-                    throw conflictException(existing);
-                }
-            }
-        }
-    }
-
-    private boolean overlaps(TimeboxResponse timebox, String otherStartAt, String otherEndAt) {
-        OffsetDateTime startAt = parseDateTime("startAt", timebox.startAt());
-        OffsetDateTime endAt = parseDateTime("endAt", timebox.endAt());
-        OffsetDateTime otherStart = parseDateTime("otherStartAt", otherStartAt);
-        OffsetDateTime otherEnd = parseDateTime("otherEndAt", otherEndAt);
-        return startAt.isBefore(otherEnd) && endAt.isAfter(otherStart);
-    }
-
-    private BusinessException conflictException(TimeboxResponse conflictingTimebox) {
-        return new BusinessException(
-                ErrorCode.CONFLICT,
-                Map.of(
-                        "conflictingTimeboxId", conflictingTimebox.timeboxId(),
-                        "startAt", conflictingTimebox.startAt(),
-                        "endAt", conflictingTimebox.endAt()
-                )
-        );
-    }
-
-    public record TimeboxCommand(
-            String itemId,
-            String startAt,
-            String endAt,
-            boolean firstRecoveryBlock
-    ) {
     }
 }
