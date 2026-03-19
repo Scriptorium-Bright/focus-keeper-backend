@@ -6,10 +6,12 @@ import com.focuskeeper.reboot.common.response.ApiResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.BackfillDailyKpiRequest;
 import com.focuskeeper.reboot.recovery.analytics.dto.BackfillDailyKpiResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiResponse;
+import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiQualityResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiWatermarkResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.GenerateDailyKpiRequest;
 import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiBatchLauncher;
 import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiBackfillService;
+import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiQualityQueryService;
 import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiQueryService;
 import com.focuskeeper.reboot.recovery.analytics.service.DailyKpiWatermarkService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,17 +36,20 @@ public class DailyKpiController {
 
     private final DailyKpiBatchLauncher dailyKpiBatchLauncher;
     private final DailyKpiQueryService dailyKpiQueryService;
+    private final DailyKpiQualityQueryService dailyKpiQualityQueryService;
     private final DailyKpiBackfillService dailyKpiBackfillService;
     private final DailyKpiWatermarkService dailyKpiWatermarkService;
 
     public DailyKpiController(
             DailyKpiBatchLauncher dailyKpiBatchLauncher,
             DailyKpiQueryService dailyKpiQueryService,
+            DailyKpiQualityQueryService dailyKpiQualityQueryService,
             DailyKpiBackfillService dailyKpiBackfillService,
             DailyKpiWatermarkService dailyKpiWatermarkService
     ) {
         this.dailyKpiBatchLauncher = dailyKpiBatchLauncher;
         this.dailyKpiQueryService = dailyKpiQueryService;
+        this.dailyKpiQualityQueryService = dailyKpiQualityQueryService;
         this.dailyKpiBackfillService = dailyKpiBackfillService;
         this.dailyKpiWatermarkService = dailyKpiWatermarkService;
     }
@@ -68,6 +73,16 @@ public class DailyKpiController {
     ) {
         DailyKpiResponse response = dailyKpiQueryService.get(userId, parseMetricDate(metricDate));
         return ApiResponse.success(response, "DAILY_KPI_FETCHED");
+    }
+
+    @GetMapping("/kpis/daily/quality")
+    @Operation(summary = "Get daily KPI data quality report", description = "Returns the latest data quality report for the generated daily KPI mart row.")
+    public ApiResponse<DailyKpiQualityResponse> getDailyKpiQuality(
+            @RequestParam String userId,
+            @RequestParam String metricDate
+    ) {
+        DailyKpiQualityResponse response = dailyKpiQualityQueryService.get(userId, parseMetricDate(metricDate));
+        return ApiResponse.success(response, "DAILY_KPI_QUALITY_FETCHED");
     }
 
     @PostMapping("/kpis/daily/backfill")

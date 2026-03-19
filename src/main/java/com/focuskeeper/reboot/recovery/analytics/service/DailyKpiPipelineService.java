@@ -34,6 +34,7 @@ public class DailyKpiPipelineService {
     private final FailureEventRepository failureEventRepository;
     private final RestartEventRepository restartEventRepository;
     private final TimeboxRepository timeboxRepository;
+    private final DailyKpiQualityService dailyKpiQualityService;
     private final DailyKpiWatermarkService dailyKpiWatermarkService;
 
     public DailyKpiPipelineService(
@@ -42,6 +43,7 @@ public class DailyKpiPipelineService {
             FailureEventRepository failureEventRepository,
             RestartEventRepository restartEventRepository,
             TimeboxRepository timeboxRepository,
+            DailyKpiQualityService dailyKpiQualityService,
             DailyKpiWatermarkService dailyKpiWatermarkService
     ) {
         this.dailyKpiMetricRepository = dailyKpiMetricRepository;
@@ -49,6 +51,7 @@ public class DailyKpiPipelineService {
         this.failureEventRepository = failureEventRepository;
         this.restartEventRepository = restartEventRepository;
         this.timeboxRepository = timeboxRepository;
+        this.dailyKpiQualityService = dailyKpiQualityService;
         this.dailyKpiWatermarkService = dailyKpiWatermarkService;
     }
 
@@ -185,6 +188,7 @@ public class DailyKpiPipelineService {
                 ));
 
         DailyKpiMetric savedMetric = dailyKpiMetricRepository.save(dailyKpiMetric);
+        dailyKpiQualityService.generate(userId, metricDate, generatedAt);
         dailyKpiWatermarkService.advance(userId, metricDate, generatedAt);
         return savedMetric;
     }

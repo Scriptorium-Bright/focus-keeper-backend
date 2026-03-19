@@ -5,6 +5,7 @@ import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,6 +50,18 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
     );
 
     @Query("""
+            select f.id as failureEventId,
+                   f.occurredAt as occurredAt
+            from FailureEvent f
+            where f.userId = :userId
+              and f.id in :failureEventIds
+            """)
+    List<FailureReference> findReferencesByUserIdAndIdIn(
+            @Param("userId") String userId,
+            @Param("failureEventIds") Set<String> failureEventIds
+    );
+
+    @Query("""
             select f.reason as reason, count(f) as total
             from FailureEvent f
             where f.userId = :userId
@@ -84,6 +97,12 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
         String getTimeboxId();
 
         FailureReason getReason();
+
+        OffsetDateTime getOccurredAt();
+    }
+
+    interface FailureReference {
+        String getFailureEventId();
 
         OffsetDateTime getOccurredAt();
     }
