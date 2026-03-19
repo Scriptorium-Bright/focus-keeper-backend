@@ -19,7 +19,7 @@
 | F-003 | 첫 복귀 블록 포함 Timebox 배정 | 4~5 | 시작/종료 블록 | 일일 복귀 계획 | done |
 | F-004 | 복귀 세션 시작/완료/중단 | 4~5 | session 상태 이벤트 | 복귀 세션 기록 | done |
 | F-005 | 실패 체크인 | 4~5 | failure reason | 실패 이벤트 기록 | done |
-| F-006 | 10분 복귀 재시작 제안/실행 | 5 | failure event | restart 이벤트 | planned |
+| F-006 | 10분 복귀 재시작 제안/실행 | 5 | failure event | restart 이벤트 | done |
 | F-007 | 주간 회고 집계 생성 | 6 | 7일 실행 데이터 | 주간 집계 결과 | planned |
 | F-008 | 주간 회고 조회 | 6 | user/week 입력 | 회고 리포트 | planned |
 | F-009 | anti-slip action 추천 | 6 | 회고 입력 | 다음 행동 1개 | planned |
@@ -81,7 +81,10 @@
   - 출력: `sessionId`, `timeboxId`, `status`, `startedAt`, `endedAt`
 - F-005 실패 체크인: `POST /api/v1/recovery/failures/check-in`
   - 입력: `userId`, `sessionId`, `reason`, `note`
-  - 출력: `failureEventId`, `sessionId`, `timeboxId`, `reason`, `occurredAt`, `sessionStatus`
+  - 출력: `failureEventId`, `sessionId`, `timeboxId`, `reason`, `occurredAt`, `sessionStatus`, `restartSuggestion`
+- F-006 10분 복귀 재시작 제안/실행: `POST /api/v1/recovery/restarts`
+  - 입력: `userId`, `failureEventId`
+  - 출력: `restartEvent`, `recoverySession`, `restartSuggestion`
 
 ### 2.2 포트폴리오 사례 후보 매핑
 

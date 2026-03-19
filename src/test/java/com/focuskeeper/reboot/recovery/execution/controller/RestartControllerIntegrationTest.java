@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class FailureCheckInControllerIntegrationTest {
+class RestartControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -29,81 +29,87 @@ class FailureCheckInControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Test
-    void checkInReturnsStandardSuccessResponse() throws Exception {
-        String sessionId = startSessionForUser("failure-success-user");
+    void restartReturnsRestartEventAndNewRecoverySession() throws Exception {
+        String userId = "restart-success-user";
+        String sessionId = startSessionForUser(userId);
+        String failureEventId = checkInFailure(userId, sessionId);
 
         MvcResult result = mockMvc.perform(
-                        post("/api/v1/recovery/failures/check-in")
+                        post("/api/v1/recovery/restarts")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
-                                          "userId": "failure-success-user",
-                                          "sessionId": "%s",
-                                          "reason": "INTERRUPTION",
-                                          "note": "긴급 슬랙 메시지 대응"
+                                          "userId": "%s",
+                                          "failureEventId": "%s"
                                         }
-                                        """.formatted(sessionId))
+                                        """.formatted(userId, failureEventId))
                 )
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Trace-Id"))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("FAILURE_CHECKED_IN"))
-                .andExpect(jsonPath("$.data.failureEventId").isString())
-                .andExpect(jsonPath("$.data.sessionId").value(sessionId))
-                .andExpect(jsonPath("$.data.reason").value("INTERRUPTION"))
-                .andExpect(jsonPath("$.data.sessionStatus").value("INTERRUPTED"))
+                .andExpect(jsonPath("$.message").value("RECOVERY_RESTARTED"))
+                .andExpect(jsonPath("$.data.restartEvent.id").isString())
+                .andExpect(jsonPath("$.data.restartEvent.failureEventId").value(failureEventId))
+                .andExpect(jsonPath("$.data.restartEvent.restartType").value("TEN_MINUTE_RESTART"))
+                .andExpect(jsonPath("$.data.restartEvent.suggestedMinutes").value(10))
+                .andExpect(jsonPath("$.data.recoverySession.sessionId").isString())
+                .andExpect(jsonPath("$.data.recoverySession.status").value("STARTED"))
                 .andExpect(jsonPath("$.data.restartSuggestion.restartType").value("TEN_MINUTE_RESTART"))
-                .andExpect(jsonPath("$.data.restartSuggestion.suggestedMinutes").value(10))
-                .andExpect(jsonPath("$.data.restartSuggestion.message").isString())
                 .andReturn();
 
         assertThat(readTraceIdFromBody(result)).isEqualTo(result.getResponse().getHeader("X-Trace-Id"));
     }
 
     @Test
-    void checkInReturnsBadRequestWhenReasonIsInvalid() throws Exception {
-        String sessionId = startSessionForUser("failure-invalid-reason-user");
-
+    void restartReturnsNotFoundWhenFailureEventDoesNotExist() throws Exception {
         mockMvc.perform(
-                        post("/api/v1/recovery/failures/check-in")
+                        post("/api/v1/recovery/restarts")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
-                                          "userId": "failure-invalid-reason-user",
-                                          "sessionId": "%s",
-                                          "reason": "UNKNOWN_REASON",
-                                          "note": "사유 미정"
+                                          "userId": "restart-not-found-user",
+                                          "failureEventId": "missing-failure-event"
                                         }
-                                        """.formatted(sessionId))
+                                        """)
                 )
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
-                .andExpect(jsonPath("$.error.details.reason").value("지원하지 않는 failure reason입니다."));
+                .andExpect(jsonPath("$.error.code").value("RESOURCE-404"))
+                .andExpect(jsonPath("$.error.details.failureEventId").value("missing-failure-event"));
     }
 
     @Test
-    void checkInReturnsConflictWhenSessionIsAlreadyCompleted() throws Exception {
-        String userId = "failure-completed-user";
+    void restartReturnsConflictWhenAnotherRecoverySessionIsAlreadyActive() throws Exception {
+        String userId = "restart-conflict-user";
         String sessionId = startSessionForUser(userId);
-        completeSession(userId, sessionId);
+        String failureEventId = checkInFailure(userId, sessionId);
 
         mockMvc.perform(
-                        post("/api/v1/recovery/failures/check-in")
+                        post("/api/v1/recovery/restarts")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
                                           "userId": "%s",
-                                          "sessionId": "%s",
-                                          "reason": "LOW_ENERGY",
-                                          "note": "에너지 저하"
+                                          "failureEventId": "%s"
                                         }
-                                        """.formatted(userId, sessionId))
+                                        """.formatted(userId, failureEventId))
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/restarts")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "failureEventId": "%s"
+                                        }
+                                        """.formatted(userId, failureEventId))
                 )
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
-                .andExpect(jsonPath("$.error.details.currentStatus").value("COMPLETED"));
+                .andExpect(jsonPath("$.error.details.session").value("이미 진행 중인 복귀 세션이 있습니다."));
     }
 
     private String startSessionForUser(String userId) throws Exception {
@@ -126,6 +132,26 @@ class FailureCheckInControllerIntegrationTest {
         return body.path("data").path("sessionId").asText();
     }
 
+    private String checkInFailure(String userId, String sessionId) throws Exception {
+        MvcResult result = mockMvc.perform(
+                        post("/api/v1/recovery/failures/check-in")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "sessionId": "%s",
+                                          "reason": "TOO_BIG",
+                                          "note": "범위를 줄여서 다시 시작해야 함"
+                                        }
+                                        """.formatted(userId, sessionId))
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        return body.path("data").path("failureEventId").asText();
+    }
+
     private String allocateFirstRecoveryTimebox(String userId) throws Exception {
         List<String> itemIds = saveInboxItems(userId);
         selectBig3(userId, itemIds.subList(0, 2));
@@ -139,14 +165,14 @@ class FailureCheckInControllerIntegrationTest {
                                           "timeboxes": [
                                             {
                                               "itemId": "%s",
-                                              "startAt": "2026-03-16T09:00:00+09:00",
-                                              "endAt": "2026-03-16T09:30:00+09:00",
+                                              "startAt": "2026-03-19T09:00:00+09:00",
+                                              "endAt": "2026-03-19T09:30:00+09:00",
                                               "firstRecoveryBlock": true
                                             },
                                             {
                                               "itemId": "%s",
-                                              "startAt": "2026-03-16T10:00:00+09:00",
-                                              "endAt": "2026-03-16T10:25:00+09:00",
+                                              "startAt": "2026-03-19T10:00:00+09:00",
+                                              "endAt": "2026-03-19T10:25:00+09:00",
                                               "firstRecoveryBlock": false
                                             }
                                           ]
@@ -168,9 +194,9 @@ class FailureCheckInControllerIntegrationTest {
                                         {
                                           "userId": "%s",
                                           "items": [
-                                            {"content": "복귀 대상 업무 정리"},
-                                            {"content": "실패 체크인 API 구현"},
-                                            {"content": "실패 사유 enum 점검"}
+                                            {"content": "재시작 대상 업무 정리"},
+                                            {"content": "실패 후 재시작 API 구현"},
+                                            {"content": "Recovery24 입력 검증"}
                                           ]
                                         }
                                         """.formatted(userId))
@@ -180,6 +206,7 @@ class FailureCheckInControllerIntegrationTest {
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         JsonNode savedItems = body.path("data").path("savedItems");
+
         List<String> itemIds = new ArrayList<>();
         for (JsonNode savedItem : savedItems) {
             itemIds.add(savedItem.path("id").asText());
@@ -197,20 +224,6 @@ class FailureCheckInControllerIntegrationTest {
                                           "itemIds": ["%s", "%s"]
                                         }
                                         """.formatted(userId, itemIds.get(0), itemIds.get(1)))
-                )
-                .andExpect(status().isOk());
-    }
-
-    private void completeSession(String userId, String sessionId) throws Exception {
-        mockMvc.perform(
-                        post("/api/v1/recovery/sessions/complete")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                          "userId": "%s",
-                                          "sessionId": "%s"
-                                        }
-                                        """.formatted(userId, sessionId))
                 )
                 .andExpect(status().isOk());
     }

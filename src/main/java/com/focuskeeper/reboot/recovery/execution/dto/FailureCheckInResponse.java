@@ -7,6 +7,7 @@ public record FailureCheckInResponse(
         String reason,
         String note,
         String occurredAt,
-        String sessionStatus
+        String sessionStatus,
+        RestartSuggestionResponse restartSuggestion
 ) {
 }

@@ -5,6 +5,7 @@ import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
+import com.focuskeeper.reboot.recovery.execution.dto.RestartSuggestionResponse;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEventEntity;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import java.time.OffsetDateTime;
@@ -18,13 +19,16 @@ public class FailureEventService {
 
     private final RecoverySessionService recoverySessionService;
     private final FailureEventRepository failureEventRepository;
+    private final RestartSuggestionPolicy restartSuggestionPolicy;
 
     public FailureEventService(
             RecoverySessionService recoverySessionService,
-            FailureEventRepository failureEventRepository
+            FailureEventRepository failureEventRepository,
+            RestartSuggestionPolicy restartSuggestionPolicy
     ) {
         this.recoverySessionService = recoverySessionService;
         this.failureEventRepository = failureEventRepository;
+        this.restartSuggestionPolicy = restartSuggestionPolicy;
     }
 
     @Transactional
@@ -41,7 +45,17 @@ public class FailureEventService {
                 OffsetDateTime.now()
         )).toResponse();
 
-        return new FailureCheckInResult(failureEvent, interruptedSession);
+        RestartSuggestionResponse restartSuggestion = restartSuggestionPolicy.suggest(reason);
+        return new FailureCheckInResult(failureEvent, interruptedSession, restartSuggestion);
+    }
+
+    public FailureEventResponse getFailureEventOrThrow(String userId, String failureEventId) {
+        return failureEventRepository.findByIdAndUserId(failureEventId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        Map.of("failureEventId", failureEventId)
+                ))
+                .toResponse();
     }
 
     private FailureReason parseReason(String reasonValue) {
@@ -57,7 +71,8 @@ public class FailureEventService {
 
     public record FailureCheckInResult(
             FailureEventResponse failureEvent,
-            RecoverySessionResponse recoverySession
+            RecoverySessionResponse recoverySession,
+            RestartSuggestionResponse restartSuggestion
     ) {
     }
 }
