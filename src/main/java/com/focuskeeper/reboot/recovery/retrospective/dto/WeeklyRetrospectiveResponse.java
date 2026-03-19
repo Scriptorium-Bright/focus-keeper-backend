@@ -11,6 +11,7 @@ public record WeeklyRetrospectiveResponse(
         long restartCount,
         String dominantFailureReason,
         String summary,
+        AntiSlipActionResponse antiSlipAction,
         String generatedAt
 ) {
 }

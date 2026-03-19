@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.recovery.retrospective.entity;
 
+import com.focuskeeper.reboot.recovery.retrospective.dto.AntiSlipActionResponse;
 import com.focuskeeper.reboot.recovery.retrospective.dto.WeeklyRetrospectiveResponse;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,6 +48,15 @@ public class WeeklyRetrospective {
     @Column(name = "summary", nullable = false, length = 500)
     private String summary;
 
+    @Column(name = "anti_slip_action_code", nullable = false, length = 50)
+    private String antiSlipActionCode;
+
+    @Column(name = "anti_slip_action_title", nullable = false, length = 120)
+    private String antiSlipActionTitle;
+
+    @Column(name = "anti_slip_action_description", nullable = false, length = 300)
+    private String antiSlipActionDescription;
+
     @Column(name = "generated_at", nullable = false)
     private OffsetDateTime generatedAt;
 
@@ -65,6 +75,9 @@ public class WeeklyRetrospective {
             long restartCount,
             String dominantFailureReason,
             String summary,
+            String antiSlipActionCode,
+            String antiSlipActionTitle,
+            String antiSlipActionDescription,
             OffsetDateTime generatedAt
     ) {
         this.id = id;
@@ -78,6 +91,9 @@ public class WeeklyRetrospective {
         this.restartCount = restartCount;
         this.dominantFailureReason = dominantFailureReason;
         this.summary = summary;
+        this.antiSlipActionCode = antiSlipActionCode;
+        this.antiSlipActionTitle = antiSlipActionTitle;
+        this.antiSlipActionDescription = antiSlipActionDescription;
         this.generatedAt = generatedAt;
     }
 
@@ -92,6 +108,7 @@ public class WeeklyRetrospective {
             long restartCount,
             String dominantFailureReason,
             String summary,
+            AntiSlipActionResponse antiSlipAction,
             OffsetDateTime generatedAt
     ) {
         return new WeeklyRetrospective(
@@ -106,6 +123,9 @@ public class WeeklyRetrospective {
                 restartCount,
                 dominantFailureReason,
                 summary,
+                antiSlipAction.actionCode(),
+                antiSlipAction.title(),
+                antiSlipAction.description(),
                 generatedAt
         );
     }
@@ -118,6 +138,7 @@ public class WeeklyRetrospective {
             long restartCount,
             String dominantFailureReason,
             String summary,
+            AntiSlipActionResponse antiSlipAction,
             OffsetDateTime generatedAt
     ) {
         this.sessionStartedCount = sessionStartedCount;
@@ -127,6 +148,9 @@ public class WeeklyRetrospective {
         this.restartCount = restartCount;
         this.dominantFailureReason = dominantFailureReason;
         this.summary = summary;
+        this.antiSlipActionCode = antiSlipAction.actionCode();
+        this.antiSlipActionTitle = antiSlipAction.title();
+        this.antiSlipActionDescription = antiSlipAction.description();
         this.generatedAt = generatedAt;
     }
 
@@ -142,6 +166,11 @@ public class WeeklyRetrospective {
                 restartCount,
                 dominantFailureReason,
                 summary,
+                new AntiSlipActionResponse(
+                        antiSlipActionCode,
+                        antiSlipActionTitle,
+                        antiSlipActionDescription
+                ),
                 generatedAt.toString()
         );
     }

@@ -28,19 +28,22 @@ public class WeeklyRetrospectiveService {
     private final FailureEventRepository failureEventRepository;
     private final RestartEventRepository restartEventRepository;
     private final RetrospectiveSummaryPolicy retrospectiveSummaryPolicy;
+    private final AntiSlipActionPolicy antiSlipActionPolicy;
 
     public WeeklyRetrospectiveService(
             WeeklyRetrospectiveRepository weeklyRetrospectiveRepository,
             RecoverySessionRepository recoverySessionRepository,
             FailureEventRepository failureEventRepository,
             RestartEventRepository restartEventRepository,
-            RetrospectiveSummaryPolicy retrospectiveSummaryPolicy
+            RetrospectiveSummaryPolicy retrospectiveSummaryPolicy,
+            AntiSlipActionPolicy antiSlipActionPolicy
     ) {
         this.weeklyRetrospectiveRepository = weeklyRetrospectiveRepository;
         this.recoverySessionRepository = recoverySessionRepository;
         this.failureEventRepository = failureEventRepository;
         this.restartEventRepository = restartEventRepository;
         this.retrospectiveSummaryPolicy = retrospectiveSummaryPolicy;
+        this.antiSlipActionPolicy = antiSlipActionPolicy;
     }
 
     @Transactional
@@ -92,6 +95,11 @@ public class WeeklyRetrospectiveService {
                 restartCount,
                 dominantFailureReason
         );
+        var antiSlipAction = antiSlipActionPolicy.suggest(
+                sessionCompletedCount,
+                sessionInterruptedCount,
+                dominantFailureReason
+        );
 
         OffsetDateTime generatedAt = OffsetDateTime.now();
         WeeklyRetrospective retrospective = weeklyRetrospectiveRepository.findByUserIdAndWeekStart(userId, weekStart)
@@ -104,6 +112,7 @@ public class WeeklyRetrospectiveService {
                             restartCount,
                             dominantFailureReason == null ? null : dominantFailureReason.name(),
                             summary,
+                            antiSlipAction,
                             generatedAt
                     );
                     return existing;
@@ -119,6 +128,7 @@ public class WeeklyRetrospectiveService {
                         restartCount,
                         dominantFailureReason == null ? null : dominantFailureReason.name(),
                         summary,
+                        antiSlipAction,
                         generatedAt
                 ));
 
