@@ -318,6 +318,112 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiResponseDailyKpiWatermark"
+  /api/v1/recovery/analytics/failure-hours:
+    post:
+      tags: [Analytics]
+      summary: Generate failure hour distribution
+      operationId: generateFailureHourDistribution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFailureHourDistributionRequest"
+      responses:
+        "200":
+          description: Failure hour distribution generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseFailureHourDistribution"
+    get:
+      tags: [Analytics]
+      summary: Get failure hour distribution
+      operationId: getFailureHourDistribution
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Failure hour distribution fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseFailureHourDistribution"
+  /api/v1/recovery/analytics/friction-signals:
+    post:
+      tags: [Analytics]
+      summary: Generate friction signals
+      operationId: generateFrictionSignals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFrictionSignalsRequest"
+      responses:
+        "200":
+          description: Friction signals generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseFrictionSignals"
+    get:
+      tags: [Analytics]
+      summary: Get friction signals
+      operationId: getFrictionSignals
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Friction signals fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseFrictionSignals"
+  /api/v1/recovery/analytics/friction-segments:
+    get:
+      tags: [Analytics]
+      summary: Get friction segments
+      operationId: getFrictionSegments
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Friction segments fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseFrictionSegments"
 components:
   schemas:
     ApiResponseSaveInboxItems:
@@ -461,6 +567,45 @@ components:
         message:
           type: string
           example: DAILY_KPI_WATERMARK_FETCHED
+        traceId:
+          type: string
+    ApiResponseFailureHourDistribution:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/FailureHourDistributionResponse"
+        message:
+          type: string
+          example: FAILURE_HOUR_DISTRIBUTION_FETCHED
+        traceId:
+          type: string
+    ApiResponseFrictionSignals:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/FrictionSignalReportResponse"
+        message:
+          type: string
+          example: FRICTION_SIGNALS_FETCHED
+        traceId:
+          type: string
+    ApiResponseFrictionSegments:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/FrictionSegmentReportResponse"
+        message:
+          type: string
+          example: FRICTION_SEGMENTS_FETCHED
         traceId:
           type: string
     SaveInboxItemsRequest:
@@ -894,6 +1039,110 @@ components:
         updatedAt:
           type: string
           format: date-time
+    GenerateFailureHourDistributionRequest:
+      type: object
+      required: [userId, metricDate]
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+    FailureHourDistributionResponse:
+      type: object
+      properties:
+        reportId:
+          type: string
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        totalFailureCount:
+          type: integer
+        peakFailureHour:
+          type: integer
+          nullable: true
+        peakFailureWindow:
+          type: string
+          nullable: true
+        generatedAt:
+          type: string
+          format: date-time
+        hourlyMetrics:
+          type: array
+          items:
+            $ref: "#/components/schemas/FailureHourMetricResponse"
+    FailureHourMetricResponse:
+      type: object
+      properties:
+        hourOfDay:
+          type: integer
+        failureCount:
+          type: integer
+        failureRatio:
+          type: number
+          format: double
+        peakHour:
+          type: boolean
+    GenerateFrictionSignalsRequest:
+      type: object
+      required: [userId, metricDate]
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+    FrictionSignalReportResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/FrictionSignalResponse"
+    FrictionSignalResponse:
+      type: object
+      properties:
+        signalType:
+          type: string
+          enum: [TOO_BIG_REPEAT, LATE_RESTART]
+        active:
+          type: boolean
+        evidenceCount:
+          type: integer
+        generatedAt:
+          type: string
+          format: date-time
+    FrictionSegmentReportResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/FrictionSegmentResponse"
+    FrictionSegmentResponse:
+      type: object
+      properties:
+        segmentType:
+          type: string
+          enum: [MORNING_SLIP, OVERSIZED_TASK, LATE_RESTART]
+        title:
+          type: string
+        summary:
+          type: string
+        evidence:
+          type: string
     AppHealthResponse:
       type: object
       required:

@@ -141,5 +141,25 @@
   - 설명: 일간 KPI 파이프라인 워터마크 조회(T-022-4)
   - 제약: `userId` 필수
   - 성공 메시지: `DAILY_KPI_WATERMARK_FETCHED`
+- `POST /api/v1/recovery/analytics/failure-hours`
+  - 설명: 시간대별 실패 분포와 `PeakFailureHour` 생성(F-027 / 13.1)
+  - 제약: `metricDate`는 `yyyy-MM-dd`
+  - 성공 메시지: `FAILURE_HOUR_DISTRIBUTION_GENERATED`
+- `GET /api/v1/recovery/analytics/failure-hours`
+  - 설명: 생성된 시간대별 실패 분포 조회(F-027 / 13.1)
+  - 제약: `userId`, `metricDate` 필수
+  - 성공 메시지: `FAILURE_HOUR_DISTRIBUTION_FETCHED`
+- `POST /api/v1/recovery/analytics/friction-signals`
+  - 설명: 반복 실패 / 지연 재시작 signal table 생성(F-027 / 13.2)
+  - 제약: `metricDate`는 `yyyy-MM-dd`
+  - 성공 메시지: `FRICTION_SIGNALS_GENERATED`
+- `GET /api/v1/recovery/analytics/friction-signals`
+  - 설명: 생성된 friction signal 조회(F-027 / 13.2)
+  - 제약: `userId`, `metricDate` 필수
+  - 성공 메시지: `FRICTION_SIGNALS_FETCHED`
+- `GET /api/v1/recovery/analytics/friction-segments`
+  - 설명: failure-hour report와 friction signal을 조합한 최소 세그먼트 조회(F-028 / 13.3)
+  - 제약: `userId`, `metricDate` 필수, failure-hour/signal 선행 생성 필요
+  - 성공 메시지: `FRICTION_SEGMENTS_FETCHED`
 
 상세 스키마는 `api/openapi.yaml`을 기준으로 한다.
