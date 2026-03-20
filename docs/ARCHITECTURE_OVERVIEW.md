@@ -31,7 +31,7 @@ flowchart LR
   API --> OBS[Logs / Metrics / Traces]
   DB --> BATCH[Spring Batch Jobs]
   BATCH --> MART[(KPI / Signal Tables)]
-  AF[Airflow] --> BATCH
+  AF[Airflow<br/>Phase 14 예정] -.-> BATCH
   MART --> API
   BATCH --> AIQ[Async AI Work Queue]
   AIQ --> AI[LLM Worker]
@@ -118,7 +118,7 @@ flowchart LR
 - API 서비스: Spring Boot 단일 애플리케이션
 - 주 저장소: Spring Data JPA + RDB (`H2` 로컬 기준, `PostgreSQL` 운영 대상)
 - 배치 실행기: Spring Batch
-- 오케스트레이션: Airflow
+- 오케스트레이션: 현재는 애플리케이션 내부 실행, Airflow는 Phase 14 예정
 - 운영 가시성: Actuator + Metrics + Grafana/Alerting
 - 비동기 AI 경로: Worker + Queue + LLM API
 
@@ -127,27 +127,63 @@ flowchart LR
 - 핵심 KPI와 DQ 지표는 대시보드에서 확인 가능해야 한다.
 - 복귀 코어 경로의 장애는 AI/배치 장애와 분리되어야 한다.
 
-## 9. 확장 포인트
+## 9. 현재 확정 기술 스택과 도입 경계
 
-### 9.1 Event Relay
+### 9.1 현재 확정 스택
+
+- Language: `Java 21`
+- Framework: `Spring Boot 3.3.8`
+- Build: `Gradle 8.13 (Wrapper)`
+- API: `REST (/api/v1)`
+- Validation: `spring-boot-starter-validation`
+- Observability Base: `Spring Actuator`
+- Test: `JUnit 5`, `Spring Boot Test`, `MockMvc`
+- CI/CD: `GitHub Actions`
+
+### 9.2 데이터/메시징/분석 기본 경로
+
+- 기본 트랜잭션 저장소: `PostgreSQL` (운영 대상)
+- 캐시/저지연 조회: `Redis` (필요 시 도입)
+- 메시징:
+  - Stage 0: 내부 비동기 + 배치 재동기화
+  - Stage 1: Transactional Outbox + Relay Worker
+  - Stage 2: Outbox + Message Broker
+- 분석:
+  - 기본 경로: `Spring Batch + RDB Native SQL`
+  - 확장 경로: `Spark + Data Lake + Redis`
+
+### 9.3 의도적으로 늦춘 기술
+
+- `Kafka`
+- `Transactional Outbox`
+- `Spark`
+- `MCP`
+
+원칙:
+- 현재 기본 스택에 `Spark`는 포함하지 않는다.
+- 확장 기술은 운영 복잡도보다 명확한 이점이 생길 때만 기본 경로로 승격한다.
+
+## 10. 확장 포인트
+
+### 10.1 Event Relay
 
 - 기본: DB 기반 단순 경로
 - 확장: Outbox + Relay
 - 조건: 비동기 실패율, 재처리 횟수, 외부 소비자 증가
 
-### 9.2 Analytics Engine
+### 10.2 Analytics Engine
 
 - 기본: Batch SQL + RDB
 - 확장: Spark/Data Lake
 - 조건: 처리량, 데이터량, 재처리 비용이 임계치를 넘는 경우
 
-## 10. 현재 아키텍처의 의도적 한계
+## 11. 현재 아키텍처의 의도적 한계
 
 - 대규모 분산 아키텍처를 전제로 하지 않는다.
 - Kafka/Spark를 기본값으로 두지 않는다.
 - 소셜/B2B/인접 세그먼트 확장을 코어 경로보다 우선하지 않는다.
 
-## 11. 관련 문서
+## 12. 관련 문서
 
 - 요구사항/기준선: `docs/spec/ENGINEERING_SPEC.md`
 - 기능/프로세스: `docs/spec/FEATURE_PROCESS_SPEC.md`
@@ -156,4 +192,3 @@ flowchart LR
 - 데이터 파이프라인: `docs/spec/DATA_PIPELINE_ETL_BLUEPRINT.md`
 - 배치 운영: `docs/spec/BATCH_RUNBOOK.md`
 - KPI 정의: `docs/spec/RECOVERY_METRICS.md`
-- 기술 스택: `docs/stack.md`

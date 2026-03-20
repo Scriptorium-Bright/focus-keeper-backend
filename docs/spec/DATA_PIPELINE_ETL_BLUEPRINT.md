@@ -25,7 +25,8 @@
 ## 4. 아키텍처 원칙
 
 - 기본 경로: `Spring Batch + RDB`
-- 오케스트레이션: `Airflow` (스케줄/재처리/의존성 제어)
+- 현재 오케스트레이션: 애플리케이션 내부 실행 + `Spring Batch`
+- 확장 오케스트레이션: `Airflow`는 `Phase 14`에서 스케줄/재처리/의존성 제어 계층으로 도입
 - 이벤트 확장: `Kafka`는 트리거 충족 시 도입
 - 핵심 원칙:
   - 사용자 동기 API 경로와 배치 경로 분리
@@ -100,12 +101,13 @@
 - 실행 메타 기록(run_id, processed_rows, duration, status)
 - 성공 시 워터마크 갱신
 
-## 7. Airflow 도입 위치와 역할
+## 7. Airflow 도입 예정 위치와 역할
 
-Airflow는 "작업 오케스트레이션" 담당이다.  
+현재 기본 경로는 `Spring Batch + 애플리케이션 내부 실행`이다.  
+Airflow는 `Phase 14`에서 "작업 오케스트레이션" 계층으로 정식 도입한다.  
 실제 계산 로직은 SQL/Spring Batch에 두고, Airflow는 순서/스케줄/재시도/백필을 관리한다.
 
-1차 DAG:
+정식 도입 시 1차 DAG:
 - `daily_kpi_pipeline`
   - extract -> cleanse -> compute_kpi -> load_mart -> dq_check
   - 부가 산출물: `mart_failure_hourly`, `peak_failure_hour`
@@ -143,7 +145,7 @@ Kafka를 도입하면:
 
 채용 포트폴리오 효과:
 - "데이터 파이프라인 개발 및 운영" 경험을 구조적으로 설명 가능
-- Java/Python/SQL + Airflow + (조건부) Kafka 역량을 근거로 제시 가능
+- 현재는 `Java/SQL + Spring Batch` 기반 파이프라인으로 설명하고, 이후 `Airflow + (조건부) Kafka` 승격 경로를 근거로 제시 가능
 
 ## 10. 운영 지표
 
@@ -151,8 +153,8 @@ Kafka를 도입하면:
   - `batch_duration_seconds`
   - `batch_failed_runs_total`
   - `batch_watermark_lag_seconds`
-  - `airflow_dag_success_ratio`
-  - `airflow_task_retry_total`
+  - `airflow_dag_success_ratio` (Phase 14 이후)
+  - `airflow_task_retry_total` (Phase 14 이후)
 - 데이터 품질:
   - `dq_completeness_ratio`
   - `dq_duplicate_count`

@@ -20,9 +20,9 @@
 | F-004 | 복귀 세션 시작/완료/중단 | 4~5 | session 상태 이벤트 | 복귀 세션 기록 | done |
 | F-005 | 실패 체크인 | 4~5 | failure reason | 실패 이벤트 기록 | done |
 | F-006 | 10분 복귀 재시작 제안/실행 | 5 | failure event | restart 이벤트 | done |
-| F-007 | 주간 회고 집계 생성 | 6 | 7일 실행 데이터 | 주간 집계 결과 | planned |
-| F-008 | 주간 회고 조회 | 6 | user/week 입력 | 회고 리포트 | planned |
-| F-009 | anti-slip action 추천 | 6 | 회고 입력 | 다음 행동 1개 | planned |
+| F-007 | 주간 회고 집계 생성 | 6 | 7일 실행 데이터 | 주간 집계 결과 | done |
+| F-008 | 주간 회고 조회 | 6 | user/week 입력 | 회고 리포트 | done |
+| F-009 | anti-slip action 추천 | 6 | 회고 입력 | 다음 행동 1개 | done |
 | F-010 | 다음날 오전 첫 복귀 블록 리마인더 예약 | 7 | 이탈/실패 신호 | 예약된 알림 작업 | planned |
 | F-011 | 미복귀 사용자 감지 | 7 | timebox/session 상태 | 미복귀 사용자 목록 | planned |
 | F-012 | 복귀 메시지 발송 결과 기록 | 7 | 메시지 요청 | 발송 결과 | planned |
@@ -35,9 +35,7 @@
 | F-019 | 단일 ICP 랜딩 유입 이벤트 수집 | 10 | landing/referrer | 유입 이벤트 | planned |
 | F-020 | 실패 다음날 복귀 진단 결과 생성 | 10 | 진단 응답 | diagnosis result | planned |
 | F-021 | 딥링크 온보딩 어트리뷰션 | 10 | deep link/open event | attribution result | planned |
-| F-022 | KPI 일간 mart 적재 | 11 | raw/clean events | KPI daily mart | planned |
-| F-023 | 코호트 리텐션 분석 | 11 | KPI mart | cohort report | planned |
-| F-024 | 전환 퍼널 분석 | 11 | event funnel data | funnel report | planned |
+| F-022 | KPI 일간 mart 적재 | 11 | recovery events | KPI daily mart + watermark + DQ report | done |
 | F-025 | 가벼운 실행 확인 초대 | 12 | invite target | invite record | planned |
 | F-026 | 가벼운 실행 체크인/격려 | 12 | check-in event | accountability record | planned |
 | F-027 | 복귀 실패 패턴 신호 계산 | 13 | execution events | friction signals | planned |
@@ -56,6 +54,8 @@
 
 포지셔닝 규칙:
 - `Timebox`, `세션`, `타이머`는 제품 정체성이 아니라 복귀 행동을 실행시키는 인터랙션으로 다룬다.
+- `휴식`은 MVP 코어가 아니라 실행 안정화용 보조 기능으로 다룬다.
+- 계획된 휴식은 `BREAK timebox`로 모델링하고, 실패/이탈과 섞지 않는다.
 
 포트폴리오 규칙:
 - 기능 설명보다 각 기능이 해결하는 문제와 검증 결과를 먼저 기록한다.
@@ -85,13 +85,26 @@
 - F-006 10분 복귀 재시작 제안/실행: `POST /api/v1/recovery/restarts`
   - 입력: `userId`, `failureEventId`
   - 출력: `restartEvent`, `recoverySession`, `restartSuggestion`
+- F-007 ~ F-009 주간 회고 생성/조회/anti-slip action:
+  - `POST /api/v1/recovery/retrospectives/weekly`
+  - `GET /api/v1/recovery/retrospectives/weekly`
+  - 입력: `userId`, `weekStart`
+  - 출력: `summary`, `antiSlipAction`, `failureReasonBreakdown`, `peakFailureHour`
+- F-022 KPI 일간 mart 적재 + 백필/품질:
+  - `POST /api/v1/recovery/analytics/kpis/daily`
+  - `GET /api/v1/recovery/analytics/kpis/daily`
+  - `GET /api/v1/recovery/analytics/kpis/daily/quality`
+  - `POST /api/v1/recovery/analytics/kpis/daily/backfill`
+  - `GET /api/v1/recovery/analytics/kpis/daily/watermark`
+  - 입력: `userId`, `metricDate | startDate/endDate`
+  - 출력: `dailyKpi`, `qualityReport`, `watermark`, `backfillResult`
 
 ### 2.2 포트폴리오 사례 후보 매핑
 
 | 사례 ID | 연결 기능 | 핵심 문제 | 권장 시각 자료 |
 |---|---|---|---|
 | C-01 | F-003 ~ F-006 | 전날 실패 후 다음날 복귀 루프가 끊기는 문제 | 시퀀스 다이어그램 |
-| C-02 | F-022 ~ F-024 | 복귀 KPI를 신뢰성 있게 계산해야 하는 문제 | 데이터 플로우 |
+| C-02 | F-022 | 복귀 KPI를 신뢰성 있게 계산해야 하는 문제 | 데이터 플로우 |
 | C-03 | F-027 ~ F-030 | 반복 실패/운영 이상을 조기 감지해야 하는 문제 | 아키텍처 다이어그램 |
 | C-04 | F-032 ~ F-034 | AI 회고를 넣되 코어 경로를 오염시키지 않아야 하는 문제 | 비동기 흐름도 |
 
@@ -142,6 +155,40 @@
 | T-006-3 | 실패 -> 재시작 통합 테스트 추가 | 체크인 직후 재시작 플로우 통과 |
 | T-006-4 | Recovery24 입력 이벤트 검증 | 배치 입력에 필요한 필드 누락 없음 확인 |
 
+### 2.5 Phase 11 세부 작업 분해 (`T-00x`)
+
+#### F-022 KPI 일간 mart 적재
+
+| Task ID | 작업 | 완료 기준 |
+|---|---|---|
+| T-022-1 | KPI 원천 이벤트 계약 고정 | `recovery_sessions`, `failure_events`, `restart_events`, `cycle_events`, `timeboxes`를 KPI 원천으로 확정하고 누락/중복/시간대 기준 문서화 |
+| T-022-2 | 일간 KPI 계산 로직 구현 | `Recovery24`, `Recovery48`, `RestartCount24/48`, `TTR`, `CycleCompletionRate`, `PlanExecutionRate`, `EstimationError` 계산 쿼리 또는 배치 step 구현 |
+| T-022-3 | `mart_kpi_daily` upsert 구현 | 사용자/일자 기준 멱등 적재와 재실행 안전성 보장 |
+| T-022-4 | 워터마크/백필 경로 구현 | 특정 기간 재집계와 부분 실패 복구가 가능한 실행 경로 제공 |
+| T-022-5 | DQ 체크 추가 | 중복 이벤트, invalid enum, timezone 불일치, late arrival를 검증하고 실패 시 경고 또는 배치 실패 처리 |
+
+보류된 보조 분석:
+- 코호트/퍼널은 `실사용 로그 확보 후`, KPI mart만으로 설명되지 않는 질문이 생겼을 때 재오픈한다.
+
+### 2.6 Phase 13 세부 작업 분해 (`T-00x`)
+
+#### F-027 복귀 실패 패턴 신호 계산
+
+| Task ID | 작업 | 완료 기준 |
+|---|---|---|
+| T-027-1 | 시간대별 실패 분포 집계 | 사용자 로컬 시간 기준 `FailureCountByHour`, `FailureRatioByHour`, `PeakFailureHour` 계산 |
+| T-027-2 | 반복 실패 신호 계산 | `too_big` 반복, `late restart`, `low_energy` 집중 시간대 등 최소 2개 signal 계산 |
+| T-027-3 | signal table upsert | 사용자/기간 기준 멱등 적재와 재실행 안전성 보장 |
+| T-027-4 | signal 검증 테스트 | 로컬 시간대, 중복 이벤트, 경계 시각 기준 검증 통과 |
+
+#### F-028 복귀 마찰 세그먼트 리포트
+
+| Task ID | 작업 | 완료 기준 |
+|---|---|---|
+| T-028-1 | friction segment 기준 정의 | `morning slip`, `late restart`, `oversized task` 등 세그먼트 기준 문서화 |
+| T-028-2 | segment report 생성 | signal table 기반 사용자/기간 리포트 생성 |
+| T-028-3 | 조회 API 또는 리포트 출력 | 날짜/사용자 기준 segment 결과를 읽을 수 있게 제공 |
+
 ## 3. 핵심 사용자 프로세스
 
 ### P-01 Daily Recovery Planning
@@ -174,9 +221,15 @@
 1. 배치가 7일 데이터를 집계한다.
 2. 규칙 기반 회고 리포트를 생성한다.
 3. 다음 주 anti-slip action 1개를 제안한다.
+4. 계획된 휴식은 `BREAK timebox`로 구분해 실패 데이터와 분리 해석한다.
 
 확장(Phase 15):
 - 비동기 AI 회고 생성으로 대체/보강
+
+Phase 6 실행 규칙:
+- `TimeboxType = WORK / BREAK`
+- `RecoverySession`은 우선 `WORK` 블록만 실행 기록으로 남긴다.
+- `BREAK`는 계획된 휴식이므로 `FailureEvent`를 생성하지 않는다.
 
 ## 4. 운영 프로세스
 
@@ -190,7 +243,7 @@
 
 도구:
 - Spring Batch(계산)
-- Airflow(오케스트레이션)
+- Airflow(Phase 14 오케스트레이션 예정)
 
 ### O-02 재처리(Backfill)
 
@@ -204,7 +257,7 @@
 | 경계 | 동기/비동기 | 담당 계층 | 비고 |
 |---|---|---|---|
 | 계획/복귀 사용자 요청 | 동기 | API + Service | 사용자 체감 지연 최소화 |
-| KPI 집계/회고 생성 | 비동기 | Batch + Airflow | 재시도/재처리 가능 |
+| KPI 집계/회고 생성 | 비동기 | Spring Batch (현재), Airflow (Phase 14 예정) | 재시도/재처리 가능 |
 | AI 회고 | 비동기 | Worker | timeout/retry/fallback 필수 |
 
 ## 6. 데이터 관점 기능 경계

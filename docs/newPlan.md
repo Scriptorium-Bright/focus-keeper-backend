@@ -71,7 +71,7 @@
 - `weekly_retrospective_input` 배치 구현
 - `recovery_friction_signals` 계산 구현
 - Outbox Stage 1 검증 및 운영 근거 수집
-- 코호트/실험군 분석 리포트
+- 실제 로그 확보 후 코호트/실험군 분석 리포트 재오픈 조건 정리
 
 ## Portfolio Packaging Principle
 - 포트폴리오는 기능 목록이 아니라 `문제 -> 해결 방법 -> 결과` 구조로 정리한다.
@@ -92,7 +92,7 @@
 - Phase 11~13: KPI 계산 문제 정의 + 데이터 플로우 + 배치/DQ/재처리 증거
 - Phase 14~15: 운영 문제 정의 + 아키텍처/알림 흐름 + 장애/비용 가드레일 증거
 - 구체적인 사례 백로그는 `docs/PORTFOLIO_CASEBOARD.md`에서 관리한다.
-- 제출 패킷 구성 템플릿은 `docs/PORTFOLIO_PACKET_TEMPLATE.md`를 따른다.
+- 제출 패킷 구성 기준은 `docs/PORTFOLIO_PLAYBOOK.md`를 따른다.
 - Phase 종료 멈춤 기준은 `docs/PHASE_EXIT_PROTOCOL.md`를 따른다.
 
 ## Legacy Baseline
@@ -111,6 +111,69 @@
 - Retention: D1 / D7 / D30
 - Revenue: Free -> Paid, MRR, Churn, Blended ARPPU
 - 상세 수식/해석: `docs/spec/RECOVERY_METRICS.md`
+
+## KPI Operating Tracks
+
+### Career KPI (우선)
+
+| KPI | 초기 목표 | 의미 |
+|---|---|---|
+| 테스트 통과율 | 100% (main 기준) | 안정성/기본 품질 |
+| 핵심 플로우 E2E | 복귀 루프 100% 자동화 | 도메인 설명력 |
+| CI 안정성 | 최근 14일 성공률 >= 95% | 협업 가능성 |
+| API 계약 일치율 | 계약 위반 0건 | 백엔드 표준 준수 |
+| ADR/Spec 최신성 | 주요 결정 후 24시간 내 반영 | 의사결정 추적성 |
+| 관측성 커버리지 | 에러/지연/배치 지표 수집 100% | 운영 역량 |
+
+### Venture KPI (검증)
+
+| KPI | 초기 가설 | 의미 |
+|---|---|---|
+| Activation(24h) | >= 60% | 가입 첫날 첫 복귀 블록 설정/시작 효율 |
+| Recovery24 | >= 20% | 핵심 가치(빠른 복귀) 메인 지표 |
+| Recovery48 | >= 25% | 롱테일 복귀 회수율 보조 지표 |
+| RestartCount24/48 | 상승 추세 | 복귀 강도 및 반복 실행성 |
+| TTR | 지속 하락 추세 | 복귀 속도 개선 |
+| CycleCompletionRate | >= 65% | 재시작 이후 실제 실행 품질 |
+| EffectiveFocusMinutes | 지속 상승 추세 | 유효 집중 시간 확보 |
+| PlanExecutionRate | >= 60% | 계획한 타임박스 실행력 |
+| EstimationError | 지속 하락 추세 | 시간 예측 정확도 개선 |
+| D7 Retention | >= 25% | 초기 유지력 |
+| D14 Retention | >= 35% | 중기 유지력 가설 |
+| Paid Intent | >= 20% | 과금 가능성 |
+
+### KPI 우선순위 규칙
+
+1. Career KPI 미달 시 신규 기능 개발보다 품질/운영 개선을 우선한다.
+2. Venture KPI 미달 시 기능 확장보다 ICP/메시지/온보딩 수정을 우선한다.
+3. 두 트랙이 충돌하면 Career Track을 우선한다.
+
+### 판단 게이트
+
+- Go to Phase+:
+  - Career KPI의 필수 항목(테스트, CI, 계약 일치, 관측성)을 통과해야 다음 핵심 Phase 진행
+- Go to Venture Scale:
+  - Recovery24, Recovery48, TTR/CycleCompletionRate 개선 추세, Paid Intent 목표 충족 시에만 확장 기능 투자
+
+### 리포팅 주기
+
+- Career KPI: 주 1회
+- Venture KPI: 베타 기간 중 주 2회
+- Phase 종료 시: `docs/refactor.md`에 High/Mid/Low와 함께 요약
+
+### Trigger Evidence KPI (Kafka/Outbox 판정용)
+
+| KPI | 임계치 | 의미 |
+|---|---|---|
+| AsyncFailureRate(7d) | > 0.1% | 비동기 처리 안정성 한계 |
+| ManualRecoveryTimeAvg | > 30분 | 운영 복구 비용 증가 |
+| RelayReprocessCount(month) | >= 5회 | 재처리 운영 부담 증가 |
+| EventConsumers | >= 2 | 브로커 기반 분리 필요성 |
+
+운영 규칙:
+- 트리거 KPI는 Grafana에서 7일 추세로 확인한다.
+- 임계치 초과 시 `lab/kafka-adapter` 검증 결과와 함께 도입 여부를 결정한다.
+- 단발성 스파이크만으로 기본 경로를 변경하지 않는다.
 
 ## Experiment Policy
 - Trial 실험: 7일 vs 14일 vs 21일
@@ -164,6 +227,9 @@
 - 주간 회고 생성/열람
 - "왜 다음날까지 끌렸는가" 요약
 - 다음 주 anti-slip action 1개 추천
+- `TimeboxType = WORK / BREAK` 도입
+- 휴식은 실패가 아니라 계획된 `BREAK timebox`로 먼저 다룬다.
+- 세션 기록은 우선 `WORK timebox`에만 연결하고, 휴식 추적/추천 고도화는 후속 확장으로 미룬다.
 
 ### Phase 7 Next-Morning Recovery Reminder
 - 다음날 오전 첫 복귀 블록 리마인더
@@ -183,9 +249,16 @@
 - 실패 다음날 복귀 진단 결과 기반 딥링크 온보딩
 - 직장인 커뮤니티/뉴스레터 채널 실험
 
-### Phase 11 Product Analytics
-- KPI 대시보드(Activation, Recovery24, Recovery48, RestartCount24/48, TTR, CycleCompletionRate, PlanExecutionRate, EstimationError, D1/D7/D30)
-- 코호트/전환 퍼널 분석
+### Phase 11 KPI Pipeline Baseline
+- 일간 KPI mart 적재(Recovery24, Recovery48, RestartCount24/48, TTR, CycleCompletionRate, PlanExecutionRate, EstimationError)
+- 워터마크/백필 경로 구축
+- DQ 리포트 생성/조회
+- 코호트/퍼널은 실제 로그 확보 후 재오픈 판단
+
+Phase 11 잠금 기준:
+- 현재 Phase 11 본체는 `11.1`, `11.4`, `11.5`로 고정한다.
+- `11.2`, `11.3`은 실사용 로그가 쌓이고 KPI mart만으로 설명되지 않는 질문이 생길 때만 재오픈한다.
+- Airflow는 이 Phase에 포함하지 않고, `Phase 14` 정식 도입으로 유지한다.
 
 ### Phase 12 Light Accountability (Deferred)
 - 1:1 또는 소규모 실행 확인/격려
@@ -194,6 +267,12 @@
 ### Phase 13 Recovery Friction Analytics (Pragmatic)
 - Spring Batch + RDB 기반 반복 실패/다음날 미복귀 패턴 분석
 - 과부하/번아웃 신호는 복귀 실패 보조 지표로만 사용
+
+권장 시작 순서:
+1. `13.1` 시간대별 실패 분포와 `PeakFailureHour` 계산
+2. `13.2` 반복 실패/지연 재시작 signal table 계산
+3. `13.3` friction segment report 또는 조회 API
+4. `13.x` 종료 후 `docs/refactor.md`, `docs/CHANGE_CASEBOOK.md`, `docs/PORTFOLIO_CASEBOARD.md` 동기화
 
 ### Phase 14 Watchtower
 - Sentry + Prometheus/Grafana + 알림 룰
@@ -207,10 +286,35 @@
 - 기능 목록 및 프로세스 상세 기준: `docs/spec/FEATURE_PROCESS_SPEC.md`
 
 ## Priority Order (취업 관점)
-- P0: Phase 1, 2, 4, 5, 8, 11, 14
-- P1: Phase 3, 6, 7, 9, 15
-- P2: Phase 10
-- P3: Phase 12, 13
+- P0: Phase 1, 2, 4, 5, 11, 14
+- P1: Phase 6, 13
+- P2: Phase 3, 7, 9, 10, 15
+- P3: Phase 8, 12
+
+## 기술 승격 순서 (취업 관점)
+- `1단계`: `Phase 11`에서 `Spring Batch + RDB SQL` 기준선부터 완성한다.
+  - 목표: `daily_kpi_pipeline`, mart 적재, 백필, DQ, 재처리 운영 근거 확보
+  - 이유: 지금 프로젝트의 첫 번째 강점은 대규모 분산 기술 자체보다 `작동하는 데이터 파이프라인`과 `신뢰 가능한 KPI 집계`다.
+- `2단계`: `Phase 13`에서 반복 실패 신호와 시간대별 실패 분포를 파생 테이블로 만든다.
+  - 목표: 원천 이벤트를 `signal table`과 `segment report`로 해석 가능한 데이터 제품으로 승격
+  - 이유: 단순 수집이 아니라 `실패 패턴을 읽는 분석 계층`이 있어야 데이터 엔지니어링 포트폴리오로 설명력이 생긴다.
+- `3단계`: `Phase 14`에서 배치/운영 관측성과 장애 대응 근거를 붙인다.
+  - 목표: SLA, lag, alert, runbook, 재처리 절차를 운영 증거로 남김
+  - 이유: 구축 경험만으로는 약하고, `운영 가능한 데이터 시스템`으로 보여야 한다.
+- `4단계`: `Outbox + Relay`를 먼저 도입하고, 그 다음 `Kafka` 승격 여부를 판단한다.
+  - 기본: `DB Relay`
+  - 확장: `Transactional Outbox + Relay Worker`
+  - 승격: 외부 소비자 증가, 재처리 빈도 증가, 비동기 실패율 상승 등 트리거 충족 시 `Kafka Relay`
+  - 이유: 현재 규모에서는 Kafka를 먼저 넣는 것보다 `왜 아직 기본값이 아닌지`와 `언제 승격하는지`를 설명하는 편이 더 설득력 있다.
+- `5단계`: `Spark`는 `Phase 14` 이후 또는 별도 lab 범위로 둔다.
+  - 기본: `Batch SQL + RDB`
+  - 승격: 데이터량, 재처리 비용, 장기 보관/대규모 백필 요구가 임계치를 넘을 때 `Spark + Data Lake`
+  - 이유: 지금 데이터 크기에서는 Spark를 먼저 도입하는 것보다 `단순한 기본 경로를 먼저 끝내고, 확장 필요를 수치로 설명하는 것`이 더 강하다.
+
+취업 관점 요약:
+- 현재 가장 강하게 증명할 기술 축은 `Spring + RDB + Batch`다.
+- `Kafka`는 `Outbox` 운영 근거를 만든 뒤 올린다.
+- `Spark`는 기본값이 아니라 `대규모 오프라인 처리 증거`가 생긴 뒤 승격한다.
 
 ## Venture Validation (20% Scope)
 - 생산성 앱 이탈 경험이 있는 직장인 30~50명 대상 4주 유료 베타로 복귀 KPI만 검증
@@ -232,8 +336,10 @@
 - 비동기 실패율 0.1% 초과
 
 ## Data Pipeline Orchestration Policy
+- 현재 기본 경로는 `Spring Batch + 애플리케이션 내부 실행`이다.
+- Airflow는 `Phase 14`에서 정식 도입한다.
 - Airflow는 실시간 API 경로가 아니라 배치 오케스트레이션에만 사용한다.
-- 1차 도입 대상 DAG:
+- 정식 도입 시 1차 대상 DAG:
   - `daily_kpi_pipeline`: 원천 -> 정제/클렌징 -> KPI mart 적재
   - `weekly_retrospective_input`: 주간 회고 입력 집계 테이블 생성
   - `backfill_reprocess`: 기간 파라미터 기반 재처리

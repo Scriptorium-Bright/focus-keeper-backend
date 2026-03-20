@@ -93,5 +93,53 @@
   - 제약: `timeboxes` 1~3개, 첫 복귀 블록은 정확히 1개, 오늘 Big3 항목만 배정 가능
   - 에러: 첫 복귀 블록 규칙/시간 형식 오류 시 `COMMON-400`, 겹치는 블록 시 `CONFLICT-409`, Big3 미선택 시 `RESOURCE-404`
   - 성공 메시지: `TIMEBOXES_ALLOCATED`
+- `POST /api/v1/recovery/sessions/start`
+  - 설명: 복귀 세션 시작(F-004)
+  - 제약: `userId`, `timeboxId` 필수, `BREAK` timebox는 시작할 수 없음
+  - 성공 메시지: `RECOVERY_SESSION_STARTED`
+- `POST /api/v1/recovery/sessions/complete`
+  - 설명: 복귀 세션 완료(F-004)
+  - 제약: `userId`, `sessionId` 필수
+  - 성공 메시지: `RECOVERY_SESSION_COMPLETED`
+- `POST /api/v1/recovery/sessions/interrupt`
+  - 설명: 복귀 세션 중단(F-004)
+  - 제약: `userId`, `sessionId` 필수
+  - 성공 메시지: `RECOVERY_SESSION_INTERRUPTED`
+- `POST /api/v1/recovery/failures/check-in`
+  - 설명: 실패 체크인(F-005)
+  - 제약: `sessionId`, `reason` 필수, `note` 최대 200자
+  - 성공 메시지: `FAILURE_CHECKED_IN`
+- `POST /api/v1/recovery/restarts`
+  - 설명: 실패 직후 10분 복귀 재시작 실행(F-006)
+  - 제약: `failureEventId` 필수
+  - 성공 메시지: `RECOVERY_RESTARTED`
+- `POST /api/v1/recovery/retrospectives/weekly`
+  - 설명: 규칙 기반 주간 회고 생성(F-007)
+  - 제약: `weekStart`는 `yyyy-MM-dd`
+  - 성공 메시지: `WEEKLY_RETROSPECTIVE_GENERATED`
+- `GET /api/v1/recovery/retrospectives/weekly`
+  - 설명: 생성된 주간 회고 조회(F-008, F-009 포함)
+  - 제약: `userId`, `weekStart` 필수
+  - 성공 메시지: `WEEKLY_RETROSPECTIVE_FETCHED`
+- `POST /api/v1/recovery/analytics/kpis/daily`
+  - 설명: 일간 KPI mart 생성/갱신(F-022)
+  - 제약: `metricDate`는 `yyyy-MM-dd`
+  - 성공 메시지: `DAILY_KPI_GENERATED`
+- `GET /api/v1/recovery/analytics/kpis/daily`
+  - 설명: 일간 KPI mart 조회(F-022)
+  - 제약: `userId`, `metricDate` 필수
+  - 성공 메시지: `DAILY_KPI_FETCHED`
+- `GET /api/v1/recovery/analytics/kpis/daily/quality`
+  - 설명: 일간 KPI 데이터 품질 리포트 조회(T-022-5)
+  - 제약: `userId`, `metricDate` 필수
+  - 성공 메시지: `DAILY_KPI_QUALITY_FETCHED`
+- `POST /api/v1/recovery/analytics/kpis/daily/backfill`
+  - 설명: 일간 KPI 기간 백필 실행(T-022-4)
+  - 제약: `startDate`, `endDate`는 `yyyy-MM-dd`
+  - 성공 메시지: `DAILY_KPI_BACKFILL_COMPLETED`
+- `GET /api/v1/recovery/analytics/kpis/daily/watermark`
+  - 설명: 일간 KPI 파이프라인 워터마크 조회(T-022-4)
+  - 제약: `userId` 필수
+  - 성공 메시지: `DAILY_KPI_WATERMARK_FETCHED`
 
 상세 스키마는 `api/openapi.yaml`을 기준으로 한다.

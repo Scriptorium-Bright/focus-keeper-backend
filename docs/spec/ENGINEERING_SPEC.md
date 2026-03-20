@@ -48,6 +48,7 @@ RebootFocus는 전날 계획이 무너지면 다음날까지 다시 못 붙잡�
   - 실패 시 Re-timeboxing 또는 더 작은 다음 행동 제안
   - 이 루프는 범용 계획 관리가 아니라 실패 다음날 복귀를 위한 보조 루프여야 한다.
   - 집중 세션/뽀모도로 타이머는 핵심 가치가 아니라 복귀 행동 실행을 보조하는 인터랙션이어야 한다.
+  - 계획된 휴식은 MVP 이후 `Phase 6`에서 `BREAK timebox`로 도입하고, 실패/이탈과 분리해야 한다.
 - `FR-009` 배치 파이프라인은 오케스트레이션 계층을 분리해야 한다.
   - 실시간 경로와 분리된 스케줄/재처리 제어를 지원해야 한다.
   - 1차 대상: KPI 집계, 주간 회고 입력 집계, 기간 백필
@@ -83,7 +84,8 @@ RebootFocus는 전날 계획이 무너지면 다음날까지 다시 못 붙잡�
   - Event (Stage 0): Domain Event -> Internal Async/Batch Reconcile
   - Event (Stage 1): Domain Event -> Outbox -> Relay Worker -> External Target
   - Event (Stage 2): Domain Event -> Outbox -> Message Broker -> Multi Consumers
-  - Analytics (Track A): RDB -> Spring Batch (Job) -> Airflow (Orchestration) -> RDB
+  - Analytics (Track A, current): RDB -> Spring Batch (Job) -> RDB
+  - Analytics (Track A, Phase 14 target): RDB -> Spring Batch (Job) -> Airflow (Orchestration) -> RDB
 
 ### 4.2 기술 스택 및 근거
 
@@ -92,7 +94,7 @@ RebootFocus는 전날 계획이 무너지면 다음날까지 다시 못 붙잡�
 - Redis: 캐시/랭킹/저지연 조회
 - Outbox 패턴: 비동기 전달에서 유실 허용 불가 시 원자성 보장
 - Spring Batch: 현재 데이터 규모에서 비용 대비 최적
-- Airflow: 배치 스케줄링/재처리/운영 가시성 오케스트레이션
+- Airflow (Phase 14 예정): 배치 스케줄링/재처리/운영 가시성 오케스트레이션
 
 ### 4.3 확장 구조 (Port/Adapter 최소화)
 
@@ -197,4 +199,4 @@ RebootFocus는 전날 계획이 무너지면 다음날까지 다시 못 붙잡�
 - 데이터 품질 기준: `docs/spec/DATA_QUALITY.md`
 - 배치 증분/재처리 절차: `docs/spec/BATCH_RUNBOOK.md`
 - 복귀 지표 정의: `docs/spec/RECOVERY_METRICS.md`
-- 취업/사업 KPI 분리: `docs/spec/KPI_TRACKS.md`
+- 취업/사업 KPI 분리: `docs/newPlan.md`

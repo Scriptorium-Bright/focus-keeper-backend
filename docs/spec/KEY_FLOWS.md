@@ -215,7 +215,7 @@ sequenceDiagram
   participant API as Recovery API
   participant S as Recovery Service
   participant DB as PostgreSQL
-  participant B as Batch/Airflow
+  participant B as Spring Batch
   participant M as KPI Mart
 
   U->>API: 복귀 시작 버튼
@@ -294,11 +294,12 @@ API는 원천 이벤트를 남기고, 배치가 나중에 이를 증분 조회�
 
 ### 1B.7 배치 집계
 
-1. 배치 또는 Airflow가 주기적으로 실행된다.
-2. DB에서 `failure_events`, `restart_events`, `recovery_sessions`, `cycle_events`를 증분 조회한다.
-3. 이 원천 이벤트를 기준으로 KPI를 계산한다.
-4. 계산 결과를 KPI mart에 적재한다.
-5. 동시에 `failure_events`의 로컬 시각 정보를 기준으로 시간대별 실패 분포와 피크 실패 시간대를 계산할 수 있다.
+1. 현재는 Spring Batch가 주기적으로 실행된다.
+2. Airflow는 `Phase 14`에서 배치 오케스트레이션 계층으로 별도 도입될 예정이다.
+3. DB에서 `failure_events`, `restart_events`, `recovery_sessions`, `cycle_events`를 증분 조회한다.
+4. 이 원천 이벤트를 기준으로 KPI를 계산한다.
+5. 계산 결과를 KPI mart에 적재한다.
+6. 동시에 `failure_events`의 로컬 시각 정보를 기준으로 시간대별 실패 분포와 피크 실패 시간대를 계산할 수 있다.
 
 여기서 계산되는 주요 지표는 아래와 같다.
 

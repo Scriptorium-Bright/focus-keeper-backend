@@ -158,6 +158,166 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiResponseFailureCheckIn"
+  /api/v1/recovery/restarts:
+    post:
+      tags: [Recovery]
+      summary: Execute a 10-minute restart
+      operationId: restartRecovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestartRecoveryRequest"
+      responses:
+        "200":
+          description: Recovery restarted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRestartRecovery"
+  /api/v1/recovery/retrospectives/weekly:
+    post:
+      tags: [Retrospective]
+      summary: Generate weekly retrospective
+      operationId: generateWeeklyRetrospective
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateWeeklyRetrospectiveRequest"
+      responses:
+        "200":
+          description: Weekly retrospective generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseWeeklyRetrospective"
+    get:
+      tags: [Retrospective]
+      summary: Get weekly retrospective
+      operationId: getWeeklyRetrospective
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: weekStart
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weekly retrospective fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseWeeklyRetrospective"
+  /api/v1/recovery/analytics/kpis/daily:
+    post:
+      tags: [Analytics]
+      summary: Generate daily KPI mart
+      operationId: generateDailyKpi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateDailyKpiRequest"
+      responses:
+        "200":
+          description: Daily KPI generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseDailyKpi"
+    get:
+      tags: [Analytics]
+      summary: Get daily KPI mart
+      operationId: getDailyKpi
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily KPI fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseDailyKpi"
+  /api/v1/recovery/analytics/kpis/daily/quality:
+    get:
+      tags: [Analytics]
+      summary: Get daily KPI quality report
+      operationId: getDailyKpiQuality
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily KPI quality report fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseDailyKpiQuality"
+  /api/v1/recovery/analytics/kpis/daily/backfill:
+    post:
+      tags: [Analytics]
+      summary: Backfill daily KPI mart
+      operationId: backfillDailyKpi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackfillDailyKpiRequest"
+      responses:
+        "200":
+          description: Daily KPI backfill completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseBackfillDailyKpi"
+  /api/v1/recovery/analytics/kpis/daily/watermark:
+    get:
+      tags: [Analytics]
+      summary: Get daily KPI watermark
+      operationId: getDailyKpiWatermark
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Daily KPI watermark fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseDailyKpiWatermark"
 components:
   schemas:
     ApiResponseSaveInboxItems:
@@ -223,6 +383,84 @@ components:
         message:
           type: string
           example: FAILURE_CHECKED_IN
+        traceId:
+          type: string
+    ApiResponseRestartRecovery:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/RestartRecoveryResponse"
+        message:
+          type: string
+          example: RECOVERY_RESTARTED
+        traceId:
+          type: string
+    ApiResponseWeeklyRetrospective:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/WeeklyRetrospectiveResponse"
+        message:
+          type: string
+          example: WEEKLY_RETROSPECTIVE_FETCHED
+        traceId:
+          type: string
+    ApiResponseDailyKpi:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/DailyKpiResponse"
+        message:
+          type: string
+          example: DAILY_KPI_FETCHED
+        traceId:
+          type: string
+    ApiResponseDailyKpiQuality:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/DailyKpiQualityResponse"
+        message:
+          type: string
+          example: DAILY_KPI_QUALITY_FETCHED
+        traceId:
+          type: string
+    ApiResponseBackfillDailyKpi:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/BackfillDailyKpiResponse"
+        message:
+          type: string
+          example: DAILY_KPI_BACKFILL_COMPLETED
+        traceId:
+          type: string
+    ApiResponseDailyKpiWatermark:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/DailyKpiWatermarkResponse"
+        message:
+          type: string
+          example: DAILY_KPI_WATERMARK_FETCHED
         traceId:
           type: string
     SaveInboxItemsRequest:
@@ -311,7 +549,7 @@ components:
             $ref: "#/components/schemas/TimeboxPayload"
     TimeboxPayload:
       type: object
-      required: [itemId, startAt, endAt]
+      required: [itemId, startAt, endAt, type]
       properties:
         itemId:
           type: string
@@ -323,6 +561,9 @@ components:
           format: date-time
         firstRecoveryBlock:
           type: boolean
+        type:
+          type: string
+          enum: [WORK, BREAK]
     AllocateTimeboxesResponse:
       type: object
       properties:
@@ -352,6 +593,9 @@ components:
           format: date-time
         firstRecoveryBlock:
           type: boolean
+        type:
+          type: string
+          enum: [WORK, BREAK]
         createdAt:
           type: string
           format: date-time
@@ -425,6 +669,231 @@ components:
         sessionStatus:
           type: string
           enum: [INTERRUPTED]
+        restartSuggestion:
+          $ref: "#/components/schemas/RestartSuggestionResponse"
+    RestartRecoveryRequest:
+      type: object
+      required: [userId, failureEventId]
+      properties:
+        userId:
+          type: string
+        failureEventId:
+          type: string
+    RestartRecoveryResponse:
+      type: object
+      properties:
+        restartEvent:
+          $ref: "#/components/schemas/RestartEventResponse"
+        recoverySession:
+          $ref: "#/components/schemas/RecoverySessionResponse"
+        restartSuggestion:
+          $ref: "#/components/schemas/RestartSuggestionResponse"
+    RestartEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        failureEventId:
+          type: string
+        restartType:
+          type: string
+          enum: [QUICK_RESTART]
+        suggestedMinutes:
+          type: integer
+        occurredAt:
+          type: string
+          format: date-time
+    RestartSuggestionResponse:
+      type: object
+      properties:
+        restartType:
+          type: string
+        suggestedMinutes:
+          type: integer
+        message:
+          type: string
+    GenerateWeeklyRetrospectiveRequest:
+      type: object
+      required: [userId, weekStart]
+      properties:
+        userId:
+          type: string
+        weekStart:
+          type: string
+          format: date
+    WeeklyRetrospectiveResponse:
+      type: object
+      properties:
+        retrospectiveId:
+          type: string
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        sessionStartedCount:
+          type: integer
+          format: int64
+        sessionCompletedCount:
+          type: integer
+          format: int64
+        sessionInterruptedCount:
+          type: integer
+          format: int64
+        failureCount:
+          type: integer
+          format: int64
+        restartCount:
+          type: integer
+          format: int64
+        dominantFailureReason:
+          type: string
+        summary:
+          type: string
+        antiSlipAction:
+          $ref: "#/components/schemas/AntiSlipActionResponse"
+        generatedAt:
+          type: string
+          format: date-time
+    AntiSlipActionResponse:
+      type: object
+      properties:
+        actionCode:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+    GenerateDailyKpiRequest:
+      type: object
+      required: [userId, metricDate]
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+    DailyKpiResponse:
+      type: object
+      properties:
+        dailyKpiId:
+          type: string
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        activation:
+          type: boolean
+        failureCount:
+          type: integer
+        recovery24:
+          type: boolean
+        recovery48:
+          type: boolean
+        restartCount24:
+          type: integer
+        restartCount48:
+          type: integer
+        ttrMinutes:
+          type: integer
+          format: int64
+          nullable: true
+        cycleCompletionRate:
+          type: number
+          format: double
+        planExecutionRate:
+          type: number
+          format: double
+        plannedWorkMinutes:
+          type: integer
+          format: int64
+        actualWorkMinutes:
+          type: integer
+          format: int64
+        estimationErrorMinutes:
+          type: integer
+          format: int64
+        generatedAt:
+          type: string
+          format: date-time
+    DailyKpiQualityResponse:
+      type: object
+      properties:
+        dailyKpiQualityReportId:
+          type: string
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        healthy:
+          type: boolean
+        duplicateRestartLinkCount:
+          type: integer
+        orphanRestartCount:
+          type: integer
+        restartBeforeFailureCount:
+          type: integer
+        lateRestartLinkCount:
+          type: integer
+        breakSessionReferenceCount:
+          type: integer
+        missingTimeboxReferenceCount:
+          type: integer
+        timezoneMismatchCount:
+          type: integer
+        totalIssueCount:
+          type: integer
+        generatedAt:
+          type: string
+          format: date-time
+    BackfillDailyKpiRequest:
+      type: object
+      required: [userId, startDate, endDate]
+      properties:
+        userId:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+    BackfillDailyKpiResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        processedDays:
+          type: integer
+        processedMetricDates:
+          type: array
+          items:
+            type: string
+            format: date
+        watermark:
+          $ref: "#/components/schemas/DailyKpiWatermarkResponse"
+    DailyKpiWatermarkResponse:
+      type: object
+      properties:
+        pipelineKey:
+          type: string
+        userId:
+          type: string
+        lastProcessedDate:
+          type: string
+          format: date
+        updatedAt:
+          type: string
+          format: date-time
     AppHealthResponse:
       type: object
       required:

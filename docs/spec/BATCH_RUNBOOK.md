@@ -2,7 +2,7 @@
 
 > Version: v0.4  
 > Updated: 2026-03-14  
-> Scope: Phase 13 복귀 마찰 신호 분석 배치 + Airflow 오케스트레이션 + 파생 데이터 재처리
+> Scope: Phase 11 배치 재처리 기준선 + Phase 14 Airflow 오케스트레이션 도입 예정 + 파생 데이터 재처리
 
 ## 1. 목적
 
@@ -46,19 +46,21 @@ create table batch_job_watermarks (
 7. 성공 시 워터마크 갱신
 8. 실패 시 워터마크 유지 + 알림 발송
 
-## 4A. Airflow 적용 범위
+## 4A. Airflow 도입 예정 범위
 
 - 적용 원칙:
+  - 현재 기본 경로는 `Spring Batch + 애플리케이션 내부 실행`이다.
+  - Airflow는 `Phase 14`에서 정식 도입한다.
   - Airflow는 배치 오케스트레이션 전용으로 사용한다.
   - 사용자 동기 API(예: 복귀 시작, 10분 복귀 재시작) 경로에는 사용하지 않는다.
-- 1차 DAG 목록:
+- 정식 도입 시 1차 DAG 목록:
   - `daily_kpi_pipeline`:
     - extract(raw events) -> cleanse -> recovery metric pack 집계 -> mart upsert -> quality check
   - `weekly_retrospective_input`:
     - 최근 7일 집계 -> 회고 입력 테이블 upsert
   - `backfill_reprocess`:
     - `start_date`, `end_date` 파라미터 기반 재처리
-- 실패 처리:
+- 도입 후 실패 처리:
   - task retry + on-failure 알림 + 워터마크 유지
 
 ## 5. 재처리 시나리오

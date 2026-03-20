@@ -33,58 +33,50 @@
 - [ ] 시각 자료 후보 1개 이상 지정
 - [ ] `docs/PORTFOLIO_CASEBOARD.md` 상태 업데이트
 
-## 2. 이번 주 실행판 (2026-03-12 ~ 2026-03-18)
+## 2. 이번 주 실행판 (2026-03-21 ~ 2026-03-27)
 
 목표:
-- Phase 4/5 핵심 복귀 기능(F-003~F-006)을 `planned`에서 `in_progress` 이상으로 전환
-- 최소 2개 기능은 `done`까지 도달
-- 데이터 엔지니어 채용 관점 P0 증거(원천 이벤트, 증분 배치, KPI mart, 재처리 경로) 정의를 완료
-- 이번 주 작업에서 포트폴리오 사례 카드 1개와 시퀀스/데이터 플로우 1개 초안을 남김
+- Phase 11 기준선을 `11.1 / 11.4 / 11.5`로 잠그고 문서/계약을 동기화한다.
+- Phase 13을 `13.1 ~ 13.x`로 분해하고, `13.1` 구현 준비까지 끝낸다.
+- 데이터 엔지니어 채용 관점 다음 대표 사례를 `failure hour -> friction signal` 축으로 연결한다.
+- 이번 주 작업에서 Phase 13 사례 카드 1개와 데이터 플로우 초안 1개를 남긴다.
 
 ### 2.1 기능별 상태 보드
 
 | ID | 기능 | 현재 상태 | 목표 상태 | 우선순위 | 비고 |
 |---|---|---|---|---|---|
-| F-001 | Brain Dump 등록 | done | done | P0 | 2026-03-12 API+통합테스트 완료 |
-| F-002 | Big3 선택 | done | done | P0 | 2026-03-12 API+통합테스트 완료 |
-| F-003 | 첫 복귀 블록 포함 Timebox 배정 | done | done | P0 | 2026-03-16 API+통합테스트+충돌 검증 완료 |
-| F-004 | 복귀 세션 시작/완료/중단 | done | done | P0 | 2026-03-16 상태 전이 API+통합테스트 완료 |
-| F-005 | 실패 체크인 | done | done | P0 | 2026-03-16 failure reason 검증+통합테스트 완료 |
-| F-006 | 10분 복귀 재시작 | done | done | P0 | 제안/실행 이벤트 기록 포함 |
+| F-007 | 주간 회고 집계 생성 | done | done | P1 | 규칙 기반 회고 생성 API 완료 |
+| F-008 | 주간 회고 조회 | done | done | P1 | 회고 조회 API 완료 |
+| F-009 | anti-slip action 추천 | done | done | P1 | rule-based action 추천 완료 |
+| F-022 | KPI 일간 mart 적재 | done | done | P0 | KPI mart + 백필 + DQ + k6 smoke 완료 |
+| F-027 | 복귀 실패 패턴 신호 계산 | planned | in_progress | P1 | Phase 13 시작점 |
+| F-028 | 복귀 마찰 세그먼트 리포트 | planned | planned | P1 | signal table 이후 |
 
 ### 2.2 일자별 체크리스트
 
-#### Day 1-2
-- [x] F-001 API 계약 및 요청/응답 스키마 확정
-- [x] F-002 API 계약 및 요청/응답 스키마 확정
-- [x] F-001 테스트 케이스 작성(통합 테스트)
-- [x] F-002 테스트 케이스 작성
-- [x] Big3 제한(최대 3개) 예외 케이스 정의
+#### Day 1
+- [ ] Phase 11 잠금 기준을 `newPlan`, `FEATURE_PROCESS_SPEC`, `PHASE_EXIT_PROTOCOL`에 반영
+- [ ] `API_CONTRACT`, `openapi.yaml`과 현재 구현 경로 일치 확인
+- [ ] `C-02` 상태를 `draft` 이상으로 고정
+- [ ] `11.2`, `11.3` 재오픈 조건을 체크리스트/스펙에 명시
+
+#### Day 2
+- [ ] Phase 13을 `13.1 ~ 13.x`로 세부 분해
+- [ ] `13.1 failure hour / peak failure hour` 입력/출력/예외 정의
+- [ ] `13.1` 테스트 케이스 초안 작성
+- [ ] `13.1` 포트폴리오 문제 정의 초안 작성
 
 #### Day 3-4
-- [x] F-001 구현 완료
-- [x] F-002 구현 완료
-- [x] F-001 통합 테스트 통과
-- [x] F-002 통합 테스트 통과
-- [x] F-003 Timebox 충돌 정책(409) 구현 착수
-- [x] T-003-1 요청/응답 스키마 초안 작성
-- [x] T-003-2 충돌 검증 테스트 초안 작성
+- [ ] `13.1` 구현 시작: 사용자 로컬 시간대 기준 실패 분포 집계
+- [ ] `13.1` 구현 시작: `PeakFailureHour` 계산
+- [ ] `13.1` 단위/통합 테스트 추가
+- [ ] `13.1` 결과 조회 형식 확정
 
 #### Day 5-6
-- [ ] F-004/F-005 복귀 이벤트 스키마 정의
-- [ ] 실패 체크인 -> 10분 복귀 재시작 연결 규칙 확정
-- [ ] Recovery Metric Pack 수집 포인트 연결
-- [ ] `C-01` 사례 카드 초안 작성 (`문제 -> 해결 -> 결과`)
-- [ ] T-004-1 세션 상태 전이 표 작성
-- [ ] T-005-1 failure reason taxonomy 확정
-
-#### Day 6-7
-- [ ] `daily_kpi_pipeline` 입력/출력 스키마 확정
-- [ ] 워터마크/멱등 upsert/기간 백필 정책 문서-코드 매핑
-- [ ] KPI mart 초안(`Recovery24`, `RestartCount24`, `TTR`) 계산 경로 점검
-- [ ] `C-01` 시퀀스 다이어그램 또는 상태 전이 도식 초안 작성
-- [ ] T-006-1 재시작 제안 규칙 문서화
-- [ ] T-006-4 Recovery24 입력 필드 점검
+- [ ] `13.2` 반복 실패/지연 재시작 signal 후보 정의
+- [ ] signal table 초안 스키마 정의
+- [ ] `13.2` 테스트 초안 작성
+- [ ] `C-03` 사례 초안에 문제/해결 방향 기록
 
 #### Day 7
 - [ ] 주간 회고: 완료/미완료 원인 정리
@@ -96,12 +88,13 @@
 ## 3. 테스트 체크포인트
 
 - [x] Controller 테스트: 입력 검증, 상태코드, 응답 포맷
-- [ ] Service 테스트: 비즈니스 규칙, 예외 처리
-- [x] Integration 테스트: 계획 루프(Brain Dump -> Big3)
-- [ ] Integration 테스트: 핵심 플로우(계획 -> 첫 복귀 블록 -> 실패 -> 재시작)
-- [ ] Recovery KPI 테스트: Recovery24/48 계산 입력 이벤트 검증
-- [ ] ETL 테스트: 워터마크 기반 증분 집계 + 멱등 upsert 검증
-- [ ] Backfill 테스트: 동일 기간 재처리 후 결과 일관성 검증
+- [ ] Service 테스트: failure-hour, signal 계산 규칙
+- [x] Integration 테스트: KPI mart / backfill / DQ
+- [ ] Integration 테스트: Phase 13 failure-hour 집계 경로
+- [x] Recovery KPI 테스트: Recovery24/48 계산 입력 이벤트 검증
+- [x] ETL 테스트: 워터마크 기반 증분 집계 + 멱등 upsert 검증
+- [x] Backfill 테스트: 동일 기간 재처리 후 결과 일관성 검증
+- [ ] k6 또는 최소 성능 검증: Phase 13 집계 경로 smoke
 
 ## 4. 관측 체크포인트
 
@@ -125,10 +118,10 @@
 - [ ] 대시보드 또는 SQL 리포트 출력 포맷 결정
 
 ### P2 Bonus
-- [ ] `weekly_retrospective_input` 배치 후속 작업 정의
+- [x] `weekly_retrospective_input` 배치 후속 작업 정의
 - [ ] `recovery_friction_signals` 계산 요구사항 정리
 - [ ] Outbox Stage 1 검증 조건 정리
-- [ ] 코호트/실험군 리포트 산출 경로 정리
+- [ ] 실제 로그 확보 후 코호트/실험군 리포트 재오픈 조건 정리
 
 ## 6. 포트폴리오 증빙 체크리스트
 
