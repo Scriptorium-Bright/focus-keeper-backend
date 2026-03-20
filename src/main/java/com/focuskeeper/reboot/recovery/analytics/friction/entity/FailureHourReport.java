@@ -95,6 +95,18 @@ public class FailureHourReport {
         this.generatedAt = generatedAt;
     }
 
+    public int getTotalFailureCount() {
+        return totalFailureCount;
+    }
+
+    public Integer getPeakFailureHour() {
+        return peakFailureHour;
+    }
+
+    public String getPeakFailureWindow() {
+        return peakFailureWindow;
+    }
+
     public FailureHourDistributionResponse toResponse(List<FailureHourMetricResponse> hourlyMetrics) {
         return new FailureHourDistributionResponse(
                 id,

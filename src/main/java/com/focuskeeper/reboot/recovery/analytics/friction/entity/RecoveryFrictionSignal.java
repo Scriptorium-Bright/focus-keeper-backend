@@ -91,6 +91,18 @@ public class RecoveryFrictionSignal {
         this.generatedAt = generatedAt;
     }
 
+    public FrictionSignalType getSignalType() {
+        return signalType;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public int getEvidenceCount() {
+        return evidenceCount;
+    }
+
     public FrictionSignalResponse toResponse() {
         return new FrictionSignalResponse(
                 signalType.name(),
