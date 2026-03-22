@@ -21,9 +21,13 @@ class PrometheusEndpointIntegrationTest {
     void actuatorPrometheusExposesCustomOperationalMetrics() throws Exception {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         operationsMetricRecorder.recordRecoveryLoopAction(sample, "integration_probe", "success");
+        operationsMetricRecorder.recordDqIssueCount("daily_kpi_quality", "metrics-user", 2);
+        operationsMetricRecorder.recordBackfillProcessedDays("backfill_reprocess", 3);
 
         assertThat(meterRegistry.find("reboot_recovery_loop_actions_total").counter()).isNotNull();
         assertThat(meterRegistry.find("reboot_recovery_loop_action_duration").timer()).isNotNull();
+        assertThat(meterRegistry.find("reboot_dq_issue_count").gauge()).isNotNull();
+        assertThat(meterRegistry.find("reboot_backfill_processed_days").summary()).isNotNull();
         assertThat(meterRegistry.find("jvm.memory.used").gauge()).isNotNull();
     }
 }

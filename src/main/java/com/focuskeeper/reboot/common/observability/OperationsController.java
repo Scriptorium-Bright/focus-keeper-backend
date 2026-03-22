@@ -2,6 +2,7 @@ package com.focuskeeper.reboot.common.observability;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
+import com.focuskeeper.reboot.common.observability.dto.BatchOverviewResponse;
 import com.focuskeeper.reboot.common.observability.dto.RecoveryLoopOverviewResponse;
 import com.focuskeeper.reboot.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,6 +37,19 @@ public class OperationsController {
                 parseDate("metricDate", metricDate)
         );
         return ApiResponse.success(response, "OPS_RECOVERY_LOOP_OVERVIEW_FETCHED");
+    }
+
+    @GetMapping("/overview/batch")
+    @Operation(summary = "Get batch overview", description = "Returns the rough batch, DQ, and watermark dashboard snapshot for Phase 14.")
+    public ApiResponse<BatchOverviewResponse> getBatchOverview(
+            @RequestParam String userId,
+            @RequestParam String metricDate
+    ) {
+        BatchOverviewResponse response = operationsOverviewService.getBatchOverview(
+                userId,
+                parseDate("metricDate", metricDate)
+        );
+        return ApiResponse.success(response, "OPS_BATCH_OVERVIEW_FETCHED");
     }
 
     private LocalDate parseDate(String fieldName, String value) {

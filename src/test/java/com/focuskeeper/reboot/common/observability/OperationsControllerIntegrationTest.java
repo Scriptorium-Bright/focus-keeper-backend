@@ -25,6 +25,7 @@ import com.focuskeeper.reboot.recovery.friction.service.FrictionSignalAnalyticsS
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.retrospective.repository.WeeklyRetrospectiveRepository;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -70,6 +71,9 @@ class OperationsControllerIntegrationTest {
     private RecoveryFrictionSignalRepository recoveryFrictionSignalRepository;
 
     @Autowired
+    private WeeklyRetrospectiveRepository weeklyRetrospectiveRepository;
+
+    @Autowired
     private TimeboxRepository timeboxRepository;
 
     @Autowired
@@ -89,6 +93,7 @@ class OperationsControllerIntegrationTest {
         dailyKpiQualityReportRepository.deleteAll();
         dailyKpiMetricRepository.deleteAll();
         dailyKpiWatermarkRepository.deleteAll();
+        weeklyRetrospectiveRepository.deleteAll();
         restartEventRepository.deleteAll();
         failureEventRepository.deleteAll();
         recoverySessionRepository.deleteAll();
@@ -120,6 +125,29 @@ class OperationsControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.frictionSignals.userId").value(userId))
                 .andExpect(jsonPath("$.data.frictionSegments.userId").value(userId))
                 .andExpect(jsonPath("$.data.metricNames[0]").value("http.server.requests"));
+    }
+
+    @Test
+    void batchOverviewReturnsQualityAndWatermarkSnapshots() throws Exception {
+        String userId = "ops-batch-user";
+        LocalDate metricDate = LocalDate.of(2026, 3, 21);
+
+        seedWorkday(userId, metricDate);
+        generateDailyKpi(userId, metricDate);
+
+        mockMvc.perform(
+                        get("/api/v1/ops/overview/batch")
+                                .param("userId", userId)
+                                .param("metricDate", metricDate.toString())
+                )
+                .andExpect(status().isOk())
+                .andExpect(header().exists("X-Trace-Id"))
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("OPS_BATCH_OVERVIEW_FETCHED"))
+                .andExpect(jsonPath("$.data.userId").value(userId))
+                .andExpect(jsonPath("$.data.qualityReport.userId").value(userId))
+                .andExpect(jsonPath("$.data.watermark.pipelineKey").value("daily_kpi_pipeline"))
+                .andExpect(jsonPath("$.data.metricNames[0]").value("reboot_batch_duration"));
     }
 
     private void generateDailyKpi(String userId, LocalDate metricDate) throws Exception {
