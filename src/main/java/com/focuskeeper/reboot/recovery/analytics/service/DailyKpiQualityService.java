@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.recovery.analytics.service;
 
+import com.focuskeeper.reboot.common.observability.OperationsAlertService;
 import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
 import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
 import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiQualityReport;
@@ -37,6 +38,7 @@ public class DailyKpiQualityService {
     private final RestartEventRepository restartEventRepository;
     private final TimeboxRepository timeboxRepository;
     private final OperationsMetricRecorder operationsMetricRecorder;
+    private final OperationsAlertService operationsAlertService;
 
     public DailyKpiQualityService(
             DailyKpiQualityReportRepository dailyKpiQualityReportRepository,
@@ -44,7 +46,8 @@ public class DailyKpiQualityService {
             FailureEventRepository failureEventRepository,
             RestartEventRepository restartEventRepository,
             TimeboxRepository timeboxRepository,
-            OperationsMetricRecorder operationsMetricRecorder
+            OperationsMetricRecorder operationsMetricRecorder,
+            OperationsAlertService operationsAlertService
     ) {
         this.dailyKpiQualityReportRepository = dailyKpiQualityReportRepository;
         this.recoverySessionRepository = recoverySessionRepository;
@@ -52,6 +55,7 @@ public class DailyKpiQualityService {
         this.restartEventRepository = restartEventRepository;
         this.timeboxRepository = timeboxRepository;
         this.operationsMetricRecorder = operationsMetricRecorder;
+        this.operationsAlertService = operationsAlertService;
     }
 
     /**
@@ -170,12 +174,35 @@ public class DailyKpiQualityService {
                     userId,
                     totalIssueCount
             );
+            operationsAlertService.resolveBatchFailure(
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    "generate",
+                    userId,
+                    "Daily KPI quality report generated successfully.",
+                    Map.of("metricDate", metricDate.toString())
+            );
+            operationsAlertService.evaluateQuality(
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    userId,
+                    metricDate,
+                    totalIssueCount
+            );
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(
                     sample,
                     OperationsPipelineKeys.DAILY_KPI_QUALITY,
                     "generate",
                     "failure"
+            );
+            operationsAlertService.reportBatchFailure(
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    "generate",
+                    userId,
+                    "Failed to generate daily KPI quality report.",
+                    Map.of(
+                            "metricDate", metricDate.toString(),
+                            "error", exception.getClass().getSimpleName()
+                    )
             );
             throw exception;
         }

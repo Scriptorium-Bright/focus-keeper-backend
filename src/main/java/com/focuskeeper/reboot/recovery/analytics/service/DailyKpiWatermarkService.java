@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.recovery.analytics.service;
 
+import com.focuskeeper.reboot.common.observability.OperationsAlertService;
 import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
 import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
 import com.focuskeeper.reboot.common.error.BusinessException;
@@ -24,13 +25,16 @@ public class DailyKpiWatermarkService {
 
     private final DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
     private final OperationsMetricRecorder operationsMetricRecorder;
+    private final OperationsAlertService operationsAlertService;
 
     public DailyKpiWatermarkService(
             DailyKpiWatermarkRepository dailyKpiWatermarkRepository,
-            OperationsMetricRecorder operationsMetricRecorder
+            OperationsMetricRecorder operationsMetricRecorder,
+            OperationsAlertService operationsAlertService
     ) {
         this.dailyKpiWatermarkRepository = dailyKpiWatermarkRepository;
         this.operationsMetricRecorder = operationsMetricRecorder;
+        this.operationsAlertService = operationsAlertService;
     }
 
     /**
@@ -63,12 +67,29 @@ public class DailyKpiWatermarkService {
                     "watermark_advance",
                     "success"
             );
+            operationsAlertService.resolveBatchFailure(
+                    OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                    "watermark_advance",
+                    userId,
+                    "Daily KPI watermark advanced successfully.",
+                    Map.of("metricDate", metricDate.toString())
+            );
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(
                     sample,
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                     "watermark_advance",
                     "failure"
+            );
+            operationsAlertService.reportBatchFailure(
+                    OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                    "watermark_advance",
+                    userId,
+                    "Failed to advance daily KPI watermark.",
+                    Map.of(
+                            "metricDate", metricDate.toString(),
+                            "error", exception.getClass().getSimpleName()
+                    )
             );
             throw exception;
         }
@@ -100,6 +121,11 @@ public class DailyKpiWatermarkService {
                 OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                 userId,
                 lagDays * 86400
+        );
+        operationsAlertService.evaluateWatermarkLag(
+                OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                userId,
+                lastProcessedDate
         );
     }
 }

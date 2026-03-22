@@ -2,6 +2,7 @@ package com.focuskeeper.reboot.common.observability;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.observability.dto.BatchOverviewResponse;
+import com.focuskeeper.reboot.common.observability.dto.OperationsAlertResponse;
 import com.focuskeeper.reboot.common.observability.dto.RecoveryLoopOverviewResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiQualityResponse;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiResponse;
@@ -52,6 +53,7 @@ public class OperationsOverviewService {
     private final FailureHourQueryService failureHourQueryService;
     private final FrictionSignalQueryService frictionSignalQueryService;
     private final FrictionSegmentQueryService frictionSegmentQueryService;
+    private final OperationsAlertService operationsAlertService;
 
     public OperationsOverviewService(
             DailyKpiMetricRepository dailyKpiMetricRepository,
@@ -60,7 +62,8 @@ public class OperationsOverviewService {
             WeeklyRetrospectiveRepository weeklyRetrospectiveRepository,
             FailureHourQueryService failureHourQueryService,
             FrictionSignalQueryService frictionSignalQueryService,
-            FrictionSegmentQueryService frictionSegmentQueryService
+            FrictionSegmentQueryService frictionSegmentQueryService,
+            OperationsAlertService operationsAlertService
     ) {
         this.dailyKpiMetricRepository = dailyKpiMetricRepository;
         this.dailyKpiQualityReportRepository = dailyKpiQualityReportRepository;
@@ -69,12 +72,14 @@ public class OperationsOverviewService {
         this.failureHourQueryService = failureHourQueryService;
         this.frictionSignalQueryService = frictionSignalQueryService;
         this.frictionSegmentQueryService = frictionSegmentQueryService;
+        this.operationsAlertService = operationsAlertService;
     }
 
     public RecoveryLoopOverviewResponse getRecoveryLoopOverview(String userId, LocalDate metricDate) {
         DailyKpiResponse dailyKpi = dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, metricDate)
                 .map(metric -> metric.toResponse())
                 .orElse(null);
+        List<OperationsAlertResponse> activeAlerts = operationsAlertService.getAlerts(true, userId);
 
         return new RecoveryLoopOverviewResponse(
                 userId,
@@ -83,7 +88,8 @@ public class OperationsOverviewService {
                 optionalFailureHour(userId, metricDate),
                 optionalSignals(userId, metricDate),
                 optionalSegments(userId, metricDate),
-                RECOVERY_LOOP_METRICS
+                RECOVERY_LOOP_METRICS,
+                activeAlerts
         );
     }
 
@@ -106,7 +112,8 @@ public class OperationsOverviewService {
                 qualityReport,
                 watermark,
                 weeklyRetrospective,
-                BATCH_METRICS
+                BATCH_METRICS,
+                operationsAlertService.getAlerts(true, userId)
         );
     }
 

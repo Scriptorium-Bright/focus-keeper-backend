@@ -3,12 +3,15 @@ package com.focuskeeper.reboot.common.observability;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.common.observability.dto.BatchOverviewResponse;
+import com.focuskeeper.reboot.common.observability.dto.OperationsAlertResponse;
 import com.focuskeeper.reboot.common.observability.dto.RecoveryLoopOverviewResponse;
+import com.focuskeeper.reboot.common.observability.dto.RunbookScenarioResponse;
 import com.focuskeeper.reboot.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,9 +24,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class OperationsController {
 
     private final OperationsOverviewService operationsOverviewService;
+    private final OperationsAlertService operationsAlertService;
+    private final OperationsRunbookCatalogService operationsRunbookCatalogService;
 
-    public OperationsController(OperationsOverviewService operationsOverviewService) {
+    public OperationsController(
+            OperationsOverviewService operationsOverviewService,
+            OperationsAlertService operationsAlertService,
+            OperationsRunbookCatalogService operationsRunbookCatalogService
+    ) {
         this.operationsOverviewService = operationsOverviewService;
+        this.operationsAlertService = operationsAlertService;
+        this.operationsRunbookCatalogService = operationsRunbookCatalogService;
     }
 
     @GetMapping("/overview/recovery-loop")
@@ -50,6 +61,22 @@ public class OperationsController {
                 parseDate("metricDate", metricDate)
         );
         return ApiResponse.success(response, "OPS_BATCH_OVERVIEW_FETCHED");
+    }
+
+    @GetMapping("/alerts")
+    @Operation(summary = "Get operations alerts", description = "Returns rough in-memory alert states for Phase 14.")
+    public ApiResponse<List<OperationsAlertResponse>> getAlerts(
+            @RequestParam(required = false) String userId,
+            @RequestParam(defaultValue = "true") boolean activeOnly
+    ) {
+        List<OperationsAlertResponse> response = operationsAlertService.getAlerts(activeOnly, userId);
+        return ApiResponse.success(response, "OPS_ALERTS_FETCHED");
+    }
+
+    @GetMapping("/runbooks")
+    @Operation(summary = "Get operations runbooks", description = "Returns the rough runbook catalog used in Phase 14 drill flows.")
+    public ApiResponse<List<RunbookScenarioResponse>> getRunbooks() {
+        return ApiResponse.success(operationsRunbookCatalogService.getScenarios(), "OPS_RUNBOOKS_FETCHED");
     }
 
     private LocalDate parseDate(String fieldName, String value) {
