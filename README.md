@@ -14,6 +14,68 @@ RebootFocus는 단순한 할 일 앱이 아니라, `실패 기록 -> 재시작 -
 
 ## Architecture
 
+```mermaid
+flowchart LR
+    Client[Client / Swagger UI]
+
+    subgraph API[Spring Boot API Layer]
+        ExecAPI[Recovery Execution API]
+        AnalyticsAPI[Analytics API]
+        OpsAPI[Ops Overview API]
+    end
+
+    subgraph Domain[Recovery Domain Events]
+        Sessions[Recovery Sessions]
+        Failures[Failure Events]
+        Restarts[Restart Events]
+    end
+
+    subgraph Batch[Analytics Processing]
+        KPI[Spring Batch KPI Pipeline]
+        Quality[Quality Validation]
+        Watermark[Backfill and Watermark]
+        Friction[Friction Analytics]
+    end
+
+    subgraph Ops[Operational Layer]
+        Metrics[Prometheus Metrics]
+        Alerts[Alert and Runbook Flow]
+        Airflow[Airflow Rough DAGs]
+    end
+
+    DB[(PostgreSQL)]
+
+    Client --> ExecAPI
+    Client --> AnalyticsAPI
+    Client --> OpsAPI
+
+    ExecAPI --> Sessions
+    ExecAPI --> Failures
+    ExecAPI --> Restarts
+
+    Sessions --> KPI
+    Failures --> KPI
+    Restarts --> KPI
+
+    Failures --> Friction
+    Restarts --> Friction
+
+    KPI --> Quality
+    KPI --> Watermark
+    KPI --> DB
+    Quality --> DB
+    Watermark --> DB
+    Friction --> DB
+
+    AnalyticsAPI --> DB
+    OpsAPI --> DB
+    DB --> Metrics
+    Metrics --> Alerts
+
+    Airflow --> AnalyticsAPI
+    Airflow --> OpsAPI
+```
+
 ```text
 Client / Swagger
     -> Recovery Execution API
@@ -43,21 +105,21 @@ Persistence
 - Workflow: GitHub Actions CI/CD, Docker image build, Airflow rough DAG assets
 - Docs/API: springdoc OpenAPI, Swagger UI
 
-## Core Capabilities
+## 핵심 기능
 
-- Recovery execution
+- 복귀 실행 흐름
   - 복귀 세션 시작, 완료, 중단
   - 실패 체크인 및 재시작 처리
-- Analytics pipeline
+- 분석 파이프라인
   - daily KPI generation
   - quality report generation
   - backfill reprocess
   - watermark tracking
-- Reliability
+- 신뢰성
   - PostgreSQL runtime verification
   - native upsert for KPI mart
   - monotonic watermark update
-- Operations
+- 운영
   - recovery loop overview
   - batch overview
   - alert and runbook flow
