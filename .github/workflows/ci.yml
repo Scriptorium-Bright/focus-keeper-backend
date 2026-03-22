@@ -29,3 +29,59 @@ jobs:
 
       - name: Run tests
         run: ./gradlew test --no-daemon
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: rebootfocus
+          POSTGRES_USER: rebootfocus
+          POSTGRES_PASSWORD: rebootfocus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rebootfocus -d rebootfocus"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_NAME: rebootfocus
+      DB_USERNAME: rebootfocus
+      DB_PASSWORD: rebootfocus
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Grant execute permission for Gradle wrapper
+        run: chmod +x gradlew
+
+      - name: Wait for PostgreSQL
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/5432) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready in time."
+          exit 1
+
+      - name: Run PostgreSQL-backed integration tests
+        run: >
+          ./gradlew test --no-daemon
+          -Dspring.profiles.active=local
+          --tests com.focuskeeper.reboot.recovery.analytics.controller.DailyKpiControllerIntegrationTest
+          --tests com.focuskeeper.reboot.recovery.analytics.controller.DailyKpiBackfillControllerIntegrationTest
