@@ -13,6 +13,7 @@ public record RecoveryLoopOverviewResponse(
         FailureHourDistributionResponse failureHour,
         FrictionSignalReportResponse frictionSignals,
         FrictionSegmentReportResponse frictionSegments,
-        List<String> metricNames
+        List<String> metricNames,
+        List<OperationsAlertResponse> activeAlerts
 ) {
 }

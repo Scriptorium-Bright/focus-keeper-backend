@@ -29,6 +29,7 @@ import com.focuskeeper.reboot.recovery.retrospective.repository.WeeklyRetrospect
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,9 @@ class OperationsControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private OperationsAlertService operationsAlertService;
 
     @Autowired
     private FailureHourAnalyticsService failureHourAnalyticsService;
@@ -87,6 +91,7 @@ class OperationsControllerIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        operationsAlertService.clearAll();
         recoveryFrictionSignalRepository.deleteAll();
         failureHourMetricRepository.deleteAll();
         failureHourReportRepository.deleteAll();
@@ -148,6 +153,34 @@ class OperationsControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.qualityReport.userId").value(userId))
                 .andExpect(jsonPath("$.data.watermark.pipelineKey").value("daily_kpi_pipeline"))
                 .andExpect(jsonPath("$.data.metricNames[0]").value("reboot_batch_duration"));
+    }
+
+    @Test
+    void alertsEndpointReturnsActiveAlerts() throws Exception {
+        operationsAlertService.reportBatchFailure(
+                OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                "launch",
+                "ops-alert-user",
+                "test alert",
+                Map.of("metricDate", "2026-03-21")
+        );
+
+        mockMvc.perform(get("/api/v1/ops/alerts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("OPS_ALERTS_FETCHED"))
+                .andExpect(jsonPath("$.data[0].pipelineKey").value("daily_kpi_pipeline"))
+                .andExpect(jsonPath("$.data[0].stage").value("launch"))
+                .andExpect(jsonPath("$.data[0].active").value(true));
+    }
+
+    @Test
+    void runbooksEndpointReturnsCatalog() throws Exception {
+        mockMvc.perform(get("/api/v1/ops/runbooks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("OPS_RUNBOOKS_FETCHED"))
+                .andExpect(jsonPath("$.data[0].scenarioKey").value("daily_kpi_pipeline_failure"));
     }
 
     private void generateDailyKpi(String userId, LocalDate metricDate) throws Exception {

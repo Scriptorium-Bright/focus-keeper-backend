@@ -11,6 +11,7 @@ public record BatchOverviewResponse(
         DailyKpiQualityResponse qualityReport,
         DailyKpiWatermarkResponse watermark,
         WeeklyRetrospectiveResponse weeklyRetrospective,
-        List<String> metricNames
+        List<String> metricNames,
+        List<OperationsAlertResponse> activeAlerts
 ) {
 }
