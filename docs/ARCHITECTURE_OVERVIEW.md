@@ -27,7 +27,7 @@ RebootFocus는 "전날 계획이 무너지면 다음날까지 다시 못 붙잡�
 ```mermaid
 flowchart LR
   U[User / Client] --> API[Spring Boot API]
-  API --> DB[(RDB: H2 local / PostgreSQL target)]
+  API --> DB[(RDB: PostgreSQL)]
   API --> OBS[Logs / Metrics / Traces]
   DB --> BATCH[Spring Batch Jobs]
   BATCH --> MART[(KPI / Signal Tables)]
@@ -116,7 +116,7 @@ flowchart LR
 ## 8. 배포/운영 관점 구성
 
 - API 서비스: Spring Boot 단일 애플리케이션
-- 주 저장소: Spring Data JPA + RDB (`H2` 로컬 기준, `PostgreSQL` 운영 대상)
+- 주 저장소: Spring Data JPA + PostgreSQL
 - 배치 실행기: Spring Batch
 - 오케스트레이션: 현재는 애플리케이션 내부 실행, Airflow는 Phase 14 예정
 - 운영 가시성: Actuator + Metrics + Grafana/Alerting
@@ -142,7 +142,7 @@ flowchart LR
 
 ### 9.2 데이터/메시징/분석 기본 경로
 
-- 기본 트랜잭션 저장소: `PostgreSQL` (운영 대상)
+- 기본 트랜잭션 저장소: `PostgreSQL`
 - 캐시/저지연 조회: `Redis` (필요 시 도입)
 - 메시징:
   - Stage 0: 내부 비동기 + 배치 재동기화

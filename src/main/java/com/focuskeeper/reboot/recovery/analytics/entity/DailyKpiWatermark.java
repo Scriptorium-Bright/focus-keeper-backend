@@ -52,6 +52,9 @@ public class DailyKpiWatermark {
         this.updatedAt = updatedAt;
     }
 
+    /**
+     * 파이프라인별 최초 워터마크 레코드를 생성한다.
+     */
     public static DailyKpiWatermark create(
             String pipelineKey,
             String userId,
@@ -67,11 +70,19 @@ public class DailyKpiWatermark {
         );
     }
 
+    /**
+     * 마지막 처리 날짜와 갱신 시각을 최신 값으로 전진시킨다.
+     */
     public void advance(LocalDate lastProcessedDate, OffsetDateTime updatedAt) {
-        this.lastProcessedDate = lastProcessedDate;
-        this.updatedAt = updatedAt;
+        if (this.lastProcessedDate == null || !lastProcessedDate.isBefore(this.lastProcessedDate)) {
+            this.lastProcessedDate = lastProcessedDate;
+            this.updatedAt = updatedAt;
+        }
     }
 
+    /**
+     * 워터마크 엔티티를 조회 응답 DTO로 변환한다.
+     */
     public DailyKpiWatermarkResponse toResponse() {
         return new DailyKpiWatermarkResponse(
                 pipelineKey,

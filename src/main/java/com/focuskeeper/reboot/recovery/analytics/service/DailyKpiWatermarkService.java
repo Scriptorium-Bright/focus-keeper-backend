@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.recovery.analytics.service;
 
+import com.focuskeeper.reboot.common.persistence.DatabaseDialectResolver;
 import com.focuskeeper.reboot.common.observability.OperationsAlertService;
 import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
 import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
@@ -8,6 +9,7 @@ import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiWatermarkResponse;
 import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiWatermark;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkUpsertJdbcRepository;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -23,16 +25,22 @@ public class DailyKpiWatermarkService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
 
+    private final DatabaseDialectResolver databaseDialectResolver;
     private final DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
+    private final DailyKpiWatermarkUpsertJdbcRepository dailyKpiWatermarkUpsertJdbcRepository;
     private final OperationsMetricRecorder operationsMetricRecorder;
     private final OperationsAlertService operationsAlertService;
 
     public DailyKpiWatermarkService(
+            DatabaseDialectResolver databaseDialectResolver,
             DailyKpiWatermarkRepository dailyKpiWatermarkRepository,
+            DailyKpiWatermarkUpsertJdbcRepository dailyKpiWatermarkUpsertJdbcRepository,
             OperationsMetricRecorder operationsMetricRecorder,
             OperationsAlertService operationsAlertService
     ) {
+        this.databaseDialectResolver = databaseDialectResolver;
         this.dailyKpiWatermarkRepository = dailyKpiWatermarkRepository;
+        this.dailyKpiWatermarkUpsertJdbcRepository = dailyKpiWatermarkUpsertJdbcRepository;
         this.operationsMetricRecorder = operationsMetricRecorder;
         this.operationsAlertService = operationsAlertService;
     }
@@ -44,22 +52,7 @@ public class DailyKpiWatermarkService {
     public void advance(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
-            DailyKpiWatermark watermark = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
-                            OperationsPipelineKeys.DAILY_KPI_PIPELINE,
-                            userId
-                    )
-                    .map(existing -> {
-                        existing.advance(metricDate, updatedAt);
-                        return existing;
-                    })
-                    .orElseGet(() -> DailyKpiWatermark.create(
-                            OperationsPipelineKeys.DAILY_KPI_PIPELINE,
-                            userId,
-                            metricDate,
-                            updatedAt
-                    ));
-
-            dailyKpiWatermarkRepository.save(watermark);
+            persistWatermark(userId, metricDate, updatedAt);
             publishWatermark(userId, metricDate);
             operationsMetricRecorder.recordBatchStage(
                     sample,
@@ -93,6 +86,35 @@ public class DailyKpiWatermarkService {
             );
             throw exception;
         }
+    }
+
+    private void persistWatermark(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
+        if (databaseDialectResolver.isPostgreSql()) {
+            dailyKpiWatermarkUpsertJdbcRepository.upsert(
+                    OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                    userId,
+                    metricDate,
+                    updatedAt
+            );
+            return;
+        }
+
+        DailyKpiWatermark watermark = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
+                        OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                        userId
+                )
+                .map(existing -> {
+                    existing.advance(metricDate, updatedAt);
+                    return existing;
+                })
+                .orElseGet(() -> DailyKpiWatermark.create(
+                        OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                        userId,
+                        metricDate,
+                        updatedAt
+                ));
+
+        dailyKpiWatermarkRepository.save(watermark);
     }
 
     /**

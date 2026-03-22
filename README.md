@@ -17,7 +17,7 @@ Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02
   - 실패 체크인
 - 공통 응답/예외/트레이스 표준 적용
 - Swagger/OpenAPI 문서 노출
-- Spring Data JPA + H2 기반 영속 저장소 적용
+- Spring Data JPA + PostgreSQL 기반 영속 저장소 적용
 - Health endpoints:
   - `GET /api/v1/health`
   - `GET /actuator/health`
@@ -29,8 +29,13 @@ Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02
 ## Run
 
 ```bash
+docker compose up -d postgres
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 ```
+
+기본 로컬 프로필은 PostgreSQL을 사용합니다.
+- 기본 접속 정보: `rebootfocus / rebootfocus / rebootfocus`
+- 환경변수로 변경 가능: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`
 
 ## API Docs
 
@@ -42,6 +47,8 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test
 ```
+
+테스트는 별도 `test` 프로필에서 H2 메모리 DB로 실행됩니다.
 
 ## CI/CD
 

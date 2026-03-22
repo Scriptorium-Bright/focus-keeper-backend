@@ -138,6 +138,47 @@ class DailyKpiBackfillControllerIntegrationTest {
     }
 
     @Test
+    void watermarkDoesNotRegressWhenEarlierMetricDateIsGeneratedLater() throws Exception {
+        String userId = "daily-kpi-watermark-monotonic-user";
+        LocalDate laterDate = LocalDate.of(2026, 3, 21);
+        LocalDate earlierDate = LocalDate.of(2026, 3, 20);
+
+        seedWorkday(userId, laterDate);
+        seedWorkday(userId, earlierDate);
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/analytics/kpis/daily")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "metricDate": "%s"
+                                        }
+                                        """.formatted(userId, laterDate))
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/analytics/kpis/daily")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "metricDate": "%s"
+                                        }
+                                        """.formatted(userId, earlierDate))
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        get("/api/v1/recovery/analytics/kpis/daily/watermark")
+                                .param("userId", userId)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.lastProcessedDate").value(laterDate.toString()));
+    }
+
+    @Test
     void backfillDailyKpiReturnsBadRequestWhenDateRangeIsInvalid() throws Exception {
         mockMvc.perform(
                         post("/api/v1/recovery/analytics/kpis/daily/backfill")
