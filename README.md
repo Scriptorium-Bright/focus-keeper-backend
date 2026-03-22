@@ -1,57 +1,140 @@
-# RebootFocus Reboot
+# RebootFocus
 
-Reboot baseline after archiving pre-reset history to `archive/pre-reboot-2026-02-28`.
+하루가 한 번 무너지면 다음날까지 끌려가는 직장인을 위해, 실패 직후 재시작과 24시간 내 복귀를 설계하는 recovery analytics backend입니다.
 
-- One-liner: 하루가 한 번 무너지면 다음날까지 끌려가는 직장인을 위해, 실패 직후 10분 재시작과 24시간 내 복귀를 설계한 복귀 코치
+RebootFocus는 단순한 할 일 앱이 아니라, `실패 기록 -> 재시작 -> 일간 KPI -> 운영 관측` 흐름을 하나의 제품 백엔드로 연결하는 포트폴리오 프로젝트입니다.
 
-- Master plan: [docs/newPlan.md](./docs/newPlan.md)
-- Design docs index: [docs/README.md](./docs/README.md)
+## Overview
 
-## Current Status
+- 복귀 세션 시작, 완료, 중단 흐름을 관리합니다.
+- 실패 체크인과 재시작 이벤트를 기록합니다.
+- Spring Batch 기반으로 일간 KPI mart와 quality report를 생성합니다.
+- PostgreSQL 기반 upsert와 watermark 추적으로 재실행 안전성을 확보합니다.
+- 운영 개요, 알림, 룬북 흐름을 통해 관측 가능한 시스템을 목표로 합니다.
 
-- Phase 4 core implemented
-  - Brain Dump
-  - Big3
-  - 첫 복귀 블록 Timebox
-  - 복귀 세션 시작/완료/중단
-  - 실패 체크인
-- 공통 응답/예외/트레이스 표준 적용
-- Swagger/OpenAPI 문서 노출
-- Spring Data JPA + PostgreSQL 기반 영속 저장소 적용
-- Health endpoints:
-  - `GET /api/v1/health`
-  - `GET /actuator/health`
+## Architecture
 
-## Current Gap
+```text
+Client / Swagger
+    -> Recovery Execution API
+    -> Analytics API
+    -> Ops Overview API
 
-- `F-006` 10분 복귀 재시작 API는 아직 미구현
+Recovery Domain Events
+    -> Spring Batch KPI Pipeline
+    -> Quality Validation
+    -> Watermark / Backfill
+    -> Friction Analytics
 
-## Run
+Operational Layer
+    -> Prometheus Metrics
+    -> Alert / Runbook Flow
+    -> Airflow Rough Orchestration Assets
+
+Persistence
+    -> PostgreSQL
+```
+
+## Tech Stack
+
+- Backend: Java 21, Spring Boot 3, Spring Web, Spring Data JPA, Spring Batch
+- Database: PostgreSQL, H2(test profile)
+- Observability: Micrometer, Prometheus endpoint, custom ops overview endpoints
+- Workflow: GitHub Actions CI/CD, Docker image build, Airflow rough DAG assets
+- Docs/API: springdoc OpenAPI, Swagger UI
+
+## Core Capabilities
+
+- Recovery execution
+  - 복귀 세션 시작, 완료, 중단
+  - 실패 체크인 및 재시작 처리
+- Analytics pipeline
+  - daily KPI generation
+  - quality report generation
+  - backfill reprocess
+  - watermark tracking
+- Reliability
+  - PostgreSQL runtime verification
+  - native upsert for KPI mart
+  - monotonic watermark update
+- Operations
+  - recovery loop overview
+  - batch overview
+  - alert and runbook flow
+  - Prometheus metrics exposure
+
+## Why PostgreSQL
+
+이 프로젝트에서는 DB를 단순 저장소가 아니라 운영 상태의 기준선으로 사용합니다.
+
+- `daily_kpi_metrics`는 `ON CONFLICT` 기반 upsert로 중복 적재 없이 갱신됩니다.
+- `daily_kpi_watermarks`는 더 이른 날짜를 재처리해도 마지막 처리 지점이 뒤로 가지 않도록 설계했습니다.
+- H2 호환 모드가 아니라 실제 PostgreSQL 런타임 기준으로 로컬 실행과 CI 검증을 분리했습니다.
+
+즉, RebootFocus의 PostgreSQL 활용 포인트는 `정합성`, `재실행 안전성`, `운영 추적 가능성`입니다.
+
+## How To Run
+
+### 1. PostgreSQL 실행
 
 ```bash
 docker compose up -d postgres
+```
+
+기본 접속 정보
+- `DB_HOST=localhost`
+- `DB_PORT=5432`
+- `DB_NAME=rebootfocus`
+- `DB_USERNAME=rebootfocus`
+- `DB_PASSWORD=rebootfocus`
+
+### 2. 애플리케이션 실행
+
+```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 ```
 
-기본 로컬 프로필은 PostgreSQL을 사용합니다.
-- 기본 접속 정보: `rebootfocus / rebootfocus / rebootfocus`
-- 환경변수로 변경 가능: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`
+### 3. 확인 경로
 
-## API Docs
-
+- Health: `http://localhost:8080/api/v1/health`
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- OpenAPI JSON: `http://localhost:8080/api-docs`
+- OpenAPI: `http://localhost:8080/api-docs`
+- Actuator Health: `http://localhost:8080/actuator/health`
+- Prometheus: `http://localhost:8080/actuator/prometheus`
 
-## Test
+## Test & Delivery
+
+### Test
 
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test
 ```
 
-테스트는 별도 `test` 프로필에서 H2 메모리 DB로 실행됩니다.
+- 일반 테스트는 `test` 프로필의 H2 메모리 DB를 사용합니다.
+- CI에서는 PostgreSQL service container 기반 KPI integration test를 추가로 실행합니다.
 
-## CI/CD
+### CI/CD
 
-- CI: `main`, `feature/**` push 및 `main` 대상 PR에서 테스트 실행
-- CI: 기본 테스트 외에 PostgreSQL service container 기준 KPI integration test를 한 번 더 실행
-- CD: `main` push 시 `bootJar`와 Docker image artifact를 함께 생성하고, `v*` 태그 push 시 둘 다 릴리즈 자산으로 업로드
+- CI
+  - `main`, `feature/**` push와 `main` 대상 PR에서 테스트를 자동 실행합니다.
+  - PostgreSQL 기반 통합 검증을 별도 job으로 분리했습니다.
+- CD
+  - `main` push 시 `bootJar`와 Docker image artifact를 생성합니다.
+  - `v*` 태그 push 시 jar와 image tar를 릴리즈 자산으로 업로드합니다.
+
+## Expected Impact
+
+- 실패 후 복귀를 감정이 아니라 데이터로 추적할 수 있습니다.
+- 이벤트 기반 실행 기록을 KPI mart로 승격해 운영 지표를 축적할 수 있습니다.
+- backfill, watermark, alert 흐름을 통해 배치 운영 대응 경험을 보여줄 수 있습니다.
+- PostgreSQL, Spring Batch, CI/CD, 관측 지표를 하나의 백엔드 스토리로 묶을 수 있습니다.
+
+## Portfolio Angle
+
+이 프로젝트는 아래 역량을 하나의 흐름으로 보여주기 위한 포트폴리오입니다.
+
+- Spring Boot 기반 도메인 API 설계
+- PostgreSQL 기반 상태 일관성 설계
+- Spring Batch 기반 데이터 파이프라인 구성
+- 운영 관측, 알림, 룬북 설계
+- GitHub Actions 기반 CI/CD 자동화
