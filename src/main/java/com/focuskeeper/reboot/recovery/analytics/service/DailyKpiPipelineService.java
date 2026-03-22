@@ -1,9 +1,10 @@
 package com.focuskeeper.reboot.recovery.analytics.service;
 
+import com.focuskeeper.reboot.common.persistence.DatabaseDialectResolver;
 import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
 import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
-import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiMetric;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricUpsertJdbcRepository;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
@@ -34,7 +35,9 @@ public class DailyKpiPipelineService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
 
+    private final DatabaseDialectResolver databaseDialectResolver;
     private final DailyKpiMetricRepository dailyKpiMetricRepository;
+    private final DailyKpiMetricUpsertJdbcRepository dailyKpiMetricUpsertJdbcRepository;
     private final RecoverySessionRepository recoverySessionRepository;
     private final FailureEventRepository failureEventRepository;
     private final RestartEventRepository restartEventRepository;
@@ -44,7 +47,9 @@ public class DailyKpiPipelineService {
     private final OperationsMetricRecorder operationsMetricRecorder;
 
     public DailyKpiPipelineService(
+            DatabaseDialectResolver databaseDialectResolver,
             DailyKpiMetricRepository dailyKpiMetricRepository,
+            DailyKpiMetricUpsertJdbcRepository dailyKpiMetricUpsertJdbcRepository,
             RecoverySessionRepository recoverySessionRepository,
             FailureEventRepository failureEventRepository,
             RestartEventRepository restartEventRepository,
@@ -53,7 +58,9 @@ public class DailyKpiPipelineService {
             DailyKpiWatermarkService dailyKpiWatermarkService,
             OperationsMetricRecorder operationsMetricRecorder
     ) {
+        this.databaseDialectResolver = databaseDialectResolver;
         this.dailyKpiMetricRepository = dailyKpiMetricRepository;
+        this.dailyKpiMetricUpsertJdbcRepository = dailyKpiMetricUpsertJdbcRepository;
         this.recoverySessionRepository = recoverySessionRepository;
         this.failureEventRepository = failureEventRepository;
         this.restartEventRepository = restartEventRepository;
@@ -66,7 +73,7 @@ public class DailyKpiPipelineService {
     /**
      * 원천 실행 이벤트를 읽어 사용자의 일간 KPI를 계산하고, mart 저장 후 품질 리포트와 워터마크까지 갱신한다.
      */
-    public DailyKpiMetric generate(String userId, LocalDate metricDate) {
+    public void generate(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
             OffsetDateTime periodStart = metricDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
@@ -158,49 +165,23 @@ public class DailyKpiPipelineService {
             long estimationErrorMinutes = Math.abs(plannedWorkMinutes - actualWorkMinutes);
 
             OffsetDateTime generatedAt = OffsetDateTime.now();
-            boolean finalRecovery24 = recovery24;
-            boolean finalRecovery48 = recovery48;
-            int finalRestartCount24 = restartCount24;
-            int finalRestartCount48 = restartCount48;
-            Long finalTtrMinutes = ttrMinutes;
-            DailyKpiMetric dailyKpiMetric = dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, metricDate)
-                    .map(existing -> {
-                        existing.regenerate(
-                                activation,
-                                failureCount,
-                                finalRecovery24,
-                                finalRecovery48,
-                                finalRestartCount24,
-                                finalRestartCount48,
-                                finalTtrMinutes,
-                                cycleCompletionRate,
-                                planExecutionRate,
-                                plannedWorkMinutes,
-                                actualWorkMinutes,
-                                estimationErrorMinutes,
-                                generatedAt
-                        );
-                        return existing;
-                    })
-                    .orElseGet(() -> DailyKpiMetric.create(
-                            userId,
-                            metricDate,
-                            activation,
-                            failureCount,
-                            finalRecovery24,
-                            finalRecovery48,
-                            finalRestartCount24,
-                            finalRestartCount48,
-                            finalTtrMinutes,
-                            cycleCompletionRate,
-                            planExecutionRate,
-                            plannedWorkMinutes,
-                            actualWorkMinutes,
-                            estimationErrorMinutes,
-                            generatedAt
-                    ));
-
-            DailyKpiMetric savedMetric = dailyKpiMetricRepository.save(dailyKpiMetric);
+            persistMetric(
+                    userId,
+                    metricDate,
+                    activation,
+                    failureCount,
+                    recovery24,
+                    recovery48,
+                    restartCount24,
+                    restartCount48,
+                    ttrMinutes,
+                    cycleCompletionRate,
+                    planExecutionRate,
+                    plannedWorkMinutes,
+                    actualWorkMinutes,
+                    estimationErrorMinutes,
+                    generatedAt
+            );
             dailyKpiQualityService.generate(userId, metricDate, generatedAt);
             dailyKpiWatermarkService.advance(userId, metricDate, generatedAt);
             operationsMetricRecorder.recordBatchStage(
@@ -209,7 +190,6 @@ public class DailyKpiPipelineService {
                     "generate",
                     "success"
             );
-            return savedMetric;
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(
                     sample,
@@ -219,6 +199,86 @@ public class DailyKpiPipelineService {
             );
             throw exception;
         }
+    }
+
+    private void persistMetric(
+            String userId,
+            LocalDate metricDate,
+            boolean activation,
+            int failureCount,
+            boolean recovery24,
+            boolean recovery48,
+            int restartCount24,
+            int restartCount48,
+            Long ttrMinutes,
+            BigDecimal cycleCompletionRate,
+            BigDecimal planExecutionRate,
+            long plannedWorkMinutes,
+            long actualWorkMinutes,
+            long estimationErrorMinutes,
+            OffsetDateTime generatedAt
+    ) {
+        if (databaseDialectResolver.isPostgreSql()) {
+            dailyKpiMetricUpsertJdbcRepository.upsert(
+                    userId,
+                    metricDate,
+                    activation,
+                    failureCount,
+                    recovery24,
+                    recovery48,
+                    restartCount24,
+                    restartCount48,
+                    ttrMinutes,
+                    cycleCompletionRate,
+                    planExecutionRate,
+                    plannedWorkMinutes,
+                    actualWorkMinutes,
+                    estimationErrorMinutes,
+                    generatedAt
+            );
+            return;
+        }
+
+        dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, metricDate)
+                .ifPresentOrElse(
+                        existing -> {
+                            existing.regenerate(
+                                    activation,
+                                    failureCount,
+                                    recovery24,
+                                    recovery48,
+                                    restartCount24,
+                                    restartCount48,
+                                    ttrMinutes,
+                                    cycleCompletionRate,
+                                    planExecutionRate,
+                                    plannedWorkMinutes,
+                                    actualWorkMinutes,
+                                    estimationErrorMinutes,
+                                    generatedAt
+                            );
+                            dailyKpiMetricRepository.save(existing);
+                        },
+                        () -> dailyKpiMetricRepository.save(
+                                com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiMetric.create(
+                                        userId,
+                                        metricDate,
+                                        activation,
+                                        failureCount,
+                                        recovery24,
+                                        recovery48,
+                                        restartCount24,
+                                        restartCount48,
+                                        ttrMinutes,
+                                        cycleCompletionRate,
+                                        planExecutionRate,
+                                        plannedWorkMinutes,
+                                        actualWorkMinutes,
+                                        estimationErrorMinutes,
+                                        generatedAt
+                                )
+                        )
+                );
     }
 
     /**

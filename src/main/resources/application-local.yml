@@ -1,3 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rebootfocus}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:rebootfocus}
+    password: ${DB_PASSWORD:rebootfocus}
+  jpa:
+    hibernate:
+      ddl-auto: update
+  batch:
+    jdbc:
+      initialize-schema: always
+
 logging:
   level:
     root: INFO
