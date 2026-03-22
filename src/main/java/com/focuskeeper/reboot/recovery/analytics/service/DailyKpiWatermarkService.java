@@ -1,12 +1,17 @@
 package com.focuskeeper.reboot.recovery.analytics.service;
 
+import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
+import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiWatermarkResponse;
 import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiWatermark;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
+import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,43 +20,86 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DailyKpiWatermarkService {
 
-    static final String DAILY_KPI_PIPELINE_KEY = "daily_kpi_pipeline";
+    private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
 
     private final DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
+    private final OperationsMetricRecorder operationsMetricRecorder;
 
-    public DailyKpiWatermarkService(DailyKpiWatermarkRepository dailyKpiWatermarkRepository) {
+    public DailyKpiWatermarkService(
+            DailyKpiWatermarkRepository dailyKpiWatermarkRepository,
+            OperationsMetricRecorder operationsMetricRecorder
+    ) {
         this.dailyKpiWatermarkRepository = dailyKpiWatermarkRepository;
+        this.operationsMetricRecorder = operationsMetricRecorder;
     }
 
+    /**
+     * 일간 KPI 파이프라인이 마지막으로 처리한 날짜를 저장하거나 앞으로 전진시킨다.
+     */
     @Transactional
     public void advance(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
-        DailyKpiWatermark watermark = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
-                        DAILY_KPI_PIPELINE_KEY,
-                        userId
-                )
-                .map(existing -> {
-                    existing.advance(metricDate, updatedAt);
-                    return existing;
-                })
-                .orElseGet(() -> DailyKpiWatermark.create(
-                        DAILY_KPI_PIPELINE_KEY,
-                        userId,
-                        metricDate,
-                        updatedAt
-                ));
+        Timer.Sample sample = operationsMetricRecorder.startSample();
+        try {
+            DailyKpiWatermark watermark = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
+                            OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                            userId
+                    )
+                    .map(existing -> {
+                        existing.advance(metricDate, updatedAt);
+                        return existing;
+                    })
+                    .orElseGet(() -> DailyKpiWatermark.create(
+                            OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                            userId,
+                            metricDate,
+                            updatedAt
+                    ));
 
-        dailyKpiWatermarkRepository.save(watermark);
+            dailyKpiWatermarkRepository.save(watermark);
+            publishWatermark(userId, metricDate);
+            operationsMetricRecorder.recordBatchStage(
+                    sample,
+                    OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                    "watermark_advance",
+                    "success"
+            );
+        } catch (RuntimeException exception) {
+            operationsMetricRecorder.recordBatchStage(
+                    sample,
+                    OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                    "watermark_advance",
+                    "failure"
+            );
+            throw exception;
+        }
     }
 
+    /**
+     * 사용자 기준 일간 KPI 파이프라인 워터마크를 조회한다.
+     */
     public DailyKpiWatermarkResponse get(String userId) {
-        return dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(DAILY_KPI_PIPELINE_KEY, userId)
+        DailyKpiWatermarkResponse response = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
+                        OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                        userId
+                )
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of(
-                                "pipelineKey", DAILY_KPI_PIPELINE_KEY,
+                                "pipelineKey", OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                                 "userId", userId
                         )
                 ))
                 .toResponse();
+        publishWatermark(userId, LocalDate.parse(response.lastProcessedDate()));
+        return response;
+    }
+
+    private void publishWatermark(String userId, LocalDate lastProcessedDate) {
+        long lagDays = Math.max(ChronoUnit.DAYS.between(lastProcessedDate, LocalDate.now(DEFAULT_OFFSET)), 0);
+        operationsMetricRecorder.recordWatermarkLagSeconds(
+                OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                userId,
+                lagDays * 86400
+        );
     }
 }
