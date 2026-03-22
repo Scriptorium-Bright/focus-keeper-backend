@@ -53,4 +53,5 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test
 ## CI/CD
 
 - CI: `main`, `feature/**` push 및 `main` 대상 PR에서 테스트 실행
-- CD: `main` push 시 `bootJar` 빌드 아티팩트 생성, `v*` 태그 push 시 릴리즈 자산 업로드
+- CI: 기본 테스트 외에 PostgreSQL service container 기준 KPI integration test를 한 번 더 실행
+- CD: `main` push 시 `bootJar`와 Docker image artifact를 함께 생성하고, `v*` 태그 push 시 둘 다 릴리즈 자산으로 업로드
