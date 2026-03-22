@@ -4,7 +4,7 @@
 
 RebootFocus는 단순한 할 일 앱이 아니라, `실패 기록 -> 재시작 -> 일간 KPI -> 운영 관측` 흐름을 하나의 제품 백엔드로 연결하는 포트폴리오 프로젝트입니다.
 
-## Overview
+## 프로젝트 개요
 
 - 복귀 세션 시작, 완료, 중단 흐름을 관리합니다.
 - 실패 체크인과 재시작 이벤트를 기록합니다.
@@ -12,7 +12,7 @@ RebootFocus는 단순한 할 일 앱이 아니라, `실패 기록 -> 재시작 -
 - PostgreSQL 기반 upsert와 watermark 추적으로 재실행 안전성을 확보합니다.
 - 운영 개요, 알림, 룬북 흐름을 통해 관측 가능한 시스템을 목표로 합니다.
 
-## Architecture
+## 시스템 아키텍처
 
 ```mermaid
 flowchart LR
@@ -97,7 +97,7 @@ Persistence
     -> PostgreSQL
 ```
 
-## Tech Stack
+## 기술 스택
 
 - Backend: Java 21, Spring Boot 3, Spring Web, Spring Data JPA, Spring Batch
 - Database: PostgreSQL, H2(test profile)
@@ -111,21 +111,21 @@ Persistence
   - 복귀 세션 시작, 완료, 중단
   - 실패 체크인 및 재시작 처리
 - 분석 파이프라인
-  - daily KPI generation
-  - quality report generation
-  - backfill reprocess
-  - watermark tracking
+  - 일간 KPI 생성
+  - 품질 리포트 생성
+  - 백필 재처리
+  - 워터마크 추적
 - 신뢰성
-  - PostgreSQL runtime verification
-  - native upsert for KPI mart
-  - monotonic watermark update
+  - PostgreSQL 런타임 검증
+  - KPI mart native upsert
+  - 워터마크 비회귀 갱신
 - 운영
-  - recovery loop overview
-  - batch overview
-  - alert and runbook flow
-  - Prometheus metrics exposure
+  - 복귀 루프 운영 개요
+  - 배치 운영 개요
+  - 알림 및 룬북 흐름
+  - Prometheus 메트릭 노출
 
-## Why PostgreSQL
+## PostgreSQL 활용 포인트
 
 이 프로젝트에서는 DB를 단순 저장소가 아니라 운영 상태의 기준선으로 사용합니다.
 
@@ -135,7 +135,7 @@ Persistence
 
 즉, RebootFocus의 PostgreSQL 활용 포인트는 `정합성`, `재실행 안전성`, `운영 추적 가능성`입니다.
 
-## How To Run
+## 실행 방법
 
 ### 1. PostgreSQL 실행
 
@@ -164,9 +164,9 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 - Actuator Health: `http://localhost:8080/actuator/health`
 - Prometheus: `http://localhost:8080/actuator/prometheus`
 
-## Test & Delivery
+## 테스트와 배포
 
-### Test
+### 테스트
 
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test
@@ -175,7 +175,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test
 - 일반 테스트는 `test` 프로필의 H2 메모리 DB를 사용합니다.
 - CI에서는 PostgreSQL service container 기반 KPI integration test를 추가로 실행합니다.
 
-### CI/CD
+### CI/CD 자동화
 
 - CI
   - `main`, `feature/**` push와 `main` 대상 PR에서 테스트를 자동 실행합니다.
@@ -184,14 +184,14 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test
   - `main` push 시 `bootJar`와 Docker image artifact를 생성합니다.
   - `v*` 태그 push 시 jar와 image tar를 릴리즈 자산으로 업로드합니다.
 
-## Expected Impact
+## 기대 효과
 
 - 실패 후 복귀를 감정이 아니라 데이터로 추적할 수 있습니다.
 - 이벤트 기반 실행 기록을 KPI mart로 승격해 운영 지표를 축적할 수 있습니다.
 - backfill, watermark, alert 흐름을 통해 배치 운영 대응 경험을 보여줄 수 있습니다.
 - PostgreSQL, Spring Batch, CI/CD, 관측 지표를 하나의 백엔드 스토리로 묶을 수 있습니다.
 
-## Portfolio Angle
+## 포트폴리오 포인트
 
 이 프로젝트는 아래 역량을 하나의 흐름으로 보여주기 위한 포트폴리오입니다.
 
