@@ -59,6 +59,11 @@ public class Big3SelectionItem {
         return new Big3SelectionItem(UUID.randomUUID().toString(), selection, inboxItem, sortOrder);
     }
 
+    public void replaceWith(InboxItem inboxItem, int sortOrder) {
+        this.inboxItem = inboxItem;
+        this.sortOrder = sortOrder;
+    }
+
     public InboxItemResponse toInboxItemResponse() {
         return inboxItem.toResponse();
     }

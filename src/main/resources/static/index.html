@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RebootFocus</title>
+    <meta name="description" content="중단 이후를 다루는 복귀 시스템. 실패 기록, 재시작, 실행, 리포트를 한 화면에서 검증할 수 있습니다.">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="page-shell">
+    <header class="hero reveal">
+        <div class="hero-copy">
+            <p class="eyebrow">REBOOTFOCUS</p>
+            <h1>계획 앱이 아니라<br>중단 이후를 다루는 복귀 시스템</h1>
+            <p class="hero-body">
+                실패를 적고, 다시 시작하고, 오늘의 복귀 상태를 확인하는 최소 흐름을 한 화면에서 검증합니다.
+                지금 버전은 창업 검증용 프론트로, 실제 API를 그대로 호출해 기록-실행-인사이트를 바로 이어봅니다.
+            </p>
+            <div class="hero-pills">
+                <span>실패 기록</span>
+                <span>재시작 흐름</span>
+                <span>Recovery24 / TTR</span>
+            </div>
+        </div>
+        <div class="hero-panel">
+            <div class="panel-tag">Validation UI</div>
+            <div class="panel-stat">
+                <span class="stat-label">핵심 질문</span>
+                <strong>사람들이 정말<br>계속 돌아오는가?</strong>
+            </div>
+            <ul class="panel-list">
+                <li>오늘의 실패를 남길 수 있는가</li>
+                <li>재시작 흐름이 충분히 짧은가</li>
+                <li>결과 화면이 행동을 다시 만들 수 있는가</li>
+            </ul>
+        </div>
+    </header>
+
+    <nav class="stage-nav reveal" aria-label="검증 단계">
+        <button class="stage-button is-active" type="button" data-stage="0">
+            <span class="stage-index">01</span>
+            <span class="stage-copy">
+                <strong>설정</strong>
+                <small>컨텍스트와 가설 정렬</small>
+            </span>
+        </button>
+        <button class="stage-button" type="button" data-stage="1">
+            <span class="stage-index">02</span>
+            <span class="stage-copy">
+                <strong>설계</strong>
+                <small>Inbox, Big 3, 타임박스</small>
+            </span>
+        </button>
+        <button class="stage-button" type="button" data-stage="2">
+            <span class="stage-index">03</span>
+            <span class="stage-copy">
+                <strong>실행</strong>
+                <small>실패 기록과 재시작</small>
+            </span>
+        </button>
+        <button class="stage-button" type="button" data-stage="3">
+            <span class="stage-index">04</span>
+            <span class="stage-copy">
+                <strong>인사이트</strong>
+                <small>복귀 리포트와 알림</small>
+            </span>
+        </button>
+    </nav>
+
+    <section class="status-strip reveal">
+        <div class="status-pill">
+            <span>현재 user</span>
+            <strong id="status-user">-</strong>
+        </div>
+        <div class="status-pill">
+            <span>Inbox / Big 3</span>
+            <strong id="status-plan-count">0 / 0</strong>
+        </div>
+        <div class="status-pill">
+            <span>타임박스</span>
+            <strong id="status-timebox-count">0</strong>
+        </div>
+        <div class="status-pill">
+            <span>세션 상태</span>
+            <strong id="status-session">대기 중</strong>
+        </div>
+    </section>
+
+    <main class="workspace">
+        <section class="stage-panel is-active" data-stage-panel="0">
+            <section class="context-card reveal">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">01 CONTEXT</p>
+                        <h2>검증 컨텍스트</h2>
+                    </div>
+                    <p class="section-note">브라우저에 저장되며, 이후 모든 API 호출에 공통으로 사용됩니다.</p>
+                </div>
+                <form id="context-form" class="context-grid">
+                    <label>
+                        <span>userId</span>
+                        <input id="user-id" name="userId" type="text" placeholder="demo-user" required>
+                    </label>
+                    <label>
+                        <span>metricDate</span>
+                        <input id="metric-date" name="metricDate" type="date" required>
+                    </label>
+                    <button class="primary-button" type="submit">컨텍스트 저장</button>
+                </form>
+            </section>
+
+            <section class="reveal proof-card">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">WHY THIS UI</p>
+                        <h2>지금 단계에서 필요한 최소 프론트</h2>
+                    </div>
+                    <p class="section-note">예쁜 앱이 아니라, 기록이 실제 행동으로 이어지는지 검증하기 위한 화면입니다.</p>
+                </div>
+                <div class="proof-grid">
+                    <div>
+                        <h3>설명</h3>
+                        <p>랜딩 문구로 문제를 이해시키고, 계획 앱이 아니라 복귀 시스템이라는 포지셔닝을 확인합니다.</p>
+                    </div>
+                    <div>
+                        <h3>입력</h3>
+                        <p>실패 기록과 재시작 흐름을 직접 눌러보게 만들어, 사람들이 행동을 남길 수 있는지 확인합니다.</p>
+                    </div>
+                    <div>
+                        <h3>결과</h3>
+                        <p>Recovery24, TTR, watermark 같은 결과를 같은 화면에 보여줘서, 실제 리포트가 재방문 이유가 되는지 봅니다.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="stage-footer">
+                <div class="stage-hint">먼저 user와 날짜를 저장한 뒤 설계 단계로 넘어갑니다.</div>
+                <button class="primary-button" type="button" data-go-stage="1">설계 단계로 이동</button>
+            </div>
+        </section>
+
+        <section class="stage-panel" data-stage-panel="1">
+            <div class="flow-grid plan-grid">
+                <article class="flow-card reveal">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">02 PLAN</p>
+                            <h2>브레인 덤프</h2>
+                        </div>
+                        <p class="section-note">한 줄에 하나씩 입력하면 Inbox Item으로 저장됩니다.</p>
+                    </div>
+                    <form id="inbox-form" class="stack-form">
+                        <label>
+                            <span>오늘 머릿속에 쌓인 일</span>
+                            <textarea id="inbox-items" rows="6" placeholder="회의 정리&#10;보고서 초안&#10;운동 20분"></textarea>
+                        </label>
+                        <button class="primary-button" type="submit">Inbox 저장</button>
+                    </form>
+                    <div id="inbox-result" class="result-list empty-state">아직 저장된 항목이 없습니다.</div>
+                </article>
+
+                <article class="flow-card reveal">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">03 FOCUS</p>
+                            <h2>오늘의 Big 3</h2>
+                        </div>
+                        <p class="section-note">저장된 항목 중 최대 3개를 선택합니다.</p>
+                    </div>
+                    <form id="big3-form" class="stack-form">
+                        <div id="big3-candidates" class="check-list empty-state">Inbox 저장 후 선택할 수 있습니다.</div>
+                        <button class="primary-button" type="submit">Big 3 확정</button>
+                    </form>
+                    <div id="big3-result" class="result-list empty-state">아직 선택된 Big 3가 없습니다.</div>
+                </article>
+
+                <article class="flow-card reveal">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">04 TIMEBOX</p>
+                            <h2>타임박스 설계</h2>
+                        </div>
+                        <p class="section-note">첫 복귀 블록은 정확히 1개여야 합니다.</p>
+                    </div>
+                    <form id="timebox-form" class="stack-form">
+                        <div id="timebox-builder" class="builder-list empty-state">Big 3를 고르면 자동으로 입력 폼이 생성됩니다.</div>
+                        <button class="primary-button" type="submit">타임박스 할당</button>
+                    </form>
+                    <div id="timebox-result" class="result-list empty-state">아직 생성된 타임박스가 없습니다.</div>
+                </article>
+            </div>
+
+            <div class="stage-footer">
+                <button class="ghost-button" type="button" data-go-stage="0">이전 단계</button>
+                <button class="primary-button" type="button" data-go-stage="2">실행 단계로 이동</button>
+            </div>
+        </section>
+
+        <section class="stage-panel" data-stage-panel="2">
+            <article class="flow-card reveal">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">05 RECOVER</p>
+                        <h2>실행과 재시작</h2>
+                    </div>
+                    <p class="section-note">타임박스를 시작하고, 실패-재시작 흐름을 바로 검증합니다.</p>
+                </div>
+                <div id="session-console" class="console-panel">
+                    <div id="session-state" class="status-card empty-state">아직 시작된 세션이 없습니다.</div>
+                    <div id="timebox-actions" class="chip-list empty-state">타임박스 할당 후 시작 버튼이 보입니다.</div>
+                    <div class="action-row">
+                        <button id="complete-session-button" class="secondary-button" type="button">세션 완료</button>
+                        <button id="interrupt-session-button" class="ghost-button" type="button">세션 중단</button>
+                    </div>
+                    <form id="failure-form" class="stack-form compact-form">
+                        <label>
+                            <span>실패 이유</span>
+                            <select id="failure-reason">
+                                <option value="TOO_BIG">TOO_BIG</option>
+                                <option value="INTERRUPTION">INTERRUPTION</option>
+                                <option value="LOW_ENERGY">LOW_ENERGY</option>
+                                <option value="UNCLEAR_NEXT_ACTION">UNCLEAR_NEXT_ACTION</option>
+                                <option value="CONTEXT_SWITCHED">CONTEXT_SWITCHED</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>메모</span>
+                            <textarea id="failure-note" rows="3" placeholder="왜 끊겼는지 간단히 남겨보세요."></textarea>
+                        </label>
+                        <div class="action-row">
+                            <button class="secondary-button" type="submit">실패 체크인</button>
+                            <button id="restart-button" class="primary-button" type="button">10분 재시작</button>
+                        </div>
+                    </form>
+                    <div id="failure-result" class="result-list empty-state">실패 이벤트와 재시작 결과가 여기에 표시됩니다.</div>
+                </div>
+            </article>
+
+            <div class="stage-footer">
+                <button class="ghost-button" type="button" data-go-stage="1">이전 단계</button>
+                <button class="primary-button" type="button" data-go-stage="3">인사이트 보기</button>
+            </div>
+        </section>
+
+        <section class="stage-panel" data-stage-panel="3">
+            <section class="insight-card reveal">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">06 INSIGHT</p>
+                        <h2>오늘의 복귀 리포트</h2>
+                    </div>
+                    <p class="section-note">Recovery loop와 batch overview를 같은 화면에서 확인합니다.</p>
+                </div>
+                <div class="insight-actions">
+                    <button id="refresh-insights-button" class="primary-button" type="button">인사이트 새로고침</button>
+                    <button id="refresh-alerts-button" class="ghost-button" type="button">활성 알림만 보기</button>
+                </div>
+
+                <div id="insight-summary" class="summary-grid">
+                    <div class="summary-tile">
+                        <span>Recovery24</span>
+                        <strong id="summary-recovery24">-</strong>
+                    </div>
+                    <div class="summary-tile">
+                        <span>TTR (min)</span>
+                        <strong id="summary-ttr">-</strong>
+                    </div>
+                    <div class="summary-tile">
+                        <span>Cycle Completion</span>
+                        <strong id="summary-cycle">-</strong>
+                    </div>
+                    <div class="summary-tile">
+                        <span>Watermark</span>
+                        <strong id="summary-watermark">-</strong>
+                    </div>
+                </div>
+
+                <div class="insight-grid">
+                    <div class="json-panel">
+                        <h3>Recovery Overview</h3>
+                        <pre id="recovery-overview-json">아직 조회하지 않았습니다.</pre>
+                    </div>
+                    <div class="json-panel">
+                        <h3>Batch Overview</h3>
+                        <pre id="batch-overview-json">아직 조회하지 않았습니다.</pre>
+                    </div>
+                    <div class="json-panel full-span">
+                        <h3>Active Alerts</h3>
+                        <pre id="alerts-json">아직 조회하지 않았습니다.</pre>
+                    </div>
+                </div>
+            </section>
+
+            <div class="stage-footer">
+                <button class="ghost-button" type="button" data-go-stage="2">이전 단계</button>
+                <button class="secondary-button" type="button" data-go-stage="0">처음부터 다시 보기</button>
+            </div>
+        </section>
+    </main>
+</div>
+
+<div id="toast" class="toast" aria-live="polite"></div>
+<script src="/app.js" defer></script>
+</body>
+</html>

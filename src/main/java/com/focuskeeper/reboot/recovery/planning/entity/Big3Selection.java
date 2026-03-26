@@ -57,9 +57,18 @@ public class Big3Selection {
 
     public void replaceItems(List<InboxItem> inboxItems, OffsetDateTime selectedAt) {
         this.selectedAt = selectedAt;
-        selectedItems.clear();
+        selectedItems.sort((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()));
 
-        for (int index = 0; index < inboxItems.size(); index++) {
+        int sharedSize = Math.min(selectedItems.size(), inboxItems.size());
+        for (int index = 0; index < sharedSize; index++) {
+            selectedItems.get(index).replaceWith(inboxItems.get(index), index);
+        }
+
+        while (selectedItems.size() > inboxItems.size()) {
+            selectedItems.remove(selectedItems.size() - 1);
+        }
+
+        for (int index = sharedSize; index < inboxItems.size(); index++) {
             selectedItems.add(Big3SelectionItem.create(this, inboxItems.get(index), index));
         }
     }
