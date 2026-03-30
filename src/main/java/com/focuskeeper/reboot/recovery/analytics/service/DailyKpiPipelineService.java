@@ -3,6 +3,7 @@ package com.focuskeeper.reboot.recovery.analytics.service;
 import com.focuskeeper.reboot.common.persistence.DatabaseDialectResolver;
 import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
 import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
+import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiMetric;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricUpsertJdbcRepository;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
@@ -13,6 +14,7 @@ import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepos
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import io.micrometer.core.instrument.Timer;
 import java.math.BigDecimal;
@@ -76,6 +78,7 @@ public class DailyKpiPipelineService {
     public void generate(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
+            // KPI 기준일은 KST 하루 범위로 자르고, 재시작은 Recovery48 계산을 위해 48시간 뒤까지 함께 읽는다.
             OffsetDateTime periodStart = metricDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
             OffsetDateTime periodEndExclusive = metricDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
             OffsetDateTime restartEndExclusive = periodEndExclusive.plusHours(48);
@@ -95,7 +98,8 @@ public class DailyKpiPipelineService {
                     periodStart,
                     restartEndExclusive
             );
-            List<com.focuskeeper.reboot.recovery.planning.entity.Timebox> plannedWorkTimeboxes =
+            // 계획 대비 실행률은 휴식 블록을 제외한 실제 work timebox만 기준으로 본다.
+            List<Timebox> plannedWorkTimeboxes =
                     timeboxRepository.findAllByUserIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
                             userId,
                             periodStart,
@@ -104,84 +108,17 @@ public class DailyKpiPipelineService {
                             .filter(timebox -> timebox.getType() == TimeboxType.WORK)
                             .toList();
 
-            Map<String, List<RestartSlice>> restartByFailureEventId = restarts.stream()
-                    .collect(Collectors.groupingBy(RestartSlice::getFailureEventId));
-
-            int sessionStartedCount = sessions.size();
-            int sessionCompletedCount = (int) sessions.stream()
-                    .filter(session -> session.getStatus() == RecoverySessionStatus.COMPLETED)
-                    .count();
-            boolean activation = sessionStartedCount > 0;
-
-            int failureCount = failures.size();
-            int restartCount24 = 0;
-            int restartCount48 = 0;
-            boolean recovery24 = false;
-            boolean recovery48 = false;
-            Long ttrMinutes = null;
-
-            for (FailureEventRepository.FailureSlice failure : failures) {
-                List<RestartSlice> linkedRestarts = restartByFailureEventId
-                        .getOrDefault(failure.getFailureEventId(), List.of())
-                        .stream()
-                        .sorted(Comparator.comparing(RestartSlice::getOccurredAt))
-                        .toList();
-
-                List<RestartSlice> within24 = linkedRestarts.stream()
-                        .filter(restart -> !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(24)))
-                        .toList();
-                List<RestartSlice> within48 = linkedRestarts.stream()
-                        .filter(restart -> !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48)))
-                        .toList();
-
-                restartCount24 += within24.size();
-                restartCount48 += within48.size();
-                recovery24 = recovery24 || !within24.isEmpty();
-                recovery48 = recovery48 || !within48.isEmpty();
-
-                if (!within48.isEmpty()) {
-                    long candidateTtr = Duration.between(
-                            failure.getOccurredAt(),
-                            within48.getFirst().getOccurredAt()
-                    ).toMinutes();
-                    ttrMinutes = ttrMinutes == null ? candidateTtr : Math.min(ttrMinutes, candidateTtr);
-                }
-            }
-
-            BigDecimal cycleCompletionRate = ratio(sessionCompletedCount, sessionStartedCount);
-
-            Set<String> startedTimeboxIds = sessions.stream()
-                    .map(SessionSlice::getTimeboxId)
-                    .collect(Collectors.toSet());
-            BigDecimal planExecutionRate = ratio(startedTimeboxIds.size(), plannedWorkTimeboxes.size());
-
-            long plannedWorkMinutes = plannedWorkTimeboxes.stream()
-                    .mapToLong(timebox -> Duration.between(timebox.getStartAt(), timebox.getEndAt()).toMinutes())
-                    .sum();
-            long actualWorkMinutes = sessions.stream()
-                    .filter(session -> session.getEndedAt() != null)
-                    .mapToLong(session -> Duration.between(session.getStartedAt(), session.getEndedAt()).toMinutes())
-                    .sum();
-            long estimationErrorMinutes = Math.abs(plannedWorkMinutes - actualWorkMinutes);
-
             OffsetDateTime generatedAt = OffsetDateTime.now();
-            persistMetric(
+            generateMetric(
                     userId,
                     metricDate,
-                    activation,
-                    failureCount,
-                    recovery24,
-                    recovery48,
-                    restartCount24,
-                    restartCount48,
-                    ttrMinutes,
-                    cycleCompletionRate,
-                    planExecutionRate,
-                    plannedWorkMinutes,
-                    actualWorkMinutes,
-                    estimationErrorMinutes,
+                    sessions,
+                    failures,
+                    indexRestartsByFailureEventId(restarts),
+                    plannedWorkTimeboxes,
                     generatedAt
             );
+            // mart 저장 직후 같은 generatedAt으로 품질 리포트와 watermark를 갱신해 한 번의 생성 배치로 묶는다.
             dailyKpiQualityService.generate(userId, metricDate, generatedAt);
             dailyKpiWatermarkService.advance(userId, metricDate, generatedAt);
             operationsMetricRecorder.recordBatchStage(
@@ -199,6 +136,100 @@ public class DailyKpiPipelineService {
             );
             throw exception;
         }
+    }
+
+    void generateMetric(
+            String userId,
+            LocalDate metricDate,
+            List<SessionSlice> sessions,
+            List<FailureSlice> failures,
+            Map<String, List<RestartSlice>> restartByFailureEventId,
+            List<Timebox> plannedWorkTimeboxes,
+            OffsetDateTime generatedAt
+    ) {
+        int sessionStartedCount = sessions.size();
+        int sessionCompletedCount = (int) sessions.stream()
+                .filter(session -> session.getStatus() == RecoverySessionStatus.COMPLETED)
+                .count();
+        boolean activation = sessionStartedCount > 0;
+
+        int failureCount = failures.size();
+        int restartCount24 = 0;
+        int restartCount48 = 0;
+        boolean recovery24 = false;
+        boolean recovery48 = false;
+        Long ttrMinutes = null;
+
+        for (FailureSlice failure : failures) {
+            // 하나의 failure에 restart가 여러 번 붙을 수 있으므로 시간순으로 정렬한 뒤 윈도우별로 잘라 본다.
+            List<RestartSlice> linkedRestarts = restartByFailureEventId
+                    .getOrDefault(failure.getFailureEventId(), List.of())
+                    .stream()
+                    .sorted(Comparator.comparing(RestartSlice::getOccurredAt))
+                    .toList();
+
+            List<RestartSlice> within24 = linkedRestarts.stream()
+                    .filter(restart -> !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(24)))
+                    .toList();
+            List<RestartSlice> within48 = linkedRestarts.stream()
+                    .filter(restart -> !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48)))
+                    .toList();
+
+            restartCount24 += within24.size();
+            restartCount48 += within48.size();
+            recovery24 = recovery24 || !within24.isEmpty();
+            recovery48 = recovery48 || !within48.isEmpty();
+
+            if (!within48.isEmpty()) {
+                // TTR은 각 failure마다 "가장 처음 돌아온 restart"를 보고, 일 단위 KPI에는 그중 최소값을 남긴다.
+                long candidateTtr = Duration.between(
+                        failure.getOccurredAt(),
+                        within48.getFirst().getOccurredAt()
+                ).toMinutes();
+                ttrMinutes = ttrMinutes == null ? candidateTtr : Math.min(ttrMinutes, candidateTtr);
+            }
+        }
+
+        BigDecimal cycleCompletionRate = ratio(sessionCompletedCount, sessionStartedCount);
+
+        Set<String> startedTimeboxIds = sessions.stream()
+                .map(SessionSlice::getTimeboxId)
+                .collect(Collectors.toSet());
+        // 한 timebox에서 세션이 여러 번 생겨도 "계획한 블록을 실제로 시작했는가"만 보도록 distinct timebox 기준으로 계산한다.
+        BigDecimal planExecutionRate = ratio(startedTimeboxIds.size(), plannedWorkTimeboxes.size());
+
+        long plannedWorkMinutes = plannedWorkTimeboxes.stream()
+                .mapToLong(timebox -> Duration.between(timebox.getStartAt(), timebox.getEndAt()).toMinutes())
+                .sum();
+        long actualWorkMinutes = sessions.stream()
+                .filter(session -> session.getEndedAt() != null)
+                .mapToLong(session -> Duration.between(session.getStartedAt(), session.getEndedAt()).toMinutes())
+                .sum();
+        // 계획 시간과 실제 세션 종료 시간 합계를 비교해 "얼마나 빗나갔는지"만 절대값으로 남긴다.
+        long estimationErrorMinutes = Math.abs(plannedWorkMinutes - actualWorkMinutes);
+
+        persistMetric(
+                userId,
+                metricDate,
+                activation,
+                failureCount,
+                recovery24,
+                recovery48,
+                restartCount24,
+                restartCount48,
+                ttrMinutes,
+                cycleCompletionRate,
+                planExecutionRate,
+                plannedWorkMinutes,
+                actualWorkMinutes,
+                estimationErrorMinutes,
+                generatedAt
+        );
+    }
+
+    private Map<String, List<RestartSlice>> indexRestartsByFailureEventId(List<RestartSlice> restarts) {
+        return restarts.stream()
+                .collect(Collectors.groupingBy(RestartSlice::getFailureEventId));
     }
 
     private void persistMetric(
@@ -260,7 +291,7 @@ public class DailyKpiPipelineService {
                             dailyKpiMetricRepository.save(existing);
                         },
                         () -> dailyKpiMetricRepository.save(
-                                com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiMetric.create(
+                                DailyKpiMetric.create(
                                         userId,
                                         metricDate,
                                         activation,

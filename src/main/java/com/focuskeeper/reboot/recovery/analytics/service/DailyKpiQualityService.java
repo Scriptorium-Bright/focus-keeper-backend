@@ -7,7 +7,9 @@ import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiQualityReport;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiQualityReportRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureReference;
+import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository.SessionSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
@@ -83,9 +85,49 @@ public class DailyKpiQualityService {
                     periodEndExclusive
             );
 
-            Map<String, Timebox> timeboxesById = loadTimeboxes(sessions);
-            Map<String, FailureReference> failureById = loadFailures(restarts, userId);
+            generateFromSlices(
+                    userId,
+                    metricDate,
+                    generatedAt,
+                    sessions,
+                    failures,
+                    restarts,
+                    loadTimeboxes(sessions),
+                    loadFailureOccurredAtById(restarts, userId)
+            );
+        } catch (RuntimeException exception) {
+            operationsMetricRecorder.recordBatchStage(
+                    sample,
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    "generate",
+                    "failure"
+            );
+            operationsAlertService.reportBatchFailure(
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    "generate",
+                    userId,
+                    "Failed to generate daily KPI quality report.",
+                    Map.of(
+                            "metricDate", metricDate.toString(),
+                            "error", exception.getClass().getSimpleName()
+                    )
+            );
+            throw exception;
+        }
+    }
 
+    void generateFromSlices(
+            String userId,
+            LocalDate metricDate,
+            OffsetDateTime generatedAt,
+            List<SessionSlice> sessions,
+            List<FailureSlice> failures,
+            List<RestartSlice> restarts,
+            Map<String, Timebox> timeboxesById,
+            Map<String, OffsetDateTime> failureOccurredAtById
+    ) {
+        Timer.Sample sample = operationsMetricRecorder.startSample();
+        try {
             int duplicateRestartLinkCount = (int) restarts.stream()
                     .collect(Collectors.groupingBy(RestartSlice::getFailureEventId, Collectors.counting()))
                     .values()
@@ -94,20 +136,20 @@ public class DailyKpiQualityService {
                     .count();
 
             int orphanRestartCount = (int) restarts.stream()
-                    .filter(restart -> !failureById.containsKey(restart.getFailureEventId()))
+                    .filter(restart -> !failureOccurredAtById.containsKey(restart.getFailureEventId()))
                     .count();
 
             int restartBeforeFailureCount = (int) restarts.stream()
                     .filter(restart -> {
-                        FailureReference failure = failureById.get(restart.getFailureEventId());
-                        return failure != null && restart.getOccurredAt().isBefore(failure.getOccurredAt());
+                        OffsetDateTime failureOccurredAt = failureOccurredAtById.get(restart.getFailureEventId());
+                        return failureOccurredAt != null && restart.getOccurredAt().isBefore(failureOccurredAt);
                     })
                     .count();
 
             int lateRestartLinkCount = (int) restarts.stream()
                     .filter(restart -> {
-                        FailureReference failure = failureById.get(restart.getFailureEventId());
-                        return failure != null && restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48));
+                        OffsetDateTime failureOccurredAt = failureOccurredAtById.get(restart.getFailureEventId());
+                        return failureOccurredAt != null && restart.getOccurredAt().isAfter(failureOccurredAt.plusHours(48));
                     })
                     .count();
 
@@ -227,7 +269,7 @@ public class DailyKpiQualityService {
     /**
      * 재시작 이벤트가 참조한 실패 이벤트를 조회해 failureEventId 기준 맵으로 만든다.
      */
-    private Map<String, FailureReference> loadFailures(
+    private Map<String, OffsetDateTime> loadFailureOccurredAtById(
             List<RestartSlice> restarts,
             String userId
     ) {
@@ -242,7 +284,7 @@ public class DailyKpiQualityService {
         return failureEventRepository.findReferencesByUserIdAndIdIn(userId, failureEventIds).stream()
                 .collect(Collectors.toMap(
                         FailureReference::getFailureEventId,
-                        Function.identity()
+                        FailureReference::getOccurredAt
                 ));
     }
 
