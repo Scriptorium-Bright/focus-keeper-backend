@@ -21,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -148,43 +149,21 @@ public class DailyKpiQualityService {
     ) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
-            int duplicateRestartLinkCount = (int) restarts.stream()
-                    .collect(Collectors.groupingBy(RestartSlice::getFailureEventId, Collectors.counting()))
-                    .values()
-                    .stream()
-                    .filter(count -> count > 1)
-                    .count();
+            RestartQualityStats restartStats = analyzeRestarts(restarts, failureOccurredAtById);
+            SessionQualityStats sessionStats = analyzeSessions(sessions, timeboxesById);
+            int failureTimezoneMismatchCount = countFailureTimezoneMismatch(failures);
+            int timeboxTimezoneMismatchCount = countTimeboxTimezoneMismatch(timeboxesById.values());
 
-            int orphanRestartCount = (int) restarts.stream()
-                    .filter(restart -> !failureOccurredAtById.containsKey(restart.getFailureEventId()))
-                    .count();
-
-            int restartBeforeFailureCount = (int) restarts.stream()
-                    .filter(restart -> {
-                        OffsetDateTime failureOccurredAt = failureOccurredAtById.get(restart.getFailureEventId());
-                        return failureOccurredAt != null && restart.getOccurredAt().isBefore(failureOccurredAt);
-                    })
-                    .count();
-
-            int lateRestartLinkCount = (int) restarts.stream()
-                    .filter(restart -> {
-                        OffsetDateTime failureOccurredAt = failureOccurredAtById.get(restart.getFailureEventId());
-                        return failureOccurredAt != null && restart.getOccurredAt().isAfter(failureOccurredAt.plusHours(48));
-                    })
-                    .count();
-
-            int breakSessionReferenceCount = (int) sessions.stream()
-                    .filter(session -> {
-                        Timebox timebox = timeboxesById.get(session.getTimeboxId());
-                        return timebox != null && timebox.getType() == TimeboxType.BREAK;
-                    })
-                    .count();
-
-            int missingTimeboxReferenceCount = (int) sessions.stream()
-                    .filter(session -> !timeboxesById.containsKey(session.getTimeboxId()))
-                    .count();
-
-            int timezoneMismatchCount = countTimezoneMismatch(sessions, failures, restarts, timeboxesById.values());
+            int duplicateRestartLinkCount = restartStats.duplicateRestartLinkCount();
+            int orphanRestartCount = restartStats.orphanRestartCount();
+            int restartBeforeFailureCount = restartStats.restartBeforeFailureCount();
+            int lateRestartLinkCount = restartStats.lateRestartLinkCount();
+            int breakSessionReferenceCount = sessionStats.breakSessionReferenceCount();
+            int missingTimeboxReferenceCount = sessionStats.missingTimeboxReferenceCount();
+            int timezoneMismatchCount = restartStats.timezoneMismatchCount()
+                    + sessionStats.timezoneMismatchCount()
+                    + failureTimezoneMismatchCount
+                    + timeboxTimezoneMismatchCount;
             int totalIssueCount = duplicateRestartLinkCount
                     + orphanRestartCount
                     + restartBeforeFailureCount
@@ -319,32 +298,109 @@ public class DailyKpiQualityService {
         return failureOccurredAtById;
     }
 
-    /**
-     * 세션, 실패, 재시작, 타임박스가 기본 오프셋과 다른 시간대로 기록된 건수를 센다.
-     */
-    private int countTimezoneMismatch(
-            List<SessionSlice> sessions,
-            List<FailureSlice> failures,
+    private RestartQualityStats analyzeRestarts(
             List<RestartSlice> restarts,
-            Iterable<Timebox> timeboxes
+            Map<String, OffsetDateTime> failureOccurredAtById
     ) {
-        int sessionMismatchCount = (int) sessions.stream()
-                .filter(session -> !DEFAULT_OFFSET.equals(session.getStartedAt().getOffset()))
-                .count();
-        int failureMismatchCount = (int) failures.stream()
-                .filter(failure -> !DEFAULT_OFFSET.equals(failure.getOccurredAt().getOffset()))
-                .count();
-        int restartMismatchCount = (int) restarts.stream()
-                .filter(restart -> !DEFAULT_OFFSET.equals(restart.getOccurredAt().getOffset()))
-                .count();
+        Set<String> seenFailureEventIds = new HashSet<>();
+        Set<String> duplicateFailureEventIds = new HashSet<>();
+        int orphanRestartCount = 0;
+        int restartBeforeFailureCount = 0;
+        int lateRestartLinkCount = 0;
+        int timezoneMismatchCount = 0;
 
+        for (RestartSlice restart : restarts) {
+            if (!seenFailureEventIds.add(restart.getFailureEventId())) {
+                duplicateFailureEventIds.add(restart.getFailureEventId());
+            }
+
+            OffsetDateTime failureOccurredAt = failureOccurredAtById.get(restart.getFailureEventId());
+            if (failureOccurredAt == null) {
+                orphanRestartCount++;
+            } else {
+                if (restart.getOccurredAt().isBefore(failureOccurredAt)) {
+                    restartBeforeFailureCount++;
+                }
+                if (restart.getOccurredAt().isAfter(failureOccurredAt.plusHours(48))) {
+                    lateRestartLinkCount++;
+                }
+            }
+
+            if (!DEFAULT_OFFSET.equals(restart.getOccurredAt().getOffset())) {
+                timezoneMismatchCount++;
+            }
+        }
+
+        return new RestartQualityStats(
+                duplicateFailureEventIds.size(),
+                orphanRestartCount,
+                restartBeforeFailureCount,
+                lateRestartLinkCount,
+                timezoneMismatchCount
+        );
+    }
+
+    private SessionQualityStats analyzeSessions(
+            List<SessionSlice> sessions,
+            Map<String, Timebox> timeboxesById
+    ) {
+        int breakSessionReferenceCount = 0;
+        int missingTimeboxReferenceCount = 0;
+        int timezoneMismatchCount = 0;
+
+        for (SessionSlice session : sessions) {
+            Timebox timebox = timeboxesById.get(session.getTimeboxId());
+            if (timebox == null) {
+                missingTimeboxReferenceCount++;
+            } else if (timebox.getType() == TimeboxType.BREAK) {
+                breakSessionReferenceCount++;
+            }
+
+            if (!DEFAULT_OFFSET.equals(session.getStartedAt().getOffset())) {
+                timezoneMismatchCount++;
+            }
+        }
+
+        return new SessionQualityStats(
+                breakSessionReferenceCount,
+                missingTimeboxReferenceCount,
+                timezoneMismatchCount
+        );
+    }
+
+    private int countFailureTimezoneMismatch(List<FailureSlice> failures) {
+        int failureMismatchCount = 0;
+        for (FailureSlice failure : failures) {
+            if (!DEFAULT_OFFSET.equals(failure.getOccurredAt().getOffset())) {
+                failureMismatchCount++;
+            }
+        }
+        return failureMismatchCount;
+    }
+
+    private int countTimeboxTimezoneMismatch(Iterable<Timebox> timeboxes) {
         int timeboxMismatchCount = 0;
         for (Timebox timebox : timeboxes) {
             if (!DEFAULT_OFFSET.equals(timebox.getStartAt().getOffset())) {
                 timeboxMismatchCount++;
             }
         }
+        return timeboxMismatchCount;
+    }
 
-        return sessionMismatchCount + failureMismatchCount + restartMismatchCount + timeboxMismatchCount;
+    private record RestartQualityStats(
+            int duplicateRestartLinkCount,
+            int orphanRestartCount,
+            int restartBeforeFailureCount,
+            int lateRestartLinkCount,
+            int timezoneMismatchCount
+    ) {
+    }
+
+    private record SessionQualityStats(
+            int breakSessionReferenceCount,
+            int missingTimeboxReferenceCount,
+            int timezoneMismatchCount
+    ) {
     }
 }
