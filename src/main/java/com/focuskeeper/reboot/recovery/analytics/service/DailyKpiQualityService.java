@@ -69,31 +69,30 @@ public class DailyKpiQualityService {
             OffsetDateTime periodStart = metricDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
             OffsetDateTime periodEndExclusive = metricDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
 
-            List<RecoverySessionRepository.SessionSlice> sessions = recoverySessionRepository.findSlicesByUserIdAndStartedAtBetween(
+            List<SessionSlice> sessions = recoverySessionRepository.findSlicesByUserIdAndStartedAtBetween(
                     userId,
                     periodStart,
                     periodEndExclusive
             );
-            List<FailureEventRepository.FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+            List<FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
                     userId,
                     periodStart,
                     periodEndExclusive
             );
-            List<RestartEventRepository.RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+            List<RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
                     userId,
                     periodStart,
                     periodEndExclusive
             );
 
-            generateFromSlices(
+            generateFromLoadedRaw(
                     userId,
                     metricDate,
                     generatedAt,
                     sessions,
                     failures,
                     restarts,
-                    loadTimeboxes(sessions),
-                    loadFailureOccurredAtById(restarts, userId)
+                    loadTimeboxes(sessions)
             );
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(
@@ -114,6 +113,27 @@ public class DailyKpiQualityService {
             );
             throw exception;
         }
+    }
+
+    void generateFromLoadedRaw(
+            String userId,
+            LocalDate metricDate,
+            OffsetDateTime generatedAt,
+            List<SessionSlice> sessions,
+            List<FailureSlice> failures,
+            List<RestartSlice> restarts,
+            Map<String, Timebox> timeboxesById
+    ) {
+        generateFromSlices(
+                    userId,
+                    metricDate,
+                    generatedAt,
+                    sessions,
+                    failures,
+                    restarts,
+                    timeboxesById,
+                    loadFailureOccurredAtById(failures, restarts, userId)
+            );
     }
 
     void generateFromSlices(
@@ -253,9 +273,9 @@ public class DailyKpiQualityService {
     /**
      * 세션이 참조한 타임박스들을 한 번에 조회해 timeboxId 기준 맵으로 만든다.
      */
-    private Map<String, Timebox> loadTimeboxes(List<RecoverySessionRepository.SessionSlice> sessions) {
+    private Map<String, Timebox> loadTimeboxes(List<SessionSlice> sessions) {
         Set<String> timeboxIds = sessions.stream()
-                .map(RecoverySessionRepository.SessionSlice::getTimeboxId)
+                .map(SessionSlice::getTimeboxId)
                 .collect(Collectors.toSet());
 
         if (timeboxIds.isEmpty()) {
@@ -270,31 +290,42 @@ public class DailyKpiQualityService {
      * 재시작 이벤트가 참조한 실패 이벤트를 조회해 failureEventId 기준 맵으로 만든다.
      */
     private Map<String, OffsetDateTime> loadFailureOccurredAtById(
+            List<FailureSlice> failures,
             List<RestartSlice> restarts,
             String userId
     ) {
-        Set<String> failureEventIds = restarts.stream()
+        Map<String, OffsetDateTime> failureOccurredAtById = failures.stream()
+                .collect(Collectors.toMap(
+                        FailureSlice::getFailureEventId,
+                        FailureSlice::getOccurredAt
+                ));
+
+        Set<String> missingFailureEventIds = restarts.stream()
                 .map(RestartSlice::getFailureEventId)
+                .filter(failureEventId -> !failureOccurredAtById.containsKey(failureEventId))
                 .collect(Collectors.toSet());
 
-        if (failureEventIds.isEmpty()) {
-            return Map.of();
+        if (missingFailureEventIds.isEmpty()) {
+            return failureOccurredAtById;
         }
 
-        return failureEventRepository.findReferencesByUserIdAndIdIn(userId, failureEventIds).stream()
-                .collect(Collectors.toMap(
-                        FailureReference::getFailureEventId,
-                        FailureReference::getOccurredAt
-                ));
+        failureOccurredAtById.putAll(
+                failureEventRepository.findReferencesByUserIdAndIdIn(userId, missingFailureEventIds).stream()
+                        .collect(Collectors.toMap(
+                                FailureReference::getFailureEventId,
+                                FailureReference::getOccurredAt
+                        ))
+        );
+        return failureOccurredAtById;
     }
 
     /**
      * 세션, 실패, 재시작, 타임박스가 기본 오프셋과 다른 시간대로 기록된 건수를 센다.
      */
     private int countTimezoneMismatch(
-            List<RecoverySessionRepository.SessionSlice> sessions,
-            List<FailureEventRepository.FailureSlice> failures,
-            List<RestartEventRepository.RestartSlice> restarts,
+            List<SessionSlice> sessions,
+            List<FailureSlice> failures,
+            List<RestartSlice> restarts,
             Iterable<Timebox> timeboxes
     ) {
         int sessionMismatchCount = (int) sessions.stream()

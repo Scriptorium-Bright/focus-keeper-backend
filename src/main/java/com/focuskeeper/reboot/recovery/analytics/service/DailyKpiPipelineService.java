@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -98,15 +99,20 @@ public class DailyKpiPipelineService {
                     periodStart,
                     restartEndExclusive
             );
+            List<Timebox> dailyTimeboxes = timeboxRepository.findAllByUserIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
             // 계획 대비 실행률은 휴식 블록을 제외한 실제 work timebox만 기준으로 본다.
-            List<Timebox> plannedWorkTimeboxes =
-                    timeboxRepository.findAllByUserIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
-                            userId,
-                            periodStart,
-                            periodEndExclusive
-                    ).stream()
-                            .filter(timebox -> timebox.getType() == TimeboxType.WORK)
-                            .toList();
+            List<Timebox> plannedWorkTimeboxes = dailyTimeboxes.stream()
+                    .filter(timebox -> timebox.getType() == TimeboxType.WORK)
+                    .toList();
+            List<RestartSlice> dailyRestarts = restarts.stream()
+                    .filter(restart -> normalizeMetricDate(restart.getOccurredAt()).equals(metricDate))
+                    .toList();
+            Map<String, Timebox> dailyTimeboxesById = dailyTimeboxes.stream()
+                    .collect(Collectors.toMap(Timebox::getId, Function.identity()));
 
             OffsetDateTime generatedAt = OffsetDateTime.now();
             generateMetric(
@@ -118,8 +124,17 @@ public class DailyKpiPipelineService {
                     plannedWorkTimeboxes,
                     generatedAt
             );
+            // generate가 이미 읽은 raw slice를 quality에도 재사용해 같은 날짜 범위를 다시 조회하지 않게 한다.
+            dailyKpiQualityService.generateFromLoadedRaw(
+                    userId,
+                    metricDate,
+                    generatedAt,
+                    sessions,
+                    failures,
+                    dailyRestarts,
+                    dailyTimeboxesById
+            );
             // mart 저장 직후 같은 generatedAt으로 품질 리포트와 watermark를 갱신해 한 번의 생성 배치로 묶는다.
-            dailyKpiQualityService.generate(userId, metricDate, generatedAt);
             dailyKpiWatermarkService.advance(userId, metricDate, generatedAt);
             operationsMetricRecorder.recordBatchStage(
                     sample,
@@ -230,6 +245,10 @@ public class DailyKpiPipelineService {
     private Map<String, List<RestartSlice>> indexRestartsByFailureEventId(List<RestartSlice> restarts) {
         return restarts.stream()
                 .collect(Collectors.groupingBy(RestartSlice::getFailureEventId));
+    }
+
+    private LocalDate normalizeMetricDate(OffsetDateTime timestamp) {
+        return timestamp.withOffsetSameInstant(DEFAULT_OFFSET).toLocalDate();
     }
 
     private void persistMetric(
