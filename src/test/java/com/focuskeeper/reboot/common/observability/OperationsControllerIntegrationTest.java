@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiQualityReportRepository;
-import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiLastProcessedDateRepository;
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.RestartType;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
@@ -63,7 +63,7 @@ class OperationsControllerIntegrationTest {
     private DailyKpiQualityReportRepository dailyKpiQualityReportRepository;
 
     @Autowired
-    private DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
+    private DailyKpiLastProcessedDateRepository dailyKpiLastProcessedDateRepository;
 
     @Autowired
     private FailureHourMetricRepository failureHourMetricRepository;
@@ -97,7 +97,7 @@ class OperationsControllerIntegrationTest {
         failureHourReportRepository.deleteAll();
         dailyKpiQualityReportRepository.deleteAll();
         dailyKpiMetricRepository.deleteAll();
-        dailyKpiWatermarkRepository.deleteAll();
+        dailyKpiLastProcessedDateRepository.deleteAll();
         weeklyRetrospectiveRepository.deleteAll();
         restartEventRepository.deleteAll();
         failureEventRepository.deleteAll();
@@ -133,7 +133,7 @@ class OperationsControllerIntegrationTest {
     }
 
     @Test
-    void batchOverviewReturnsQualityAndWatermarkSnapshots() throws Exception {
+    void batchOverviewReturnsQualityAndLastProcessedDateSnapshots() throws Exception {
         String userId = "ops-batch-user";
         LocalDate metricDate = LocalDate.of(2026, 3, 21);
 
@@ -151,7 +151,7 @@ class OperationsControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("OPS_BATCH_OVERVIEW_FETCHED"))
                 .andExpect(jsonPath("$.data.userId").value(userId))
                 .andExpect(jsonPath("$.data.qualityReport.userId").value(userId))
-                .andExpect(jsonPath("$.data.watermark.pipelineKey").value("daily_kpi_pipeline"))
+                .andExpect(jsonPath("$.data.lastProcessedDate.pipelineKey").value("daily_kpi_pipeline"))
                 .andExpect(jsonPath("$.data.metricNames[0]").value("reboot_batch_duration"));
     }
 

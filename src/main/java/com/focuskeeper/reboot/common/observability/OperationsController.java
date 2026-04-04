@@ -51,7 +51,7 @@ public class OperationsController {
     }
 
     @GetMapping("/overview/batch")
-    @Operation(summary = "Get batch overview", description = "Returns the rough batch, DQ, and watermark dashboard snapshot for Phase 14.")
+    @Operation(summary = "Get batch overview", description = "Returns the rough batch, DQ, and lastProcessedDate dashboard snapshot for Phase 14.")
     public ApiResponse<BatchOverviewResponse> getBatchOverview(
             @RequestParam String userId,
             @RequestParam String metricDate

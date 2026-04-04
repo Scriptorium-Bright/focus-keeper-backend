@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.analytics.dto;
 
-public record DailyKpiWatermarkResponse(
+public record DailyKpiLastProcessedDateResponse(
         String pipelineKey,
         String userId,
         String lastProcessedDate,

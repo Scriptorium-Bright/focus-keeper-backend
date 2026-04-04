@@ -37,7 +37,7 @@ public class DailyKpiBackfillService {
 
     private final DailyKpiPipelineService dailyKpiPipelineService;
     private final DailyKpiQualityService dailyKpiQualityService;
-    private final DailyKpiWatermarkService dailyKpiWatermarkService;
+    private final DailyKpiLastProcessedDateService dailyKpiLastProcessedDateService;
     private final RecoverySessionRepository recoverySessionRepository;
     private final FailureEventRepository failureEventRepository;
     private final RestartEventRepository restartEventRepository;
@@ -47,7 +47,7 @@ public class DailyKpiBackfillService {
     public DailyKpiBackfillService(
             DailyKpiPipelineService dailyKpiPipelineService,
             DailyKpiQualityService dailyKpiQualityService,
-            DailyKpiWatermarkService dailyKpiWatermarkService,
+            DailyKpiLastProcessedDateService dailyKpiLastProcessedDateService,
             RecoverySessionRepository recoverySessionRepository,
             FailureEventRepository failureEventRepository,
             RestartEventRepository restartEventRepository,
@@ -56,7 +56,7 @@ public class DailyKpiBackfillService {
     ) {
         this.dailyKpiPipelineService = dailyKpiPipelineService;
         this.dailyKpiQualityService = dailyKpiQualityService;
-        this.dailyKpiWatermarkService = dailyKpiWatermarkService;
+        this.dailyKpiLastProcessedDateService = dailyKpiLastProcessedDateService;
         this.recoverySessionRepository = recoverySessionRepository;
         this.failureEventRepository = failureEventRepository;
         this.restartEventRepository = restartEventRepository;
@@ -65,7 +65,7 @@ public class DailyKpiBackfillService {
     }
 
     /**
-     * 지정한 날짜 구간을 하루씩 다시 계산해 KPI mart를 재생성하고, 처리 결과와 최신 워터마크를 반환한다.
+     * 지정한 날짜 구간을 하루씩 다시 계산해 KPI mart를 재생성하고, 처리 결과와 최신 lastProcessedDate를 반환한다.
      */
     public BackfillDailyKpiResponse backfill(String userId, LocalDate startDate, LocalDate endDate) {
         if (endDate.isBefore(startDate)) {
@@ -148,8 +148,8 @@ public class DailyKpiBackfillService {
                 current = current.plusDays(1);
             }
 
-            // backfill은 날짜 구간 전체를 한 번의 재처리 작업으로 보므로, watermark는 마지막 날짜 기준으로 한 번만 전진시킨다.
-            dailyKpiWatermarkService.advance(userId, endDate, generatedAt);
+            // backfill은 날짜 구간 전체를 한 번의 재처리 작업으로 보므로, lastProcessedDate는 마지막 날짜 기준으로 한 번만 전진시킨다.
+            dailyKpiLastProcessedDateService.advance(userId, endDate, generatedAt);
 
             operationsMetricRecorder.recordBatchStage(
                     sample,
@@ -168,7 +168,7 @@ public class DailyKpiBackfillService {
                     endDate.toString(),
                     processedMetricDates.size(),
                     processedMetricDates,
-                    dailyKpiWatermarkService.get(userId)
+                    dailyKpiLastProcessedDateService.get(userId)
             );
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(

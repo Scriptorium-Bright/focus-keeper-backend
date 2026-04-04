@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.analytics.entity;
 
-import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiWatermarkResponse;
+import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiLastProcessedDateResponse;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -12,12 +12,12 @@ import java.util.UUID;
 
 @Entity
 @Table(
-        name = "daily_kpi_watermarks",
+        name = "daily_kpi_last_processed_dates",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_daily_kpi_watermarks_pipeline_user", columnNames = {"pipeline_key", "user_id"})
+                @UniqueConstraint(name = "uk_daily_kpi_last_processed_dates_pipeline_user", columnNames = {"pipeline_key", "user_id"})
         }
 )
-public class DailyKpiWatermark {
+public class DailyKpiLastProcessedDate {
 
     @Id
     @Column(nullable = false, updatable = false, length = 36)
@@ -35,10 +35,10 @@ public class DailyKpiWatermark {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    protected DailyKpiWatermark() {
+    protected DailyKpiLastProcessedDate() {
     }
 
-    private DailyKpiWatermark(
+    private DailyKpiLastProcessedDate(
             String id,
             String pipelineKey,
             String userId,
@@ -53,15 +53,15 @@ public class DailyKpiWatermark {
     }
 
     /**
-     * 파이프라인별 최초 워터마크 레코드를 생성한다.
+     * 파이프라인별 최초 lastProcessedDate 레코드를 생성한다.
      */
-    public static DailyKpiWatermark create(
+    public static DailyKpiLastProcessedDate create(
             String pipelineKey,
             String userId,
             LocalDate lastProcessedDate,
             OffsetDateTime updatedAt
     ) {
-        return new DailyKpiWatermark(
+        return new DailyKpiLastProcessedDate(
                 UUID.randomUUID().toString(),
                 pipelineKey,
                 userId,
@@ -81,10 +81,10 @@ public class DailyKpiWatermark {
     }
 
     /**
-     * 워터마크 엔티티를 조회 응답 DTO로 변환한다.
+     * 마지막 처리 날짜 엔티티를 조회 응답 DTO로 변환한다.
      */
-    public DailyKpiWatermarkResponse toResponse() {
-        return new DailyKpiWatermarkResponse(
+    public DailyKpiLastProcessedDateResponse toResponse() {
+        return new DailyKpiLastProcessedDateResponse(
                 pipelineKey,
                 userId,
                 lastProcessedDate.toString(),

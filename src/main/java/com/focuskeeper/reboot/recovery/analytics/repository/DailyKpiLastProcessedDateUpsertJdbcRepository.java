@@ -7,10 +7,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class DailyKpiWatermarkUpsertJdbcRepository {
+public class DailyKpiLastProcessedDateUpsertJdbcRepository {
 
     private static final String UPSERT_SQL = """
-            insert into daily_kpi_watermarks (
+            insert into daily_kpi_last_processed_dates (
                 id,
                 pipeline_key,
                 user_id,
@@ -19,17 +19,17 @@ public class DailyKpiWatermarkUpsertJdbcRepository {
             )
             values (?, ?, ?, ?, ?)
             on conflict (pipeline_key, user_id) do update set
-                last_processed_date = greatest(daily_kpi_watermarks.last_processed_date, excluded.last_processed_date),
+                last_processed_date = greatest(daily_kpi_last_processed_dates.last_processed_date, excluded.last_processed_date),
                 updated_at = case
-                    when excluded.last_processed_date >= daily_kpi_watermarks.last_processed_date
+                    when excluded.last_processed_date >= daily_kpi_last_processed_dates.last_processed_date
                         then excluded.updated_at
-                    else daily_kpi_watermarks.updated_at
+                    else daily_kpi_last_processed_dates.updated_at
                 end
             """;
 
     private final JdbcTemplate jdbcTemplate;
 
-    public DailyKpiWatermarkUpsertJdbcRepository(JdbcTemplate jdbcTemplate) {
+    public DailyKpiLastProcessedDateUpsertJdbcRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 

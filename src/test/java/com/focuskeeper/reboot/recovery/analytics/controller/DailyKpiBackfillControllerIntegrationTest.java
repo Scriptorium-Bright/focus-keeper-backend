@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
-import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiLastProcessedDateRepository;
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.RestartType;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
@@ -44,7 +44,7 @@ class DailyKpiBackfillControllerIntegrationTest {
     private DailyKpiMetricRepository dailyKpiMetricRepository;
 
     @Autowired
-    private DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
+    private DailyKpiLastProcessedDateRepository dailyKpiLastProcessedDateRepository;
 
     @Autowired
     private TimeboxRepository timeboxRepository;
@@ -65,11 +65,11 @@ class DailyKpiBackfillControllerIntegrationTest {
         recoverySessionRepository.deleteAll();
         timeboxRepository.deleteAll();
         dailyKpiMetricRepository.deleteAll();
-        dailyKpiWatermarkRepository.deleteAll();
+        dailyKpiLastProcessedDateRepository.deleteAll();
     }
 
     @Test
-    void backfillDailyKpiGeneratesMetricsForDateRangeAndUpdatesWatermark() throws Exception {
+    void backfillDailyKpiGeneratesMetricsForDateRangeAndUpdatesLastProcessedDate() throws Exception {
         String userId = "daily-kpi-backfill-user";
         LocalDate startDate = LocalDate.of(2026, 3, 17);
         LocalDate endDate = LocalDate.of(2026, 3, 18);
@@ -96,18 +96,18 @@ class DailyKpiBackfillControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.processedDays").value(2))
                 .andExpect(jsonPath("$.data.processedMetricDates[0]").value(startDate.toString()))
                 .andExpect(jsonPath("$.data.processedMetricDates[1]").value(endDate.toString()))
-                .andExpect(jsonPath("$.data.watermark.pipelineKey").value("daily_kpi_pipeline"))
-                .andExpect(jsonPath("$.data.watermark.userId").value(userId))
-                .andExpect(jsonPath("$.data.watermark.lastProcessedDate").value(endDate.toString()));
+                .andExpect(jsonPath("$.data.lastProcessedDate.pipelineKey").value("daily_kpi_pipeline"))
+                .andExpect(jsonPath("$.data.lastProcessedDate.userId").value(userId))
+                .andExpect(jsonPath("$.data.lastProcessedDate.lastProcessedDate").value(endDate.toString()));
 
         assertThat(dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, startDate)).isPresent();
         assertThat(dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, endDate)).isPresent();
-        assertThat(dailyKpiWatermarkRepository.findByPipelineKeyAndUserId("daily_kpi_pipeline", userId)).isPresent();
+        assertThat(dailyKpiLastProcessedDateRepository.findByPipelineKeyAndUserId("daily_kpi_pipeline", userId)).isPresent();
     }
 
     @Test
-    void getDailyKpiWatermarkReturnsLatestProcessedDate() throws Exception {
-        String userId = "daily-kpi-watermark-user";
+    void getDailyKpiLastProcessedDateReturnsLatestProcessedDate() throws Exception {
+        String userId = "daily-kpi-last-processed-date-user";
         LocalDate metricDate = LocalDate.of(2026, 3, 19);
 
         seedWorkday(userId, metricDate);
@@ -125,21 +125,21 @@ class DailyKpiBackfillControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(
-                        get("/api/v1/recovery/analytics/kpis/daily/watermark")
+                        get("/api/v1/recovery/analytics/kpis/daily/last-processed-date")
                                 .param("userId", userId)
                 )
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Trace-Id"))
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("DAILY_KPI_WATERMARK_FETCHED"))
+                .andExpect(jsonPath("$.message").value("DAILY_KPI_LAST_PROCESSED_DATE_FETCHED"))
                 .andExpect(jsonPath("$.data.pipelineKey").value("daily_kpi_pipeline"))
                 .andExpect(jsonPath("$.data.userId").value(userId))
                 .andExpect(jsonPath("$.data.lastProcessedDate").value(metricDate.toString()));
     }
 
     @Test
-    void watermarkDoesNotRegressWhenEarlierMetricDateIsGeneratedLater() throws Exception {
-        String userId = "daily-kpi-watermark-monotonic-user";
+    void lastProcessedDateDoesNotRegressWhenEarlierMetricDateIsGeneratedLater() throws Exception {
+        String userId = "daily-kpi-last-processed-date-monotonic-user";
         LocalDate laterDate = LocalDate.of(2026, 3, 21);
         LocalDate earlierDate = LocalDate.of(2026, 3, 20);
 
@@ -171,7 +171,7 @@ class DailyKpiBackfillControllerIntegrationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(
-                        get("/api/v1/recovery/analytics/kpis/daily/watermark")
+                        get("/api/v1/recovery/analytics/kpis/daily/last-processed-date")
                                 .param("userId", userId)
                 )
                 .andExpect(status().isOk())

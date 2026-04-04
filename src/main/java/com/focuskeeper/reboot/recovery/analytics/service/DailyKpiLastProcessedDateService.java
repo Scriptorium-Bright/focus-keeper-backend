@@ -6,10 +6,10 @@ import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
 import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiWatermarkResponse;
-import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiWatermark;
-import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
-import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkUpsertJdbcRepository;
+import com.focuskeeper.reboot.recovery.analytics.dto.DailyKpiLastProcessedDateResponse;
+import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiLastProcessedDate;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiLastProcessedDateRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiLastProcessedDateUpsertJdbcRepository;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -21,26 +21,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
-public class DailyKpiWatermarkService {
+public class DailyKpiLastProcessedDateService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
 
     private final DatabaseDialectResolver databaseDialectResolver;
-    private final DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
-    private final DailyKpiWatermarkUpsertJdbcRepository dailyKpiWatermarkUpsertJdbcRepository;
+    private final DailyKpiLastProcessedDateRepository dailyKpiLastProcessedDateRepository;
+    private final DailyKpiLastProcessedDateUpsertJdbcRepository dailyKpiLastProcessedDateUpsertJdbcRepository;
     private final OperationsMetricRecorder operationsMetricRecorder;
     private final OperationsAlertService operationsAlertService;
 
-    public DailyKpiWatermarkService(
+    public DailyKpiLastProcessedDateService(
             DatabaseDialectResolver databaseDialectResolver,
-            DailyKpiWatermarkRepository dailyKpiWatermarkRepository,
-            DailyKpiWatermarkUpsertJdbcRepository dailyKpiWatermarkUpsertJdbcRepository,
+            DailyKpiLastProcessedDateRepository dailyKpiLastProcessedDateRepository,
+            DailyKpiLastProcessedDateUpsertJdbcRepository dailyKpiLastProcessedDateUpsertJdbcRepository,
             OperationsMetricRecorder operationsMetricRecorder,
             OperationsAlertService operationsAlertService
     ) {
         this.databaseDialectResolver = databaseDialectResolver;
-        this.dailyKpiWatermarkRepository = dailyKpiWatermarkRepository;
-        this.dailyKpiWatermarkUpsertJdbcRepository = dailyKpiWatermarkUpsertJdbcRepository;
+        this.dailyKpiLastProcessedDateRepository = dailyKpiLastProcessedDateRepository;
+        this.dailyKpiLastProcessedDateUpsertJdbcRepository = dailyKpiLastProcessedDateUpsertJdbcRepository;
         this.operationsMetricRecorder = operationsMetricRecorder;
         this.operationsAlertService = operationsAlertService;
     }
@@ -52,33 +52,33 @@ public class DailyKpiWatermarkService {
     public void advance(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
-            persistWatermark(userId, metricDate, updatedAt);
-            publishWatermark(userId, metricDate);
+            persistLastProcessedDate(userId, metricDate, updatedAt);
+            publishLastProcessedDate(userId, metricDate);
             operationsMetricRecorder.recordBatchStage(
                     sample,
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
-                    "watermark_advance",
+                    "last_processed_date_advance",
                     "success"
             );
             operationsAlertService.resolveBatchFailure(
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
-                    "watermark_advance",
+                    "last_processed_date_advance",
                     userId,
-                    "Daily KPI watermark advanced successfully.",
+                    "Daily KPI last processed date advanced successfully.",
                     Map.of("metricDate", metricDate.toString())
             );
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(
                     sample,
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
-                    "watermark_advance",
+                    "last_processed_date_advance",
                     "failure"
             );
             operationsAlertService.reportBatchFailure(
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
-                    "watermark_advance",
+                    "last_processed_date_advance",
                     userId,
-                    "Failed to advance daily KPI watermark.",
+                    "Failed to advance daily KPI last processed date.",
                     Map.of(
                             "metricDate", metricDate.toString(),
                             "error", exception.getClass().getSimpleName()
@@ -88,9 +88,29 @@ public class DailyKpiWatermarkService {
         }
     }
 
-    private void persistWatermark(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
+    private void persistLastProcessedDate(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
+        /*
+         * Upsert 도입 전 JPA-only 저장 흐름:
+         *
+         * DailyKpiLastProcessedDate lastProcessedDateRecord = dailyKpiLastProcessedDateRepository.findByPipelineKeyAndUserId(
+         *                 OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+         *                 userId
+         *         )
+         *         .map(existing -> {
+         *             existing.advance(metricDate, updatedAt);
+         *             return existing;
+         *         })
+         *         .orElseGet(() -> DailyKpiLastProcessedDate.create(
+         *                 OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+         *                 userId,
+         *                 metricDate,
+         *                 updatedAt
+         *         ));
+         *
+         * dailyKpiLastProcessedDateRepository.save(lastProcessedDateRecord);
+         */
         if (databaseDialectResolver.isPostgreSql()) {
-            dailyKpiWatermarkUpsertJdbcRepository.upsert(
+            dailyKpiLastProcessedDateUpsertJdbcRepository.upsert(
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                     userId,
                     metricDate,
@@ -99,7 +119,7 @@ public class DailyKpiWatermarkService {
             return;
         }
 
-        DailyKpiWatermark watermark = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
+        DailyKpiLastProcessedDate lastProcessedDateRecord = dailyKpiLastProcessedDateRepository.findByPipelineKeyAndUserId(
                         OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                         userId
                 )
@@ -107,21 +127,21 @@ public class DailyKpiWatermarkService {
                     existing.advance(metricDate, updatedAt);
                     return existing;
                 })
-                .orElseGet(() -> DailyKpiWatermark.create(
+                .orElseGet(() -> DailyKpiLastProcessedDate.create(
                         OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                         userId,
                         metricDate,
                         updatedAt
                 ));
 
-        dailyKpiWatermarkRepository.save(watermark);
+        dailyKpiLastProcessedDateRepository.save(lastProcessedDateRecord);
     }
 
     /**
-     * 사용자 기준 일간 KPI 파이프라인 워터마크를 조회한다.
+     * 사용자 기준 일간 KPI 파이프라인의 마지막 처리 날짜를 조회한다.
      */
-    public DailyKpiWatermarkResponse get(String userId) {
-        DailyKpiWatermarkResponse response = dailyKpiWatermarkRepository.findByPipelineKeyAndUserId(
+    public DailyKpiLastProcessedDateResponse get(String userId) {
+        DailyKpiLastProcessedDateResponse response = dailyKpiLastProcessedDateRepository.findByPipelineKeyAndUserId(
                         OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                         userId
                 )
@@ -133,18 +153,18 @@ public class DailyKpiWatermarkService {
                         )
                 ))
                 .toResponse();
-        publishWatermark(userId, LocalDate.parse(response.lastProcessedDate()));
+        publishLastProcessedDate(userId, LocalDate.parse(response.lastProcessedDate()));
         return response;
     }
 
-    private void publishWatermark(String userId, LocalDate lastProcessedDate) {
+    private void publishLastProcessedDate(String userId, LocalDate lastProcessedDate) {
         long lagDays = Math.max(ChronoUnit.DAYS.between(lastProcessedDate, LocalDate.now(DEFAULT_OFFSET)), 0);
-        operationsMetricRecorder.recordWatermarkLagSeconds(
+        operationsMetricRecorder.recordProcessingLagSeconds(
                 OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                 userId,
                 lagDays * 86400
         );
-        operationsAlertService.evaluateWatermarkLag(
+        operationsAlertService.evaluateProcessingLag(
                 OperationsPipelineKeys.DAILY_KPI_PIPELINE,
                 userId,
                 lastProcessedDate

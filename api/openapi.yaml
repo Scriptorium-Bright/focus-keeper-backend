@@ -300,11 +300,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiResponseBackfillDailyKpi"
-  /api/v1/recovery/analytics/kpis/daily/watermark:
+  /api/v1/recovery/analytics/kpis/daily/last-processed-date:
     get:
       tags: [Analytics]
-      summary: Get daily KPI watermark
-      operationId: getDailyKpiWatermark
+      summary: Get daily KPI last processed date
+      operationId: getDailyKpiLastProcessedDate
       parameters:
         - in: query
           name: userId
@@ -313,11 +313,11 @@ paths:
             type: string
       responses:
         "200":
-          description: Daily KPI watermark fetched
+          description: Daily KPI last processed date fetched
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiResponseDailyKpiWatermark"
+                $ref: "#/components/schemas/ApiResponseDailyKpiLastProcessedDate"
   /api/v1/recovery/analytics/failure-hours:
     post:
       tags: [Analytics]
@@ -556,17 +556,17 @@ components:
           example: DAILY_KPI_BACKFILL_COMPLETED
         traceId:
           type: string
-    ApiResponseDailyKpiWatermark:
+    ApiResponseDailyKpiLastProcessedDate:
       type: object
       properties:
         success:
           type: boolean
           example: true
         data:
-          $ref: "#/components/schemas/DailyKpiWatermarkResponse"
+          $ref: "#/components/schemas/DailyKpiLastProcessedDateResponse"
         message:
           type: string
-          example: DAILY_KPI_WATERMARK_FETCHED
+          example: DAILY_KPI_LAST_PROCESSED_DATE_FETCHED
         traceId:
           type: string
     ApiResponseFailureHourDistribution:
@@ -1024,9 +1024,9 @@ components:
           items:
             type: string
             format: date
-        watermark:
-          $ref: "#/components/schemas/DailyKpiWatermarkResponse"
-    DailyKpiWatermarkResponse:
+        lastProcessedDate:
+          $ref: "#/components/schemas/DailyKpiLastProcessedDateResponse"
+    DailyKpiLastProcessedDateResponse:
       type: object
       properties:
         pipelineKey:

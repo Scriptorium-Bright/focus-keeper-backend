@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.focuskeeper.reboot.recovery.analytics.dto.BackfillDailyKpiResponse;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiQualityReportRepository;
-import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiLastProcessedDateRepository;
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.RestartType;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
@@ -53,7 +53,7 @@ class DailyKpiBackfillPerformanceHarnessTest {
     private DailyKpiQualityReportRepository dailyKpiQualityReportRepository;
 
     @Autowired
-    private DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
+    private DailyKpiLastProcessedDateRepository dailyKpiLastProcessedDateRepository;
 
     @Autowired
     private TimeboxRepository timeboxRepository;
@@ -100,7 +100,7 @@ class DailyKpiBackfillPerformanceHarnessTest {
         assertThat(response.processedDays()).isEqualTo(days);
         assertThat(dailyKpiMetricRepository.count()).isEqualTo(days);
         assertThat(dailyKpiQualityReportRepository.count()).isEqualTo(days);
-        assertThat(dailyKpiWatermarkRepository.findByPipelineKeyAndUserId("daily_kpi_pipeline", userId))
+        assertThat(dailyKpiLastProcessedDateRepository.findByPipelineKeyAndUserId("daily_kpi_pipeline", userId))
                 .isPresent()
                 .get()
                 .extracting("lastProcessedDate")
@@ -181,7 +181,7 @@ class DailyKpiBackfillPerformanceHarnessTest {
     }
 
     private void clearGeneratedAnalytics() {
-        dailyKpiWatermarkRepository.deleteAll();
+        dailyKpiLastProcessedDateRepository.deleteAll();
         dailyKpiQualityReportRepository.deleteAll();
         dailyKpiMetricRepository.deleteAll();
     }

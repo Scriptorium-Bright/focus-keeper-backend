@@ -46,7 +46,7 @@ public class DailyKpiPipelineService {
     private final RestartEventRepository restartEventRepository;
     private final TimeboxRepository timeboxRepository;
     private final DailyKpiQualityService dailyKpiQualityService;
-    private final DailyKpiWatermarkService dailyKpiWatermarkService;
+    private final DailyKpiLastProcessedDateService dailyKpiLastProcessedDateService;
     private final OperationsMetricRecorder operationsMetricRecorder;
 
     public DailyKpiPipelineService(
@@ -58,7 +58,7 @@ public class DailyKpiPipelineService {
             RestartEventRepository restartEventRepository,
             TimeboxRepository timeboxRepository,
             DailyKpiQualityService dailyKpiQualityService,
-            DailyKpiWatermarkService dailyKpiWatermarkService,
+            DailyKpiLastProcessedDateService dailyKpiLastProcessedDateService,
             OperationsMetricRecorder operationsMetricRecorder
     ) {
         this.databaseDialectResolver = databaseDialectResolver;
@@ -69,12 +69,12 @@ public class DailyKpiPipelineService {
         this.restartEventRepository = restartEventRepository;
         this.timeboxRepository = timeboxRepository;
         this.dailyKpiQualityService = dailyKpiQualityService;
-        this.dailyKpiWatermarkService = dailyKpiWatermarkService;
+        this.dailyKpiLastProcessedDateService = dailyKpiLastProcessedDateService;
         this.operationsMetricRecorder = operationsMetricRecorder;
     }
 
     /**
-     * 원천 실행 이벤트를 읽어 사용자의 일간 KPI를 계산하고, mart 저장 후 품질 리포트와 워터마크까지 갱신한다.
+     * 원천 실행 이벤트를 읽어 사용자의 일간 KPI를 계산하고, mart 저장 후 품질 리포트와 lastProcessedDate까지 갱신한다.
      */
     public void generate(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
@@ -134,8 +134,8 @@ public class DailyKpiPipelineService {
                     dailyRestarts,
                     dailyTimeboxesById
             );
-            // mart 저장 직후 같은 generatedAt으로 품질 리포트와 watermark를 갱신해 한 번의 생성 배치로 묶는다.
-            dailyKpiWatermarkService.advance(userId, metricDate, generatedAt);
+            // mart 저장 직후 같은 generatedAt으로 품질 리포트와 lastProcessedDate를 갱신해 한 번의 생성 배치로 묶는다.
+            dailyKpiLastProcessedDateService.advance(userId, metricDate, generatedAt);
             operationsMetricRecorder.recordBatchStage(
                     sample,
                     OperationsPipelineKeys.DAILY_KPI_PIPELINE,
@@ -268,6 +268,50 @@ public class DailyKpiPipelineService {
             long estimationErrorMinutes,
             OffsetDateTime generatedAt
     ) {
+        /*
+         * Upsert 도입 전 JPA-only 저장 흐름:
+         *
+         * dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, metricDate)
+         *         .ifPresentOrElse(
+         *                 existing -> {
+         *                     existing.regenerate(
+         *                             activation,
+         *                             failureCount,
+         *                             recovery24,
+         *                             recovery48,
+         *                             restartCount24,
+         *                             restartCount48,
+         *                             ttrMinutes,
+         *                             cycleCompletionRate,
+         *                             planExecutionRate,
+         *                             plannedWorkMinutes,
+         *                             actualWorkMinutes,
+         *                             estimationErrorMinutes,
+         *                             generatedAt
+         *                     );
+         *                     dailyKpiMetricRepository.save(existing);
+         *                 },
+         *                 () -> dailyKpiMetricRepository.save(
+         *                         DailyKpiMetric.create(
+         *                                 userId,
+         *                                 metricDate,
+         *                                 activation,
+         *                                 failureCount,
+         *                                 recovery24,
+         *                                 recovery48,
+         *                                 restartCount24,
+         *                                 restartCount48,
+         *                                 ttrMinutes,
+         *                                 cycleCompletionRate,
+         *                                 planExecutionRate,
+         *                                 plannedWorkMinutes,
+         *                                 actualWorkMinutes,
+         *                                 estimationErrorMinutes,
+         *                                 generatedAt
+         *                         )
+         *                 )
+         *         );
+         */
         if (databaseDialectResolver.isPostgreSql()) {
             dailyKpiMetricUpsertJdbcRepository.upsert(
                     userId,

@@ -8,6 +8,6 @@ public record BackfillDailyKpiResponse(
         String endDate,
         int processedDays,
         List<String> processedMetricDates,
-        DailyKpiWatermarkResponse watermark
+        DailyKpiLastProcessedDateResponse lastProcessedDate
 ) {
 }

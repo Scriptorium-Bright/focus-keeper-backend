@@ -40,7 +40,7 @@ const el = {
     summaryRecovery24: document.getElementById("summary-recovery24"),
     summaryTtr: document.getElementById("summary-ttr"),
     summaryCycle: document.getElementById("summary-cycle"),
-    summaryWatermark: document.getElementById("summary-watermark"),
+    summaryLastProcessedDate: document.getElementById("summary-last-processed-date"),
     stageButtons: [...document.querySelectorAll("[data-stage]")],
     stagePanels: [...document.querySelectorAll("[data-stage-panel]")]
 };
@@ -333,7 +333,7 @@ async function refreshInsights() {
     el.summaryRecovery24.textContent = dailyKpi ? boolText(dailyKpi.recovery24) : "-";
     el.summaryTtr.textContent = dailyKpi?.ttrMinutes ?? "-";
     el.summaryCycle.textContent = dailyKpi?.cycleCompletionRate ?? "-";
-    el.summaryWatermark.textContent = batch.data.watermark?.lastProcessedDate ?? "-";
+    el.summaryLastProcessedDate.textContent = batch.data.lastProcessedDate?.lastProcessedDate ?? "-";
 
     setStage(3);
     toast("Recovery / Batch overview를 갱신했습니다.");
