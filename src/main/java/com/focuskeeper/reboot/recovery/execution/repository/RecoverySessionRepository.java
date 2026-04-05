@@ -9,8 +9,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+/**
+ * 복귀 세션 실행 기록을 읽고 집계하는 JPA 저장소다.
+ */
 public interface RecoverySessionRepository extends JpaRepository<RecoverySession, String> {
 
+    /**
+     * 사용자가 현재 특정 상태의 세션을 이미 가지고 있는지 확인한다.
+     */
     boolean existsByUserIdAndStatus(String userId, RecoverySessionStatus status);
 
     Optional<RecoverySession> findByIdAndUserId(String id, String userId);
@@ -59,6 +65,9 @@ public interface RecoverySessionRepository extends JpaRepository<RecoverySession
             @Param("end") OffsetDateTime end
     );
 
+    /**
+     * analytics 계산에 필요한 최소 세션 필드만 담는 projection이다.
+     */
     interface SessionSlice {
         String getSessionId();
 

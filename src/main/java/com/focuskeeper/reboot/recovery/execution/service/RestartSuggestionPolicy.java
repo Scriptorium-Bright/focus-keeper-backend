@@ -6,10 +6,18 @@ import com.focuskeeper.reboot.recovery.execution.dto.RestartSuggestionResponse;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * failure reason별로 기본 재시작 제안을 만드는 정책 컴포넌트다.
+ *
+ * 현재는 모든 경우를 10분 재시작으로 수렴시키지만, 문구는 실패 맥락에 따라 다르게 준다.
+ */
 public class RestartSuggestionPolicy {
 
     private static final int TEN_MINUTE_SUGGESTED_MINUTES = 10;
 
+    /**
+     * 실패 이유에 맞는 재시작 타입, 추천 시간, 안내 문구를 결정한다.
+     */
     public RestartSuggestionResponse suggest(FailureReason reason) {
         return new RestartSuggestionResponse(
                 RestartType.TEN_MINUTE_RESTART.name(),

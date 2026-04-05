@@ -21,6 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * Big3에 선택된 항목을 실제 일정 블록(timebox)으로 구체화하는 서비스다.
+ *
+ * 입력 검증, Big3 소속 여부 확인, 시간 충돌 방지, 엔티티 생성까지를 한 흐름으로 처리한다.
+ */
 public class TimeboxService {
 
     private final Big3Service big3Service;
@@ -41,10 +46,7 @@ public class TimeboxService {
     }
 
     /**
-     *
-     * @param userId
-     * @param commands
-     * @return Big3중 하나를 언제부터 언제까지 다시 붙잡을지 정하는 것, 즉 시간을 정해두는 거라고 보면 됨
+     * 요청받은 명령 목록을 검증한 뒤 recovery timebox로 확정해 저장한다.
      */
     @Transactional
     public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
@@ -66,6 +68,9 @@ public class TimeboxService {
                 .toList();
     }
 
+    /**
+     * 세션 시작 전에 특정 timebox가 존재하는지, 그리고 WORK 타입인지 검증한다.
+     */
     public void getTimebox(String userId, String timeboxId) {
         Timebox timebox = timeboxRepository.findByIdAndUserId(timeboxId, userId)
                 .orElseThrow(() -> new BusinessException(
@@ -80,6 +85,9 @@ public class TimeboxService {
         }
     }
 
+    /**
+     * 오늘의 Big3 항목을 itemId 기준 맵으로 재구성한다.
+     */
     private Map<String, InboxItemResponse> indexSelectedItems(Big3SelectionResponse selection) {
         Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
         for (InboxItemResponse item : selection.selectedItems()) {
@@ -89,19 +97,16 @@ public class TimeboxService {
     }
 
     /**
+     * 요청 DTO를 실제 저장 가능한 Timebox 엔티티 목록으로 materialize한다.
      *
-     * @param userId
-     * @param commands
-     * @param selectedItems
-     * @return TimeBox를 구체화하는 로직
+     * 이 단계에서 문자열 시각/타입을 파싱하고, Big3 item의 현재 제목(content)도 snapshot처럼 함께 복사한다.
      */
-
     private List<Timebox> materializeTimeboxes(
             String userId,
             List<TimeboxCommand> commands,
             Map<String, InboxItemResponse> selectedItems) {
         List<Timebox> requestedTimeboxes = new ArrayList<>();
-        for (TimeboxCommand command : commands) {
+        commands.forEach((TimeboxCommand command) -> {
             OffsetDateTime startAt = parseDateTime("startAt", command.startAt());
             OffsetDateTime endAt = parseDateTime("endAt", command.endAt());
             if (!startAt.isBefore(endAt)) {
@@ -110,7 +115,6 @@ public class TimeboxService {
                         Map.of("timeboxes", "startAt은 endAt보다 빨라야 합니다.")
                 );
             }
-
             InboxItemResponse sourceItem = selectedItems.get(command.itemId());
             requestedTimeboxes.add(Timebox.create(
                     userId,
@@ -122,10 +126,13 @@ public class TimeboxService {
                     command.firstRecoveryBlock(),
                     OffsetDateTime.now()
             ));
-        }
+        });
         return requestedTimeboxes;
     }
 
+    /**
+     * 외부 문자열을 TimeboxType enum으로 변환한다.
+     */
     private TimeboxType parseType(String rawType) {
         try {
             return TimeboxType.valueOf(rawType);
@@ -137,12 +144,9 @@ public class TimeboxService {
         }
     }
 
-    // Q. 다시 말했듯 검증 로직이 비즈니스 로직까지 들어와야 하는가? 지금 TimeBoxService에서 담당하는 부분이 너무 많은거같은데, 이거에 대한 의견이 필요함
-    // A. 날짜 문자열 파싱과 입력 형식 검증은 엄밀히 말하면 DTO/컨트롤러 쪽 책임에 더 가깝다.
-    // A. 지금은 service command가 String을 들고 있어서 여기서 처리하지만, 나중에는 OffsetDateTime으로 올려보내면 책임을 줄일 수 있다.
-    // RQ. 두 시간 구간이라는 것이 무엇을 의미하는지?
-    // A. 예를 들면 [09:00, 09:25] 같은 하나의 timebox 범위와 [09:10, 09:30] 같은 다른 범위를 비교하는 걸 뜻한다.
-    // A. 결국 "한 사용자의 두 timebox가 같은 시각대를 동시에 차지하는가"를 보는 시간 범위 비교라고 이해하면 된다.
+    /**
+     * 외부 문자열을 OffsetDateTime으로 파싱하고 형식 오류를 도메인 예외로 바꾼다.
+     */
     private OffsetDateTime parseDateTime(String fieldName, String value) {
         try {
             return OffsetDateTime.parse(value);

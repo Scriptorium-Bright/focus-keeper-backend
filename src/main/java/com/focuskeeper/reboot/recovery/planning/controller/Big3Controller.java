@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/recovery")
 @Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
+/**
+ * 오늘의 Big3 선택 API를 노출하는 컨트롤러다.
+ */
 public class Big3Controller {
 
     private final Big3Service big3Service;
@@ -28,6 +31,9 @@ public class Big3Controller {
         this.big3Service = big3Service;
     }
 
+    /**
+     * 사용자가 고른 inbox item들을 오늘의 Big3로 확정한다.
+     */
     @PostMapping("/big3")
     @Operation(summary = "Select today's Big3", description = "Picks up to three inbox items as today's recovery priorities.")
     public ApiResponse<SelectBig3Response> selectBig3(

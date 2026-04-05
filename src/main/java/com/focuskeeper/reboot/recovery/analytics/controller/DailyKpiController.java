@@ -32,6 +32,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/recovery/analytics")
 @Tag(name = "Analytics", description = "Recovery analytics and KPI APIs")
+/**
+ * recovery analytics 하위 기능을 외부 API로 노출하는 진입점이다.
+ *
+ * 실제 KPI 계산, 품질 검사, 백필, lastProcessedDate 관리는 각각의 서비스가 담당하고,
+ * 이 컨트롤러는 요청 검증, 날짜 파싱, 응답 포맷 통일에 집중한다.
+ */
 public class DailyKpiController {
 
     private final DailyKpiBatchLauncher dailyKpiBatchLauncher;
@@ -122,6 +128,9 @@ public class DailyKpiController {
 
     /**
      * 문자열 날짜를 KPI 계산 기준일로 변환하고, 형식이 다르면 공통 요청 오류로 바꿔 던진다.
+     *
+     * analytics/friction API 전반이 yyyy-MM-dd 형식을 공통 계약으로 쓰기 때문에,
+     * 컨트롤러 단계에서 형식 오류를 먼저 차단해 서비스 내부에는 LocalDate만 전달한다.
      */
     private LocalDate parseMetricDate(String metricDate) {
         try {

@@ -19,6 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/recovery/failures")
 @Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
+/**
+ * 실패 체크인 API 진입점이다.
+ *
+ * 요청을 받아 failure check-in 유스케이스를 호출하고,
+ * observability용 action metric까지 함께 기록한다.
+ */
 public class FailureCheckInController {
 
     private final FailureEventService failureEventService;
@@ -32,6 +38,9 @@ public class FailureCheckInController {
         this.operationsMetricRecorder = operationsMetricRecorder;
     }
 
+    /**
+     * 진행 중 세션의 실패를 기록하고 세션 상태와 재시작 제안을 함께 반환한다.
+     */
     @PostMapping("/check-in")
     @Operation(summary = "Check in a recovery failure", description = "Records a failure reason for the current session and interrupts the active recovery session.")
     public ApiResponse<FailureCheckInResponse> checkIn(

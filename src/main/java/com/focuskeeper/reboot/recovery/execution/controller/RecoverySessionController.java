@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/recovery/sessions")
 @Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
+/**
+ * 복귀 세션의 시작/완료/중단 API를 노출하는 컨트롤러다.
+ */
 public class RecoverySessionController {
 
     private final RecoverySessionService recoverySessionService;
@@ -33,6 +36,9 @@ public class RecoverySessionController {
         this.operationsMetricRecorder = operationsMetricRecorder;
     }
 
+    /**
+     * 선택한 timebox에 대해 새 복귀 세션을 시작한다.
+     */
     @PostMapping("/start")
     @Operation(summary = "Start a recovery session", description = "Starts a recovery session for a selected timebox.")
     public ApiResponse<RecoverySessionResponse> startSession(
@@ -49,6 +55,9 @@ public class RecoverySessionController {
         }
     }
 
+    /**
+     * 진행 중인 복귀 세션을 완료 상태로 마감한다.
+     */
     @PostMapping("/complete")
     @Operation(summary = "Complete a recovery session", description = "Marks an active recovery session as completed.")
     public ApiResponse<RecoverySessionResponse> completeSession(
@@ -65,6 +74,9 @@ public class RecoverySessionController {
         }
     }
 
+    /**
+     * 진행 중인 복귀 세션을 중단 상태로 바꾼다.
+     */
     @PostMapping("/interrupt")
     @Operation(summary = "Interrupt a recovery session", description = "Marks an active recovery session as interrupted.")
     public ApiResponse<RecoverySessionResponse> interruptSession(

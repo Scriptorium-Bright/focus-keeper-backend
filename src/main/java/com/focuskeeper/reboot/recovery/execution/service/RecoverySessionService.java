@@ -15,6 +15,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * 복귀 세션의 시작/완료/중단 상태 전이를 담당하는 서비스다.
+ *
+ * 여기서의 세션은 "특정 timebox를 실제로 수행한 실행 단위"를 의미하며,
+ * 일반 타이머가 아니라 실패 후 다시 붙잡는 recovery 흐름의 실행 기록으로 본다.
+ */
 public class RecoverySessionService {
 
     private final TimeboxService timeboxService;
@@ -28,6 +34,12 @@ public class RecoverySessionService {
         this.recoverySessionRepository = recoverySessionRepository;
     }
 
+    /**
+     * 특정 WORK timebox에 대해 새로운 복귀 세션을 시작한다.
+     *
+     * 한 사용자는 동시에 하나의 STARTED 세션만 가질 수 있게 막아,
+     * 실행 단위와 KPI 집계 단위가 중복되지 않도록 한다.
+     */
     @Transactional
     public RecoverySessionResponse startSession(String userId, String timeboxId) {
         timeboxService.getTimebox(userId, timeboxId);
@@ -48,9 +60,12 @@ public class RecoverySessionService {
         ).toResponse();
     }
 
+    /**
+     * 진행 중인 세션을 완료 상태로 전이한다.
+     */
     @Transactional
     public RecoverySessionResponse completeSession(String userId, String sessionId) {
-        RecoverySession session = getSessionRecordOrThrow(userId, sessionId);
+        RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
             throw invalidTransition(sessionId, session.getStatus(), "COMPLETED");
         }
@@ -59,9 +74,15 @@ public class RecoverySessionService {
         return recoverySessionRepository.save(session).toResponse();
     }
 
+    /**
+     * 진행 중인 세션을 중단 상태로 전이한다.
+     *
+     * 현재는 failure check-in처럼 사용자가 명시적으로 실패를 확정했을 때 주로 호출되며,
+     * 약한 이탈 신호를 자동 감지해 끊는 용도까지는 확장하지 않았다.
+     */
     @Transactional
     public RecoverySessionResponse interruptSession(String userId, String sessionId) {
-        RecoverySession session = getSessionRecordOrThrow(userId, sessionId);
+        RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
             throw invalidTransition(sessionId, session.getStatus(), "INTERRUPTED");
         }
@@ -70,17 +91,28 @@ public class RecoverySessionService {
         return recoverySessionRepository.save(session).toResponse();
     }
 
-    public RecoverySessionResponse getSessionOrThrow(String userId, String sessionId) {
-        return getSessionRecordOrThrow(userId, sessionId).toResponse();
+    /**
+     * 단일 복귀 세션을 조회한다.
+     */
+    public RecoverySessionResponse getSession(String userId, String sessionId) {
+        return requireSession(userId, sessionId).toResponse();
     }
 
+    /**
+     * 사용자의 모든 복귀 세션을 시작 시각 순으로 조회한다.
+     */
     public List<RecoverySessionResponse> findSessions(String userId) {
         return recoverySessionRepository.findAllByUserIdOrderByStartedAtAsc(userId).stream()
                 .map(RecoverySession::toResponse)
                 .toList();
     }
 
-    private RecoverySession getSessionRecordOrThrow(String userId, String sessionId) {
+    /**
+     * 사용자 소유의 세션을 강하게(require) 조회한다.
+     *
+     * 없으면 null을 반환하지 않고 즉시 예외를 던져, 이후 상태 전이 메소드가 전제조건을 단순하게 유지할 수 있게 한다.
+     */
+    private RecoverySession requireSession(String userId, String sessionId) {
         return recoverySessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
@@ -88,6 +120,9 @@ public class RecoverySessionService {
                 ));
     }
 
+    /**
+     * 현재 상태에서 목표 상태로 갈 수 없는 경우 공통 충돌 예외를 만든다.
+     */
     private BusinessException invalidTransition(
             String sessionId,
             RecoverySessionStatus currentStatus,

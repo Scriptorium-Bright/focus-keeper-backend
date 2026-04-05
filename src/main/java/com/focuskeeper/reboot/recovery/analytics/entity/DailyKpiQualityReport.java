@@ -17,6 +17,11 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_daily_kpi_quality_reports_user_date", columnNames = {"user_id", "metric_date"})
         }
 )
+/**
+ * 하루치 KPI 계산 결과가 얼마나 신뢰 가능한지 요약한 품질 리포트 엔티티다.
+ *
+ * KPI 값 자체와 분리해서 유지함으로써, 숫자는 존재하더라도 참조 무결성이나 timezone 문제가 있었는지를 따로 판단할 수 있다.
+ */
 public class DailyKpiQualityReport {
 
     @Id
@@ -92,6 +97,9 @@ public class DailyKpiQualityReport {
         this.generatedAt = generatedAt;
     }
 
+    /**
+     * 새로 생성된 KPI 품질 검사 결과를 저장할 엔티티를 만든다.
+     */
     public static DailyKpiQualityReport create(
             String userId,
             LocalDate metricDate,
@@ -123,6 +131,9 @@ public class DailyKpiQualityReport {
         );
     }
 
+    /**
+     * 같은 날짜의 기존 품질 리포트를 최신 검사 결과로 갱신한다.
+     */
     public void regenerate(
             boolean healthy,
             int duplicateRestartLinkCount,
@@ -147,6 +158,9 @@ public class DailyKpiQualityReport {
         this.generatedAt = generatedAt;
     }
 
+    /**
+     * 품질 리포트 엔티티를 API 응답 DTO로 변환한다.
+     */
     public DailyKpiQualityResponse toResponse() {
         return new DailyKpiQualityResponse(
                 id,

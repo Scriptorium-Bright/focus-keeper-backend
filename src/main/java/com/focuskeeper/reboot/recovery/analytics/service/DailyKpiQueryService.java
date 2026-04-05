@@ -11,6 +11,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * 저장된 daily KPI mart를 조회 전용으로 읽어오는 서비스다.
+ *
+ * 계산 책임은 없고, 이미 생성된 mart row를 찾아 API 응답 DTO로 변환하는 역할만 담당한다.
+ */
 public class DailyKpiQueryService {
 
     private final DailyKpiMetricRepository dailyKpiMetricRepository;
@@ -19,6 +24,9 @@ public class DailyKpiQueryService {
         this.dailyKpiMetricRepository = dailyKpiMetricRepository;
     }
 
+    /**
+     * 사용자와 날짜로 일간 KPI mart 행을 조회하고, 없으면 404 성격의 비즈니스 예외를 던진다.
+     */
     public DailyKpiResponse get(String userId, LocalDate metricDate) {
         return dailyKpiMetricRepository.findByUserIdAndMetricDate(userId, metricDate)
                 .orElseThrow(() -> new BusinessException(

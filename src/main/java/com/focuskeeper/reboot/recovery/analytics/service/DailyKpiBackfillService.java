@@ -31,6 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+/**
+ * 과거 날짜 구간의 KPI mart와 품질 리포트를 다시 계산하는 백필 서비스다.
+ *
+ * 원천 이벤트를 구간 단위로 한 번 읽어 날짜별로 재조합한 뒤,
+ * KPI 계산과 품질 검사를 하루씩 다시 실행해 재처리 비용을 줄인다.
+ */
 public class DailyKpiBackfillService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
@@ -181,6 +187,11 @@ public class DailyKpiBackfillService {
         }
     }
 
+    /**
+     * 재시작 이벤트가 참조한 실패 이벤트의 발생 시각을 미리 읽어 failureEventId 기준 맵으로 만든다.
+     *
+     * 백필 중 품질 검사가 날짜별로 반복 호출되더라도 같은 failure reference를 재조회하지 않게 하기 위한 준비 단계다.
+     */
     private Map<String, OffsetDateTime> loadFailureOccurredAtById(String userId, List<RestartSlice> restarts) {
         Set<String> failureEventIds = restarts.stream()
                 .map(RestartSlice::getFailureEventId)
@@ -196,6 +207,12 @@ public class DailyKpiBackfillService {
                 ));
     }
 
+    /**
+     * 하루치 세션이 참조한 timebox만 뽑아 timeboxId 기준 맵으로 만든다.
+     *
+     * 품질 검사에서는 "존재 여부"와 "WORK/BREAK 타입"만 확인하면 되므로,
+     * 전체 timebox 목록 대신 필요한 식별자만 빠르게 재조합한다.
+     */
     private Map<String, Timebox> loadDailyTimeboxes(
             List<SessionSlice> sessions,
             Map<String, Timebox> timeboxesById
@@ -212,6 +229,9 @@ public class DailyKpiBackfillService {
                 .collect(Collectors.toMap(Timebox::getId, Function.identity()));
     }
 
+    /**
+     * 원천 이벤트 시각을 KPI 기준일(LocalDate)로 자를 때 KST 기준을 강제한다.
+     */
     private LocalDate normalizeMetricDate(OffsetDateTime timestamp) {
         return timestamp.withOffsetSameInstant(DEFAULT_OFFSET).toLocalDate();
     }

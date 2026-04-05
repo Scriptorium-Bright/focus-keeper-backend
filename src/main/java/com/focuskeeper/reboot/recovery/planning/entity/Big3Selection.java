@@ -23,6 +23,9 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_big3_selections_user_date", columnNames = {"user_id", "selected_date"})
         }
 )
+/**
+ * 특정 사용자가 특정 날짜에 선택한 오늘의 Big3 헤더 엔티티다.
+ */
 public class Big3Selection {
 
     @Id
@@ -51,10 +54,19 @@ public class Big3Selection {
         this.selectedAt = selectedAt;
     }
 
+    /**
+     * 오늘의 Big3 선택 헤더를 새로 만든다.
+     */
     public static Big3Selection create(String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
         return new Big3Selection(UUID.randomUUID().toString(), userId, selectedDate, selectedAt);
     }
 
+    /**
+     * 기존 선택 항목을 새 inbox item 목록으로 교체한다.
+     *
+     * 공통 prefix는 재사용하고, 남는 항목은 제거하고, 부족한 항목은 새로 추가해
+     * 자식 컬렉션을 통째로 갈아엎지 않고도 today selection을 갱신할 수 있게 한다.
+     */
     public void replaceItems(List<InboxItem> inboxItems, OffsetDateTime selectedAt) {
         this.selectedAt = selectedAt;
         selectedItems.sort((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()));
@@ -73,6 +85,9 @@ public class Big3Selection {
         }
     }
 
+    /**
+     * 엔티티를 외부 응답 DTO로 변환한다.
+     */
     public Big3SelectionResponse toResponse() {
         List<InboxItemResponse> items = selectedItems.stream()
                 .sorted((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()))

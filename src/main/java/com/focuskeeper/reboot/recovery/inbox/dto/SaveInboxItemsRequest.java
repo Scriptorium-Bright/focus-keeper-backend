@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
-public record SaveInboxItemsRequest(
+public record SaveInboxItemsRequest (
         @NotBlank(message = "userId는 필수입니다.")
         String userId,
         @NotEmpty(message = "items는 최소 1개 이상이어야 합니다.")

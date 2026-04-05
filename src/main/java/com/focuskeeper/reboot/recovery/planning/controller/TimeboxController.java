@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/recovery")
 @Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
+/**
+ * Big3 항목을 실제 timebox 일정으로 배정하는 API를 노출하는 컨트롤러다.
+ */
 public class TimeboxController {
 
     private final TimeboxService timeboxService;
@@ -30,6 +33,9 @@ public class TimeboxController {
         this.timeboxService = timeboxService;
     }
 
+    /**
+     * 요청받은 timebox 목록을 검증하고 저장한 뒤 배정 결과를 반환한다.
+     */
     @PostMapping("/timeboxes")
     @Operation(summary = "Allocate recovery timeboxes", description = "Assigns daily timeboxes and requires exactly one first recovery block.")
     public ApiResponse<AllocateTimeboxesResponse> allocateTimeboxes(

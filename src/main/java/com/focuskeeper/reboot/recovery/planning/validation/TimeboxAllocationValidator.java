@@ -10,11 +10,17 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
+/**
+ * timebox 배정 요청 자체의 도메인 규칙을 검증하는 validator다.
+ *
+ * 시간 겹침처럼 일정 충돌을 보는 validator와는 별도로,
+ * "첫 복귀 블록은 정확히 하나" 같은 역할 규칙을 담당한다.
+ */
 public class TimeboxAllocationValidator {
 
-    // Q. '첫' 복귀 블록이라는게, 사용자가 집중력을 잃어 나가게 되었을 때, 복귀를 해야하는데 만약 복귀 블록이 두 개일 경우 블록간의 시간이 겹치게 된다는 의미도 될탠데 그럼 시간 겹침으로 처리할 수도 있지 않나?
-    // A. 시간 겹침은 일정 충돌이고, "첫 복귀 블록이 1개여야 한다"는 건 역할 충돌이라 성질이 다르다.
-    // A. 두 블록이 안 겹쳐도 "무엇이 첫 복귀인가"가 모호해지므로, overlap 검증과 별도로 여기서 먼저 막는 게 맞다.
+    /**
+     * 첫 복귀 블록의 개수와 타입 규칙을 검증한다.
+     */
     public void validateFirstRecoveryBlock(List<TimeboxCommand> commands) {
         long firstRecoveryBlockCount = commands.stream()
                 .filter(TimeboxCommand::firstRecoveryBlock)
@@ -38,6 +44,9 @@ public class TimeboxAllocationValidator {
         }
     }
 
+    /**
+     * BREAK 블록이 첫 복귀 블록으로 지정되는 잘못된 조합을 막는다.
+     */
     public void validateTypes(List<TimeboxCommand> commands) {
         boolean hasBreakFirstRecovery = commands.stream()
                 .anyMatch(command -> parseType(command.type()) == TimeboxType.BREAK && command.firstRecoveryBlock());
@@ -49,6 +58,9 @@ public class TimeboxAllocationValidator {
         }
     }
 
+    /**
+     * 문자열 타입을 TimeboxType enum으로 변환한다.
+     */
     private TimeboxType parseType(String rawType) {
         try {
             return TimeboxType.valueOf(rawType);
@@ -60,6 +72,9 @@ public class TimeboxAllocationValidator {
         }
     }
 
+    /**
+     * timebox 요청에 포함된 itemId가 오늘의 Big3에 실제로 포함되는지 검증한다.
+     */
     public void validateSelectedItems(List<TimeboxCommand> commands, Map<String, InboxItemResponse> selectedItems) {
         List<String> invalidItemIds = commands.stream()
                 .map(TimeboxCommand::itemId)

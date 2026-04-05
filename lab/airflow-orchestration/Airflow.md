@@ -1,6 +1,4 @@
-# Phase 14 Airflow Rough Assets
-
-이 디렉토리는 Phase 14 Watchtower의 `14.4 Airflow 오케스트레이션` rough 자산을 모아둔 곳이다.
+# Airflow Rough Assets
 
 ## 목적
 

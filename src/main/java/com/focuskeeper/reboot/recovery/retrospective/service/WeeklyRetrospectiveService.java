@@ -52,54 +52,54 @@ public class WeeklyRetrospectiveService {
         OffsetDateTime periodStart = weekStart.atStartOfDay().atOffset(DEFAULT_OFFSET);
         OffsetDateTime periodEndExclusive = weekStart.plusWeeks(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
 
-        long sessionStartedCount = recoverySessionRepository.countByUserIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(
-                userId,
-                periodStart,
-                periodEndExclusive
-        );
-        long sessionCompletedCount =
-                recoverySessionRepository.countByUserIdAndStatusAndStartedAtGreaterThanEqualAndStartedAtLessThan(
-                        userId,
-                        RecoverySessionStatus.COMPLETED,
-                        periodStart,
-                        periodEndExclusive
-                );
-        long sessionInterruptedCount =
-                recoverySessionRepository.countByUserIdAndStatusAndStartedAtGreaterThanEqualAndStartedAtLessThan(
-                        userId,
-                        RecoverySessionStatus.INTERRUPTED,
-                        periodStart,
-                        periodEndExclusive
-                );
-        long failureCount = failureEventRepository.countByUserIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
-                userId,
-                periodStart,
-                periodEndExclusive
-        );
-        long restartCount = restartEventRepository.countByUserIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
-                userId,
-                periodStart,
-                periodEndExclusive
-        );
+            long sessionStartedCount = recoverySessionRepository.countByUserIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
+            long sessionCompletedCount =
+                    recoverySessionRepository.countByUserIdAndStatusAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                            userId,
+                            RecoverySessionStatus.COMPLETED,
+                            periodStart,
+                            periodEndExclusive
+                    );
+            long sessionInterruptedCount =
+                    recoverySessionRepository.countByUserIdAndStatusAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                            userId,
+                            RecoverySessionStatus.INTERRUPTED,
+                            periodStart,
+                            periodEndExclusive
+                    );
+            long failureCount = failureEventRepository.countByUserIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
+            long restartCount = restartEventRepository.countByUserIdAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
 
-        FailureReason dominantFailureReason = failureEventRepository.findDominantReason(
-                userId,
-                periodStart,
-                periodEndExclusive
-        );
-        String summary = retrospectiveSummaryPolicy.summarize(
-                sessionStartedCount,
-                sessionCompletedCount,
-                sessionInterruptedCount,
-                failureCount,
-                restartCount,
-                dominantFailureReason
-        );
-        var antiSlipAction = antiSlipActionPolicy.suggest(
-                sessionCompletedCount,
-                sessionInterruptedCount,
-                dominantFailureReason
-        );
+            FailureReason dominantFailureReason = failureEventRepository.findDominantReason(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
+            String summary = retrospectiveSummaryPolicy.summarize(
+                    sessionStartedCount,
+                    sessionCompletedCount,
+                    sessionInterruptedCount,
+                    failureCount,
+                    restartCount,
+                    dominantFailureReason
+            );
+            var antiSlipAction = antiSlipActionPolicy.suggest(
+                    sessionCompletedCount,
+                    sessionInterruptedCount,
+                    dominantFailureReason
+            );
 
         OffsetDateTime generatedAt = OffsetDateTime.now();
         WeeklyRetrospective retrospective = weeklyRetrospectiveRepository.findByUserIdAndWeekStart(userId, weekStart)

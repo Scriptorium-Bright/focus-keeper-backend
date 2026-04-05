@@ -17,6 +17,12 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_daily_kpi_last_processed_dates_pipeline_user", columnNames = {"pipeline_key", "user_id"})
         }
 )
+/**
+ * 파이프라인이 한 사용자에 대해 마지막으로 어디까지 처리 완료했는지 기록하는 상태 엔티티다.
+ *
+ * 스트리밍 watermark처럼 late event를 제어하는 개념이 아니라,
+ * 배치/백필 파이프라인이 어디까지 성공적으로 반영됐는지 저장하는 운영 메타데이터다.
+ */
 public class DailyKpiLastProcessedDate {
 
     @Id
@@ -72,6 +78,8 @@ public class DailyKpiLastProcessedDate {
 
     /**
      * 마지막 처리 날짜와 갱신 시각을 최신 값으로 전진시킨다.
+     *
+     * 더 과거 날짜가 들어오면 무시해 상태 회귀를 막는다.
      */
     public void advance(LocalDate lastProcessedDate, OffsetDateTime updatedAt) {
         if (this.lastProcessedDate == null || !lastProcessedDate.isBefore(this.lastProcessedDate)) {

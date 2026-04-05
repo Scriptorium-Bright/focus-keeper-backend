@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/recovery/restarts")
 @Tag(name = "Recovery", description = "Recovery loop planning and execution APIs")
+/**
+ * failure event를 기준으로 재시작 유스케이스를 실행하는 컨트롤러다.
+ */
 public class RestartController {
 
     private final RestartService restartService;
@@ -32,6 +35,9 @@ public class RestartController {
         this.operationsMetricRecorder = operationsMetricRecorder;
     }
 
+    /**
+     * 실패 이벤트 하나를 기준으로 10분 재시작을 실행한다.
+     */
     @PostMapping
     @Operation(summary = "Execute a 10-minute restart", description = "Starts a new recovery session from a failure event and records the restart event.")
     public ApiResponse<RestartRecoveryResponse> restart(

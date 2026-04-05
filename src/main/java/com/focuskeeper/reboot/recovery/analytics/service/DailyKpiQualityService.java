@@ -31,6 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+/**
+ * KPI 계산에 사용된 raw event들의 참조 일관성과 시간 규칙을 점검해 품질 리포트를 생성하는 서비스다.
+ *
+ * KPI 값이 계산됐더라도 restart 연결, timebox 참조, timezone 정합성이 깨져 있으면
+ * 운영 관점에서는 신뢰할 수 없는 지표가 되므로 별도의 DQ 결과를 유지한다.
+ */
 public class DailyKpiQualityService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
@@ -116,6 +122,11 @@ public class DailyKpiQualityService {
         }
     }
 
+    /**
+     * 이미 메모리에 적재된 raw slice를 재사용해 품질 리포트를 생성한다.
+     *
+     * KPI 계산 직후 같은 데이터를 이어서 검사할 때 추가 쿼리를 줄이기 위해 제공되는 내부 진입점이다.
+     */
     void generateFromLoadedRaw(
             String userId,
             LocalDate metricDate,
@@ -137,6 +148,12 @@ public class DailyKpiQualityService {
             );
     }
 
+    /**
+     * 세션/실패/재시작/타임박스 slice를 직접 받아 품질 지표를 계산하고 리포트를 저장한다.
+     *
+     * 호출자는 데이터를 어떤 방식으로 읽어왔는지와 상관없이, 이 메소드에 규격화된 slice만 넘기면 된다.
+     * upsert 전환대상
+     */
     void generateFromSlices(
             String userId,
             LocalDate metricDate,
@@ -298,6 +315,11 @@ public class DailyKpiQualityService {
         return failureOccurredAtById;
     }
 
+    /**
+     * 재시작 이벤트 관점의 품질 이상 여부를 계산한다.
+     *
+     * 중복 연결, orphan restart, failure보다 이른 restart, 48시간을 넘긴 늦은 restart, timezone mismatch를 한 번에 센다.
+     */
     private RestartQualityStats analyzeRestarts(
             List<RestartSlice> restarts,
             Map<String, OffsetDateTime> failureOccurredAtById
@@ -340,6 +362,9 @@ public class DailyKpiQualityService {
         );
     }
 
+    /**
+     * 세션이 올바른 timebox를 참조하는지와 break session 오염 여부를 계산한다.
+     */
     private SessionQualityStats analyzeSessions(
             List<SessionSlice> sessions,
             Map<String, Timebox> timeboxesById
@@ -368,6 +393,9 @@ public class DailyKpiQualityService {
         );
     }
 
+    /**
+     * failure 이벤트 중 KST 기준과 다른 offset을 가진 건수를 센다.
+     */
     private int countFailureTimezoneMismatch(List<FailureSlice> failures) {
         int failureMismatchCount = 0;
         for (FailureSlice failure : failures) {
@@ -378,6 +406,9 @@ public class DailyKpiQualityService {
         return failureMismatchCount;
     }
 
+    /**
+     * timebox 데이터 중 KST 기준과 다른 offset을 가진 건수를 센다.
+     */
     private int countTimeboxTimezoneMismatch(Iterable<Timebox> timeboxes) {
         int timeboxMismatchCount = 0;
         for (Timebox timebox : timeboxes) {

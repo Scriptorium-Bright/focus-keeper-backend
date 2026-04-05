@@ -15,6 +15,12 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.stereotype.Service;
 
 @Service
+/**
+ * Spring Batch JobLauncher를 감싼 얇은 실행 서비스다.
+ *
+ * 컨트롤러가 배치 인프라 세부 구현을 몰라도 되게 숨기고,
+ * 실행 성공/실패를 observability 계층의 메트릭과 alert로 연결하는 책임을 가진다.
+ */
 public class DailyKpiBatchLauncher {
 
     private final JobLauncher jobLauncher;

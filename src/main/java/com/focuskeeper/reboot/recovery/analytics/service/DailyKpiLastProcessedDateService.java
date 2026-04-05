@@ -21,6 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * 일간 KPI 파이프라인의 마지막 처리 날짜를 관리하는 서비스다.
+ *
+ * 이 서비스는 단순 조회뿐 아니라, monotonic update 규칙을 적용해
+ * 과거 날짜 backfill 때문에 처리 기준점이 뒤로 가지 않도록 보장한다.
+ */
 public class DailyKpiLastProcessedDateService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
@@ -88,6 +94,12 @@ public class DailyKpiLastProcessedDateService {
         }
     }
 
+    /**
+     * 저장소 구현체 차이를 숨기고 lastProcessedDate를 저장한다.
+     *
+     * PostgreSQL이면 monotonic upsert를 우선 사용하고,
+     * 그 외 런타임에서는 JPA 조회 후 advance/save 흐름으로 동일한 의미를 맞춘다.
+     */
     private void persistLastProcessedDate(String userId, LocalDate metricDate, OffsetDateTime updatedAt) {
         /*
          * Upsert 도입 전 JPA-only 저장 흐름:
@@ -139,6 +151,9 @@ public class DailyKpiLastProcessedDateService {
 
     /**
      * 사용자 기준 일간 KPI 파이프라인의 마지막 처리 날짜를 조회한다.
+     *
+     * 조회 시점에도 processing lag 메트릭과 alert를 함께 갱신해
+     * 운영 화면에서 보는 값과 메트릭 저장소의 값이 크게 벌어지지 않게 한다.
      */
     public DailyKpiLastProcessedDateResponse get(String userId) {
         DailyKpiLastProcessedDateResponse response = dailyKpiLastProcessedDateRepository.findByPipelineKeyAndUserId(
@@ -157,6 +172,11 @@ public class DailyKpiLastProcessedDateService {
         return response;
     }
 
+    /**
+     * 마지막 처리 날짜를 운영 메트릭과 lag alert로 투영한다.
+     *
+     * 엔티티 row 자체는 DB에 남기고, 운영 계층에서는 "오늘 기준 며칠 밀렸는가"만 숫자형 신호로 본다.
+     */
     private void publishLastProcessedDate(String userId, LocalDate lastProcessedDate) {
         long lagDays = Math.max(ChronoUnit.DAYS.between(lastProcessedDate, LocalDate.now(DEFAULT_OFFSET)), 0);
         operationsMetricRecorder.recordProcessingLagSeconds(

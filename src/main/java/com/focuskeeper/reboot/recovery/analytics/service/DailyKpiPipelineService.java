@@ -34,6 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+/**
+ * recovery domain의 raw event를 읽어 일간 KPI mart 한 행을 계산하는 핵심 파이프라인 서비스다.
+ *
+ * 세션, 실패, 재시작, 타임박스 데이터를 KPI 관점으로 다시 묶고,
+ * 계산 결과를 저장한 뒤 품질 리포트와 lastProcessedDate까지 같은 흐름 안에서 갱신한다.
+ */
 public class DailyKpiPipelineService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
@@ -153,6 +159,11 @@ public class DailyKpiPipelineService {
         }
     }
 
+    /**
+     * 이미 읽어온 raw slice를 바탕으로 KPI 숫자 자체만 계산해 mart 저장까지 수행한다.
+     *
+     * 외부에서 동일 raw 데이터를 재사용할 수 있게 조회와 계산을 분리해둔 내부 메소드다.
+     */
     void generateMetric(
             String userId,
             LocalDate metricDate,
@@ -242,15 +253,29 @@ public class DailyKpiPipelineService {
         );
     }
 
+    /**
+     * 재시작 이벤트를 failureEventId 기준으로 그룹화해 failure별 recovery window 계산을 빠르게 한다.
+     */
     private Map<String, List<RestartSlice>> indexRestartsByFailureEventId(List<RestartSlice> restarts) {
         return restarts.stream()
                 .collect(Collectors.groupingBy(RestartSlice::getFailureEventId));
     }
 
+    /**
+     * 원천 이벤트의 OffsetDateTime을 KPI 기준일(LocalDate)로 정규화한다.
+     *
+     * 시스템 전반이 KST 하루 단위 KPI를 전제로 하기 때문에, raw event의 offset이 달라도 같은 기준으로 잘라낸다.
+     */
     private LocalDate normalizeMetricDate(OffsetDateTime timestamp) {
         return timestamp.withOffsetSameInstant(DEFAULT_OFFSET).toLocalDate();
     }
 
+    /**
+     * 계산된 KPI 값을 저장소 특성에 맞는 방식으로 반영한다.
+     *
+     * PostgreSQL 런타임이면 native upsert를 사용해 자연키 충돌을 DB가 처리하게 하고,
+     * 그 외 환경에서는 JPA 조회 후 regenerate/save 경로로 동일한 의미를 맞춘다.
+     */
     private void persistMetric(
             String userId,
             LocalDate metricDate,

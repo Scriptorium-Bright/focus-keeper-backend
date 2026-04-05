@@ -13,6 +13,9 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "restart_events")
+/**
+ * failure event 이후 사용자가 실제로 재시작을 눌렀는지 남기는 원천 restart event 엔티티다.
+ */
 public class RestartEvent {
 
     @Id
@@ -54,6 +57,9 @@ public class RestartEvent {
         this.occurredAt = occurredAt;
     }
 
+    /**
+     * 새 재시작 이벤트를 생성한다.
+     */
     public static RestartEvent create(
             String userId,
             String failureEventId,
@@ -71,6 +77,9 @@ public class RestartEvent {
         );
     }
 
+    /**
+     * 엔티티를 외부 응답 DTO로 변환한다.
+     */
     public RestartEventResponse toResponse() {
         return new RestartEventResponse(id, failureEventId, restartType, suggestedMinutes, occurredAt);
     }

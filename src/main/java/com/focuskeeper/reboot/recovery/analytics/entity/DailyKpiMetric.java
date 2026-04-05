@@ -18,6 +18,12 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_daily_kpi_metrics_user_date", columnNames = {"user_id", "metric_date"})
         }
 )
+/**
+ * 사용자의 하루 recovery 흐름을 KPI 숫자로 요약한 mart 엔티티다.
+ *
+ * 원천 세션/실패/재시작 데이터를 직접 다시 계산하지 않고도,
+ * 복귀 여부와 TTR, 계획 대비 실행률 같은 핵심 지표를 하루 단위로 재사용할 수 있게 한다.
+ */
 public class DailyKpiMetric {
 
     @Id
@@ -108,6 +114,9 @@ public class DailyKpiMetric {
         this.generatedAt = generatedAt;
     }
 
+    /**
+     * 새로 계산된 일간 KPI mart 행을 처음 생성한다.
+     */
     public static DailyKpiMetric create(
             String userId,
             LocalDate metricDate,
@@ -145,6 +154,9 @@ public class DailyKpiMetric {
         );
     }
 
+    /**
+     * 이미 존재하는 일간 KPI mart 행을 같은 키(userId, metricDate) 기준으로 최신 계산값으로 덮어쓴다.
+     */
     public void regenerate(
             boolean activation,
             int failureCount,
@@ -175,6 +187,9 @@ public class DailyKpiMetric {
         this.generatedAt = generatedAt;
     }
 
+    /**
+     * 엔티티를 API 응답 전용 DTO로 변환한다.
+     */
     public DailyKpiResponse toResponse() {
         return new DailyKpiResponse(
                 id,
@@ -196,14 +211,23 @@ public class DailyKpiMetric {
         );
     }
 
+    /**
+     * KPI 행의 사용자 식별자를 반환한다.
+     */
     public String getUserId() {
         return userId;
     }
 
+    /**
+     * KPI가 집계된 기준 날짜를 반환한다.
+     */
     public LocalDate getMetricDate() {
         return metricDate;
     }
 
+    /**
+     * 해당 날짜에 사용자가 세션을 시작해 활성화됐는지 반환한다.
+     */
     public boolean isActivation() {
         return activation;
     }
