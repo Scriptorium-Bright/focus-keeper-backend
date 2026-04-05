@@ -1,6 +1,5 @@
 package com.focuskeeper.reboot.recovery.execution.service;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.RestartType;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
@@ -14,6 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+/**
+ * 실패 이벤트를 기준으로 10분 재시작을 실행하는 유스케이스 서비스다.
+ *
+ * failure event 조회, 재시작 제안 확인, 새 세션 시작, restart event 저장을 하나의 흐름으로 묶는다.
+ */
 public class RestartService {
 
     private final FailureEventService failureEventService;
@@ -33,9 +37,12 @@ public class RestartService {
         this.restartSuggestionPolicy = restartSuggestionPolicy;
     }
 
+    /**
+     * 특정 failure event를 기준으로 새 복귀 세션을 시작하고 restart event를 남긴다.
+     */
     @Transactional
     public RestartRecoveryResult restart(String userId, String failureEventId) {
-        FailureEventResponse failureEvent = failureEventService.getFailureEventOrThrow(userId, failureEventId);
+        FailureEventResponse failureEvent = failureEventService.getFailureEvent(userId, failureEventId);
         RestartSuggestionResponse suggestion = restartSuggestionPolicy.suggest(failureEvent.reason());
         RecoverySessionResponse recoverySession = recoverySessionService.startSession(userId, failureEvent.timeboxId());
         RestartEventResponse restartEvent = restartEventRepository.save(
@@ -51,6 +58,9 @@ public class RestartService {
         return new RestartRecoveryResult(restartEvent, recoverySession, suggestion);
     }
 
+    /**
+     * 재시작 유스케이스가 만든 결과 묶음이다.
+     */
     public record RestartRecoveryResult(
             RestartEventResponse restartEvent,
             RecoverySessionResponse recoverySession,

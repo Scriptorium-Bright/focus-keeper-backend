@@ -8,6 +8,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
+/**
+ * daily KPI mart를 PostgreSQL `ON CONFLICT`로 저장하기 위한 JDBC 전용 저장소다.
+ *
+ * 자연키(user_id, metric_date) 기준으로 같은 KPI를 여러 번 계산해도
+ * insert/update 분기를 애플리케이션에서 나누지 않고 DB가 원자적으로 처리하게 만든다.
+ */
 public class DailyKpiMetricUpsertJdbcRepository {
 
     private static final String UPSERT_SQL = """
@@ -53,7 +59,13 @@ public class DailyKpiMetricUpsertJdbcRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public String upsert(
+    /**
+     * KPI mart 한 행을 자연키 기준으로 upsert한다.
+     *
+     * 새 row면 insert하고, 이미 같은 사용자/날짜 row가 있으면 최신 계산값으로 덮어쓴다.
+     * returning id는 기존 row identity를 유지한 채 저장이 성공했는지를 DB 한 문장으로 끝내기 위한 장치다.
+     */
+    public void upsert(
             String userId,
             LocalDate metricDate,
             boolean activation,
@@ -70,7 +82,7 @@ public class DailyKpiMetricUpsertJdbcRepository {
             long estimationErrorMinutes,
             OffsetDateTime generatedAt
     ) {
-        return jdbcTemplate.queryForObject(
+        jdbcTemplate.queryForObject(
                 UPSERT_SQL,
                 String.class,
                 UUID.randomUUID().toString(),

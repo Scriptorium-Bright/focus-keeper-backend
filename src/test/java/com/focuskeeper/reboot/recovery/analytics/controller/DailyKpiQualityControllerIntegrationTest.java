@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiQualityReportRepository;
-import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiWatermarkRepository;
+import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiLastProcessedDateRepository;
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.RestartType;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
@@ -49,7 +49,7 @@ class DailyKpiQualityControllerIntegrationTest {
     private DailyKpiQualityReportRepository dailyKpiQualityReportRepository;
 
     @Autowired
-    private DailyKpiWatermarkRepository dailyKpiWatermarkRepository;
+    private DailyKpiLastProcessedDateRepository dailyKpiLastProcessedDateRepository;
 
     @Autowired
     private TimeboxRepository timeboxRepository;
@@ -71,7 +71,7 @@ class DailyKpiQualityControllerIntegrationTest {
         timeboxRepository.deleteAll();
         dailyKpiQualityReportRepository.deleteAll();
         dailyKpiMetricRepository.deleteAll();
-        dailyKpiWatermarkRepository.deleteAll();
+        dailyKpiLastProcessedDateRepository.deleteAll();
     }
 
     @Test

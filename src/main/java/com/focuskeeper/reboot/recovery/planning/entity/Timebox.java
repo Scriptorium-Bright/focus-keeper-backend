@@ -19,6 +19,9 @@ import java.util.UUID;
                 @Index(name = "idx_recovery_timeboxes_user_start_at", columnList = "user_id, start_at")
         }
 )
+/**
+ * Big3 항목을 실제 수행 시간 구간으로 옮긴 recovery timebox 엔티티다.
+ */
 public class Timebox {
 
     @Id
@@ -75,6 +78,9 @@ public class Timebox {
         this.createdAt = createdAt;
     }
 
+    /**
+     * 새 timebox 엔티티를 생성한다.
+     */
     public static Timebox create(
             String userId,
             String itemId,
@@ -98,6 +104,9 @@ public class Timebox {
         );
     }
 
+    /**
+     * 엔티티를 외부 응답 DTO로 변환한다.
+     */
     public TimeboxResponse toResponse() {
         return new TimeboxResponse(
                 id,
@@ -111,18 +120,30 @@ public class Timebox {
         );
     }
 
+    /**
+     * timebox 식별자를 반환한다.
+     */
     public String getId() {
         return id;
     }
 
+    /**
+     * timebox 시작 시각을 반환한다.
+     */
     public OffsetDateTime getStartAt() {
         return startAt;
     }
 
+    /**
+     * timebox 종료 시각을 반환한다.
+     */
     public OffsetDateTime getEndAt() {
         return endAt;
     }
 
+    /**
+     * timebox 유형(WORK/BREAK)을 반환한다.
+     */
     public TimeboxType getType() {
         return type;
     }

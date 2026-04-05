@@ -5,34 +5,73 @@ import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.analytics.dto.BackfillDailyKpiResponse;
+import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureReference;
+import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository.SessionSlice;
+import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
+import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
+import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+/**
+ * 과거 날짜 구간의 KPI mart와 품질 리포트를 다시 계산하는 백필 서비스다.
+ *
+ * 원천 이벤트를 구간 단위로 한 번 읽어 날짜별로 재조합한 뒤,
+ * KPI 계산과 품질 검사를 하루씩 다시 실행해 재처리 비용을 줄인다.
+ */
 public class DailyKpiBackfillService {
 
+    private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
+
     private final DailyKpiPipelineService dailyKpiPipelineService;
-    private final DailyKpiWatermarkService dailyKpiWatermarkService;
+    private final DailyKpiQualityService dailyKpiQualityService;
+    private final DailyKpiLastProcessedDateService dailyKpiLastProcessedDateService;
+    private final RecoverySessionRepository recoverySessionRepository;
+    private final FailureEventRepository failureEventRepository;
+    private final RestartEventRepository restartEventRepository;
+    private final TimeboxRepository timeboxRepository;
     private final OperationsMetricRecorder operationsMetricRecorder;
 
     public DailyKpiBackfillService(
             DailyKpiPipelineService dailyKpiPipelineService,
-            DailyKpiWatermarkService dailyKpiWatermarkService,
+            DailyKpiQualityService dailyKpiQualityService,
+            DailyKpiLastProcessedDateService dailyKpiLastProcessedDateService,
+            RecoverySessionRepository recoverySessionRepository,
+            FailureEventRepository failureEventRepository,
+            RestartEventRepository restartEventRepository,
+            TimeboxRepository timeboxRepository,
             OperationsMetricRecorder operationsMetricRecorder
     ) {
         this.dailyKpiPipelineService = dailyKpiPipelineService;
-        this.dailyKpiWatermarkService = dailyKpiWatermarkService;
+        this.dailyKpiQualityService = dailyKpiQualityService;
+        this.dailyKpiLastProcessedDateService = dailyKpiLastProcessedDateService;
+        this.recoverySessionRepository = recoverySessionRepository;
+        this.failureEventRepository = failureEventRepository;
+        this.restartEventRepository = restartEventRepository;
+        this.timeboxRepository = timeboxRepository;
         this.operationsMetricRecorder = operationsMetricRecorder;
     }
 
     /**
-     * 지정한 날짜 구간을 하루씩 다시 계산해 KPI mart를 재생성하고, 처리 결과와 최신 워터마크를 반환한다.
+     * 지정한 날짜 구간을 하루씩 다시 계산해 KPI mart를 재생성하고, 처리 결과와 최신 lastProcessedDate를 반환한다.
      */
     public BackfillDailyKpiResponse backfill(String userId, LocalDate startDate, LocalDate endDate) {
         if (endDate.isBefore(startDate)) {
@@ -45,12 +84,78 @@ public class DailyKpiBackfillService {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
             List<String> processedMetricDates = new ArrayList<>();
+            OffsetDateTime generatedAt = OffsetDateTime.now();
+            OffsetDateTime periodStart = startDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
+            OffsetDateTime periodEndExclusive = endDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
+            OffsetDateTime restartEndExclusive = periodEndExclusive.plusHours(48);
+
+            List<SessionSlice> sessions = recoverySessionRepository.findSlicesByUserIdAndStartedAtBetween(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
+            List<FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
+            List<RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+                    userId,
+                    periodStart,
+                    restartEndExclusive
+            );
+            List<Timebox> timeboxes = timeboxRepository.findAllByUserIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
+                    userId,
+                    periodStart,
+                    periodEndExclusive
+            );
+
+            Map<LocalDate, List<SessionSlice>> sessionsByDate = sessions.stream()
+                    .collect(Collectors.groupingBy(session -> normalizeMetricDate(session.getStartedAt())));
+            Map<LocalDate, List<FailureSlice>> failuresByDate = failures.stream()
+                    .collect(Collectors.groupingBy(failure -> normalizeMetricDate(failure.getOccurredAt())));
+            Map<LocalDate, List<RestartSlice>> restartsByDate = restarts.stream()
+                    .collect(Collectors.groupingBy(restart -> normalizeMetricDate(restart.getOccurredAt())));
+            Map<String, List<RestartSlice>> restartByFailureEventId = restarts.stream()
+                    .collect(Collectors.groupingBy(RestartSlice::getFailureEventId));
+            Map<LocalDate, List<Timebox>> workTimeboxesByDate = timeboxes.stream()
+                    .filter(timebox -> timebox.getType() == TimeboxType.WORK)
+                    .collect(Collectors.groupingBy(timebox -> normalizeMetricDate(timebox.getStartAt())));
+            Map<String, Timebox> timeboxesById = timeboxes.stream()
+                    .collect(Collectors.toMap(Timebox::getId, Function.identity()));
+            Map<String, OffsetDateTime> failureOccurredAtById = loadFailureOccurredAtById(userId, restarts);
+
             LocalDate current = startDate;
             while (!current.isAfter(endDate)) {
-                dailyKpiPipelineService.generate(userId, current);
+                List<SessionSlice> dailySessions = sessionsByDate.getOrDefault(current, List.of());
+                List<FailureSlice> dailyFailures = failuresByDate.getOrDefault(current, List.of());
+                List<RestartSlice> dailyRestarts = restartsByDate.getOrDefault(current, List.of());
+
+                dailyKpiPipelineService.generateMetric(
+                        userId,
+                        current,
+                        dailySessions,
+                        dailyFailures,
+                        restartByFailureEventId,
+                        workTimeboxesByDate.getOrDefault(current, List.of()),
+                        generatedAt
+                );
+                dailyKpiQualityService.generateFromSlices(
+                        userId,
+                        current,
+                        generatedAt,
+                        dailySessions,
+                        dailyFailures,
+                        dailyRestarts,
+                        loadDailyTimeboxes(dailySessions, timeboxesById),
+                        failureOccurredAtById
+                );
                 processedMetricDates.add(current.toString());
                 current = current.plusDays(1);
             }
+
+            // backfill은 날짜 구간 전체를 한 번의 재처리 작업으로 보므로, lastProcessedDate는 마지막 날짜 기준으로 한 번만 전진시킨다.
+            dailyKpiLastProcessedDateService.advance(userId, endDate, generatedAt);
 
             operationsMetricRecorder.recordBatchStage(
                     sample,
@@ -69,7 +174,7 @@ public class DailyKpiBackfillService {
                     endDate.toString(),
                     processedMetricDates.size(),
                     processedMetricDates,
-                    dailyKpiWatermarkService.get(userId)
+                    dailyKpiLastProcessedDateService.get(userId)
             );
         } catch (RuntimeException exception) {
             operationsMetricRecorder.recordBatchStage(
@@ -80,5 +185,54 @@ public class DailyKpiBackfillService {
             );
             throw exception;
         }
+    }
+
+    /**
+     * 재시작 이벤트가 참조한 실패 이벤트의 발생 시각을 미리 읽어 failureEventId 기준 맵으로 만든다.
+     *
+     * 백필 중 품질 검사가 날짜별로 반복 호출되더라도 같은 failure reference를 재조회하지 않게 하기 위한 준비 단계다.
+     */
+    private Map<String, OffsetDateTime> loadFailureOccurredAtById(String userId, List<RestartSlice> restarts) {
+        Set<String> failureEventIds = restarts.stream()
+                .map(RestartSlice::getFailureEventId)
+                .collect(Collectors.toSet());
+        if (failureEventIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return failureEventRepository.findReferencesByUserIdAndIdIn(userId, failureEventIds).stream()
+                .collect(Collectors.toMap(
+                        FailureReference::getFailureEventId,
+                        FailureReference::getOccurredAt
+                ));
+    }
+
+    /**
+     * 하루치 세션이 참조한 timebox만 뽑아 timeboxId 기준 맵으로 만든다.
+     *
+     * 품질 검사에서는 "존재 여부"와 "WORK/BREAK 타입"만 확인하면 되므로,
+     * 전체 timebox 목록 대신 필요한 식별자만 빠르게 재조합한다.
+     */
+    private Map<String, Timebox> loadDailyTimeboxes(
+            List<SessionSlice> sessions,
+            Map<String, Timebox> timeboxesById
+    ) {
+        if (sessions.isEmpty()) {
+            return Map.of();
+        }
+
+        return sessions.stream()
+                .map(SessionSlice::getTimeboxId)
+                .distinct()
+                .map(timeboxesById::get)
+                .filter(timebox -> timebox != null)
+                .collect(Collectors.toMap(Timebox::getId, Function.identity()));
+    }
+
+    /**
+     * 원천 이벤트 시각을 KPI 기준일(LocalDate)로 자를 때 KST 기준을 강제한다.
+     */
+    private LocalDate normalizeMetricDate(OffsetDateTime timestamp) {
+        return timestamp.withOffsetSameInstant(DEFAULT_OFFSET).toLocalDate();
     }
 }

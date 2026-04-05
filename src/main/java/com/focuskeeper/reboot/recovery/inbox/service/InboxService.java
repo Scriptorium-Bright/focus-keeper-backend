@@ -38,6 +38,7 @@ public class InboxService {
                 .toList();
     }
 
+    // Q. 얘는 왜 있는거임?
     public List<InboxItemResponse> findItemsByIds(String userId, List<String> itemIds) {
         Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
         inboxItemRepository.findAllByUserIdAndIdIn(userId, itemIds).stream()

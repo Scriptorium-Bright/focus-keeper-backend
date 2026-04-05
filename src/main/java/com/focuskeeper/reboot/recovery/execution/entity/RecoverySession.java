@@ -19,6 +19,11 @@ import java.util.UUID;
                 @Index(name = "idx_recovery_sessions_user_status", columnList = "user_id, status")
         }
 )
+/**
+ * 특정 timebox 실행을 나타내는 복귀 세션 엔티티다.
+ *
+ * started/completed/interrupted 상태 전이를 통해 사용자가 실제로 계획한 블록을 수행했는지 기록한다.
+ */
 public class RecoverySession {
 
     @Id
@@ -65,6 +70,9 @@ public class RecoverySession {
         this.createdAt = createdAt;
     }
 
+    /**
+     * 새 복귀 세션을 STARTED 상태로 생성한다.
+     */
     public static RecoverySession start(String userId, String timeboxId, OffsetDateTime startedAt) {
         return new RecoverySession(
                 UUID.randomUUID().toString(),
@@ -77,16 +85,25 @@ public class RecoverySession {
         );
     }
 
+    /**
+     * 세션을 완료 상태로 전이한다.
+     */
     public void complete(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.COMPLETED;
         this.endedAt = endedAt;
     }
 
+    /**
+     * 세션을 중단 상태로 전이한다.
+     */
     public void interrupt(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.INTERRUPTED;
         this.endedAt = endedAt;
     }
 
+    /**
+     * 엔티티를 API 응답 DTO로 변환한다.
+     */
     public RecoverySessionResponse toResponse() {
         return new RecoverySessionResponse(
                 id,
@@ -98,6 +115,9 @@ public class RecoverySession {
         );
     }
 
+    /**
+     * 현재 세션 상태를 반환한다.
+     */
     public RecoverySessionStatus getStatus() {
         return status;
     }

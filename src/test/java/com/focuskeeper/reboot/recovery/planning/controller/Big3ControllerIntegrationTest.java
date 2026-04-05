@@ -60,6 +60,43 @@ class Big3ControllerIntegrationTest {
     }
 
     @Test
+    void selectBig3ReplacesSameDaySelectionWithoutDuplicateSortOrderConflict() throws Exception {
+        List<String> savedItemIds = saveInboxItems("big3-reselect-user");
+
+        String firstRequestBody = """
+                {
+                  "userId": "big3-reselect-user",
+                  "itemIds": ["%s", "%s", "%s"]
+                }
+                """.formatted(savedItemIds.get(0), savedItemIds.get(1), savedItemIds.get(2));
+
+        String secondRequestBody = """
+                {
+                  "userId": "big3-reselect-user",
+                  "itemIds": ["%s", "%s"]
+                }
+                """.formatted(savedItemIds.get(2), savedItemIds.get(1));
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/big3")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(firstRequestBody)
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/big3")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(secondRequestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.selectedItems.length()").value(2))
+                .andExpect(jsonPath("$.data.selectedItems[0].itemId").value(savedItemIds.get(2)))
+                .andExpect(jsonPath("$.data.selectedItems[1].itemId").value(savedItemIds.get(1)));
+    }
+
+    @Test
     void selectBig3ReturnsValidationErrorWhenMoreThanThreeItemsRequested() throws Exception {
         String invalidRequestBody = """
                 {

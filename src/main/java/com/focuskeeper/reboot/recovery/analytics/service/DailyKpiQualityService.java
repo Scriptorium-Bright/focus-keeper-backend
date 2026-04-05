@@ -7,7 +7,9 @@ import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiQualityReport;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiQualityReportRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureReference;
+import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository.SessionSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
@@ -19,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -28,6 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+/**
+ * KPI 계산에 사용된 raw event들의 참조 일관성과 시간 규칙을 점검해 품질 리포트를 생성하는 서비스다.
+ *
+ * KPI 값이 계산됐더라도 restart 연결, timebox 참조, timezone 정합성이 깨져 있으면
+ * 운영 관점에서는 신뢰할 수 없는 지표가 되므로 별도의 DQ 결과를 유지한다.
+ */
 public class DailyKpiQualityService {
 
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
@@ -67,62 +76,111 @@ public class DailyKpiQualityService {
             OffsetDateTime periodStart = metricDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
             OffsetDateTime periodEndExclusive = metricDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
 
-            List<RecoverySessionRepository.SessionSlice> sessions = recoverySessionRepository.findSlicesByUserIdAndStartedAtBetween(
+            List<SessionSlice> sessions = recoverySessionRepository.findSlicesByUserIdAndStartedAtBetween(
                     userId,
                     periodStart,
                     periodEndExclusive
             );
-            List<FailureEventRepository.FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+            List<FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
                     userId,
                     periodStart,
                     periodEndExclusive
             );
-            List<RestartEventRepository.RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+            List<RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
                     userId,
                     periodStart,
                     periodEndExclusive
             );
 
-            Map<String, Timebox> timeboxesById = loadTimeboxes(sessions);
-            Map<String, FailureReference> failureById = loadFailures(restarts, userId);
+            generateFromLoadedRaw(
+                    userId,
+                    metricDate,
+                    generatedAt,
+                    sessions,
+                    failures,
+                    restarts,
+                    loadTimeboxes(sessions)
+            );
+        } catch (RuntimeException exception) {
+            operationsMetricRecorder.recordBatchStage(
+                    sample,
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    "generate",
+                    "failure"
+            );
+            operationsAlertService.reportBatchFailure(
+                    OperationsPipelineKeys.DAILY_KPI_QUALITY,
+                    "generate",
+                    userId,
+                    "Failed to generate daily KPI quality report.",
+                    Map.of(
+                            "metricDate", metricDate.toString(),
+                            "error", exception.getClass().getSimpleName()
+                    )
+            );
+            throw exception;
+        }
+    }
 
-            int duplicateRestartLinkCount = (int) restarts.stream()
-                    .collect(Collectors.groupingBy(RestartSlice::getFailureEventId, Collectors.counting()))
-                    .values()
-                    .stream()
-                    .filter(count -> count > 1)
-                    .count();
+    /**
+     * 이미 메모리에 적재된 raw slice를 재사용해 품질 리포트를 생성한다.
+     *
+     * KPI 계산 직후 같은 데이터를 이어서 검사할 때 추가 쿼리를 줄이기 위해 제공되는 내부 진입점이다.
+     */
+    void generateFromLoadedRaw(
+            String userId,
+            LocalDate metricDate,
+            OffsetDateTime generatedAt,
+            List<SessionSlice> sessions,
+            List<FailureSlice> failures,
+            List<RestartSlice> restarts,
+            Map<String, Timebox> timeboxesById
+    ) {
+        generateFromSlices(
+                    userId,
+                    metricDate,
+                    generatedAt,
+                    sessions,
+                    failures,
+                    restarts,
+                    timeboxesById,
+                    loadFailureOccurredAtById(failures, restarts, userId)
+            );
+    }
 
-            int orphanRestartCount = (int) restarts.stream()
-                    .filter(restart -> !failureById.containsKey(restart.getFailureEventId()))
-                    .count();
+    /**
+     * 세션/실패/재시작/타임박스 slice를 직접 받아 품질 지표를 계산하고 리포트를 저장한다.
+     *
+     * 호출자는 데이터를 어떤 방식으로 읽어왔는지와 상관없이, 이 메소드에 규격화된 slice만 넘기면 된다.
+     * upsert 전환대상
+     */
+    void generateFromSlices(
+            String userId,
+            LocalDate metricDate,
+            OffsetDateTime generatedAt,
+            List<SessionSlice> sessions,
+            List<FailureSlice> failures,
+            List<RestartSlice> restarts,
+            Map<String, Timebox> timeboxesById,
+            Map<String, OffsetDateTime> failureOccurredAtById
+    ) {
+        Timer.Sample sample = operationsMetricRecorder.startSample();
+        try {
+            RestartQualityStats restartStats = analyzeRestarts(restarts, failureOccurredAtById);
+            SessionQualityStats sessionStats = analyzeSessions(sessions, timeboxesById);
+            int failureTimezoneMismatchCount = countFailureTimezoneMismatch(failures);
+            int timeboxTimezoneMismatchCount = countTimeboxTimezoneMismatch(timeboxesById.values());
 
-            int restartBeforeFailureCount = (int) restarts.stream()
-                    .filter(restart -> {
-                        FailureReference failure = failureById.get(restart.getFailureEventId());
-                        return failure != null && restart.getOccurredAt().isBefore(failure.getOccurredAt());
-                    })
-                    .count();
-
-            int lateRestartLinkCount = (int) restarts.stream()
-                    .filter(restart -> {
-                        FailureReference failure = failureById.get(restart.getFailureEventId());
-                        return failure != null && restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48));
-                    })
-                    .count();
-
-            int breakSessionReferenceCount = (int) sessions.stream()
-                    .filter(session -> {
-                        Timebox timebox = timeboxesById.get(session.getTimeboxId());
-                        return timebox != null && timebox.getType() == TimeboxType.BREAK;
-                    })
-                    .count();
-
-            int missingTimeboxReferenceCount = (int) sessions.stream()
-                    .filter(session -> !timeboxesById.containsKey(session.getTimeboxId()))
-                    .count();
-
-            int timezoneMismatchCount = countTimezoneMismatch(sessions, failures, restarts, timeboxesById.values());
+            int duplicateRestartLinkCount = restartStats.duplicateRestartLinkCount();
+            int orphanRestartCount = restartStats.orphanRestartCount();
+            int restartBeforeFailureCount = restartStats.restartBeforeFailureCount();
+            int lateRestartLinkCount = restartStats.lateRestartLinkCount();
+            int breakSessionReferenceCount = sessionStats.breakSessionReferenceCount();
+            int missingTimeboxReferenceCount = sessionStats.missingTimeboxReferenceCount();
+            int timezoneMismatchCount = restartStats.timezoneMismatchCount()
+                    + sessionStats.timezoneMismatchCount()
+                    + failureTimezoneMismatchCount
+                    + timeboxTimezoneMismatchCount;
             int totalIssueCount = duplicateRestartLinkCount
                     + orphanRestartCount
                     + restartBeforeFailureCount
@@ -211,9 +269,9 @@ public class DailyKpiQualityService {
     /**
      * 세션이 참조한 타임박스들을 한 번에 조회해 timeboxId 기준 맵으로 만든다.
      */
-    private Map<String, Timebox> loadTimeboxes(List<RecoverySessionRepository.SessionSlice> sessions) {
+    private Map<String, Timebox> loadTimeboxes(List<SessionSlice> sessions) {
         Set<String> timeboxIds = sessions.stream()
-                .map(RecoverySessionRepository.SessionSlice::getTimeboxId)
+                .map(SessionSlice::getTimeboxId)
                 .collect(Collectors.toSet());
 
         if (timeboxIds.isEmpty()) {
@@ -227,51 +285,153 @@ public class DailyKpiQualityService {
     /**
      * 재시작 이벤트가 참조한 실패 이벤트를 조회해 failureEventId 기준 맵으로 만든다.
      */
-    private Map<String, FailureReference> loadFailures(
+    private Map<String, OffsetDateTime> loadFailureOccurredAtById(
+            List<FailureSlice> failures,
             List<RestartSlice> restarts,
             String userId
     ) {
-        Set<String> failureEventIds = restarts.stream()
+        Map<String, OffsetDateTime> failureOccurredAtById = failures.stream()
+                .collect(Collectors.toMap(
+                        FailureSlice::getFailureEventId,
+                        FailureSlice::getOccurredAt
+                ));
+
+        Set<String> missingFailureEventIds = restarts.stream()
                 .map(RestartSlice::getFailureEventId)
+                .filter(failureEventId -> !failureOccurredAtById.containsKey(failureEventId))
                 .collect(Collectors.toSet());
 
-        if (failureEventIds.isEmpty()) {
-            return Map.of();
+        if (missingFailureEventIds.isEmpty()) {
+            return failureOccurredAtById;
         }
 
-        return failureEventRepository.findReferencesByUserIdAndIdIn(userId, failureEventIds).stream()
-                .collect(Collectors.toMap(
-                        FailureReference::getFailureEventId,
-                        Function.identity()
-                ));
+        failureOccurredAtById.putAll(
+                failureEventRepository.findReferencesByUserIdAndIdIn(userId, missingFailureEventIds).stream()
+                        .collect(Collectors.toMap(
+                                FailureReference::getFailureEventId,
+                                FailureReference::getOccurredAt
+                        ))
+        );
+        return failureOccurredAtById;
     }
 
     /**
-     * 세션, 실패, 재시작, 타임박스가 기본 오프셋과 다른 시간대로 기록된 건수를 센다.
+     * 재시작 이벤트 관점의 품질 이상 여부를 계산한다.
+     *
+     * 중복 연결, orphan restart, failure보다 이른 restart, 48시간을 넘긴 늦은 restart, timezone mismatch를 한 번에 센다.
      */
-    private int countTimezoneMismatch(
-            List<RecoverySessionRepository.SessionSlice> sessions,
-            List<FailureEventRepository.FailureSlice> failures,
-            List<RestartEventRepository.RestartSlice> restarts,
-            Iterable<Timebox> timeboxes
+    private RestartQualityStats analyzeRestarts(
+            List<RestartSlice> restarts,
+            Map<String, OffsetDateTime> failureOccurredAtById
     ) {
-        int sessionMismatchCount = (int) sessions.stream()
-                .filter(session -> !DEFAULT_OFFSET.equals(session.getStartedAt().getOffset()))
-                .count();
-        int failureMismatchCount = (int) failures.stream()
-                .filter(failure -> !DEFAULT_OFFSET.equals(failure.getOccurredAt().getOffset()))
-                .count();
-        int restartMismatchCount = (int) restarts.stream()
-                .filter(restart -> !DEFAULT_OFFSET.equals(restart.getOccurredAt().getOffset()))
-                .count();
+        Set<String> seenFailureEventIds = new HashSet<>();
+        Set<String> duplicateFailureEventIds = new HashSet<>();
+        int orphanRestartCount = 0;
+        int restartBeforeFailureCount = 0;
+        int lateRestartLinkCount = 0;
+        int timezoneMismatchCount = 0;
 
+        for (RestartSlice restart : restarts) {
+            if (!seenFailureEventIds.add(restart.getFailureEventId())) {
+                duplicateFailureEventIds.add(restart.getFailureEventId());
+            }
+
+            OffsetDateTime failureOccurredAt = failureOccurredAtById.get(restart.getFailureEventId());
+            if (failureOccurredAt == null) {
+                orphanRestartCount++;
+            } else {
+                if (restart.getOccurredAt().isBefore(failureOccurredAt)) {
+                    restartBeforeFailureCount++;
+                }
+                if (restart.getOccurredAt().isAfter(failureOccurredAt.plusHours(48))) {
+                    lateRestartLinkCount++;
+                }
+            }
+
+            if (!DEFAULT_OFFSET.equals(restart.getOccurredAt().getOffset())) {
+                timezoneMismatchCount++;
+            }
+        }
+
+        return new RestartQualityStats(
+                duplicateFailureEventIds.size(),
+                orphanRestartCount,
+                restartBeforeFailureCount,
+                lateRestartLinkCount,
+                timezoneMismatchCount
+        );
+    }
+
+    /**
+     * 세션이 올바른 timebox를 참조하는지와 break session 오염 여부를 계산한다.
+     */
+    private SessionQualityStats analyzeSessions(
+            List<SessionSlice> sessions,
+            Map<String, Timebox> timeboxesById
+    ) {
+        int breakSessionReferenceCount = 0;
+        int missingTimeboxReferenceCount = 0;
+        int timezoneMismatchCount = 0;
+
+        for (SessionSlice session : sessions) {
+            Timebox timebox = timeboxesById.get(session.getTimeboxId());
+            if (timebox == null) {
+                missingTimeboxReferenceCount++;
+            } else if (timebox.getType() == TimeboxType.BREAK) {
+                breakSessionReferenceCount++;
+            }
+
+            if (!DEFAULT_OFFSET.equals(session.getStartedAt().getOffset())) {
+                timezoneMismatchCount++;
+            }
+        }
+
+        return new SessionQualityStats(
+                breakSessionReferenceCount,
+                missingTimeboxReferenceCount,
+                timezoneMismatchCount
+        );
+    }
+
+    /**
+     * failure 이벤트 중 KST 기준과 다른 offset을 가진 건수를 센다.
+     */
+    private int countFailureTimezoneMismatch(List<FailureSlice> failures) {
+        int failureMismatchCount = 0;
+        for (FailureSlice failure : failures) {
+            if (!DEFAULT_OFFSET.equals(failure.getOccurredAt().getOffset())) {
+                failureMismatchCount++;
+            }
+        }
+        return failureMismatchCount;
+    }
+
+    /**
+     * timebox 데이터 중 KST 기준과 다른 offset을 가진 건수를 센다.
+     */
+    private int countTimeboxTimezoneMismatch(Iterable<Timebox> timeboxes) {
         int timeboxMismatchCount = 0;
         for (Timebox timebox : timeboxes) {
             if (!DEFAULT_OFFSET.equals(timebox.getStartAt().getOffset())) {
                 timeboxMismatchCount++;
             }
         }
+        return timeboxMismatchCount;
+    }
 
-        return sessionMismatchCount + failureMismatchCount + restartMismatchCount + timeboxMismatchCount;
+    private record RestartQualityStats(
+            int duplicateRestartLinkCount,
+            int orphanRestartCount,
+            int restartBeforeFailureCount,
+            int lateRestartLinkCount,
+            int timezoneMismatchCount
+    ) {
+    }
+
+    private record SessionQualityStats(
+            int breakSessionReferenceCount,
+            int missingTimeboxReferenceCount,
+            int timezoneMismatchCount
+    ) {
     }
 }

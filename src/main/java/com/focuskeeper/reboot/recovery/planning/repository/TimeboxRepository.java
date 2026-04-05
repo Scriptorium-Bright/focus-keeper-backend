@@ -9,16 +9,28 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+/**
+ * recovery timebox 일정 데이터를 읽고 집계하는 JPA 저장소다.
+ */
 public interface TimeboxRepository extends JpaRepository<Timebox, String> {
 
+    /**
+     * 사용자의 모든 timebox를 시작 시각 기준으로 조회한다.
+     */
     List<Timebox> findAllByUserIdOrderByStartAtAsc(String userId);
 
+    /**
+     * 특정 구간 안에 들어오는 사용자의 timebox를 시작 시각 순으로 조회한다.
+     */
     List<Timebox> findAllByUserIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
             String userId,
             OffsetDateTime start,
             OffsetDateTime end
     );
 
+    /**
+     * 특정 유형의 timebox를 배정한 사용자 수를 기간 단위로 센다.
+     */
     @Query("""
             select count(distinct t.userId)
             from Timebox t
@@ -32,5 +44,8 @@ public interface TimeboxRepository extends JpaRepository<Timebox, String> {
             @Param("end") OffsetDateTime end
     );
 
+    /**
+     * 사용자 소유의 단일 timebox를 조회한다.
+     */
     Optional<Timebox> findByIdAndUserId(String id, String userId);
 }
