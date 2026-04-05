@@ -1,6 +1,7 @@
 # Focus-Keeper
 
-[전정현_포트폴리오_.pdf](https://github.com/user-attachments/files/26487254/_._.pdf)
+[전정현_portfolio.pdf](https://github.com/user-attachments/files/26487626/_portfolio.pdf)
+
 
 실패 직후 재시작과 24/48시간 내 복귀 여부를 기록하고 분석하는 프로젝트
 
