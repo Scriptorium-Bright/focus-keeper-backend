@@ -215,34 +215,76 @@
 ### 수정 전 코드 스냅샷
 
 - 대상 파일:
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertTransitionPublisher.java`
+  - `src/main/resources/static/index.html`
+  - `src/main/resources/static/app.js`
+  - `README.md`
+  - `api/openapi.yaml`
 - 핵심 구조:
+  - event contract는 있었지만 실제 consumer가 없어서 webhook, UI, 문서 surface가 lifecycle semantics를 소비하지 못했다.
+  - static ops 화면은 active alert raw JSON만 보여줬고, active/resolved toggle이나 lifecycle metadata 노출이 없었다.
 - 한계:
+  - 외부 알림 경로가 없어 alert transition이 운영자에게 푸시되지 않았다.
+  - OpenAPI/README/runbook도 lifecycle metadata와 webhook 설정을 설명하지 못했다.
 
 ### 대상
 
 - 변경 대상 클래스/파일:
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertNotifier.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertNotifierPublisher.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertWebhookProperties.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/WebhookOperationsAlertNotifier.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsMetricRecorder.java`
+  - `src/main/resources/application.yml`
+  - `src/main/resources/static/index.html`
+  - `src/main/resources/static/app.js`
+  - `README.md`
+  - `docs/spec/PHASE_14_OPERATIONS_RUNBOOK.md`
+  - `api/openapi.yaml`
+  - `src/test/java/com/focuskeeper/reboot/common/observability/WebhookOperationsAlertNotifierTest.java`
 
 ### 변경 이유
 
 - 왜 이 consumer가 필요한가:
+  - alert transition이 메모리 안에서만 끝나면 운영 알림 시스템으로 설명하기 어렵다.
+  - UI와 문서도 같은 lifecycle semantics를 써야 운영 surface가 일관된다.
 - lifecycle contract를 어떻게 재사용하는가:
+  - webhook notifier는 `OperationsAlertTransitionEvent`를 그대로 payload로 전송한다.
+  - static ops 화면은 alert API의 lifecycle metadata를 그대로 읽어 active/resolved, occurrence, reopen 정보를 노출한다.
 
 ### 변경 내용
 
-- 
+- `OperationsAlertNotifier`와 `WebhookOperationsAlertNotifier`를 추가했다.
+- `ops.notifications.webhook.*` 설정을 도입하고, enabled/url/timeout/headers를 바인딩한다.
+- `OperationsAlertNotifierPublisher`가 transition event를 notifier 목록에 전달한다.
+- notifier 성공/실패를 `reboot_ops_alert_notifications_total{event,result}`로 계측한다.
+- static ops 화면에 active/all alert toggle과 lifecycle card surface를 추가했다.
+- README, runbook, manual OpenAPI에 alert lifecycle metadata와 webhook surface를 반영했다.
 
 ### 동작 변경 요약
 
 - 이전:
+  - alert transition은 서비스 내부에서만 소비됐고, 외부 알림과 운영 화면은 raw state 수준에 머물렀다.
 - 이후:
+  - transition event가 webhook notifier로 전달될 수 있다.
+  - 운영 화면에서 active/resolved, first seen, resolvedAt, occurrence/reopen count를 함께 읽을 수 있다.
+  - 문서와 OpenAPI도 같은 contract를 설명한다.
 
 ### 테스트 결과
 
 - 실행 테스트:
+  - `gradle test --tests com.focuskeeper.reboot.common.observability.WebhookOperationsAlertNotifierTest --tests com.focuskeeper.reboot.common.observability.OperationsAlertServiceTest --tests com.focuskeeper.reboot.common.observability.OperationsControllerIntegrationTest`
 - 검증 시나리오:
+  - enabled webhook success payload + success metric
+  - webhook 500 failure + failure metric, no throw
+  - disabled webhook no-op
+  - 기존 lifecycle service test와 controller integration 유지
 - 결과:
+  - 성공
+  - notifier, service, controller observability 경로 모두 통과
+  - static UI는 별도 자동화 테스트 없이 코드 반영만 수행
 
 ### 커밋
 
-- `feat : `
-- `test : `
+- `feat : webhook notifier와 ops overview 연동`
+- `test : webhook notifier와 ops overview 연동 테스트 추가`
