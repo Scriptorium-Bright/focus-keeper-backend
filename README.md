@@ -123,6 +123,58 @@ flowchart LR
 
 `/api/v1/ops/alerts`는 `activeOnly=true|false`로 현재 활성 incident만 볼지, resolved 이력까지 같이 볼지를 고를 수 있습니다. 응답에는 `status`, `firstSeenAt`, `lastSeenAt`, `resolvedAt`, `occurrenceCount`, `reopenCount`가 포함되어 alert lifecycle을 API만으로도 읽을 수 있습니다.
 
+## Realtime Ops Alert Webhook
+
+alert lifecycle event는 `OPENED`, `REOPENED`, `ESCALATED`, `RESOLVED` 네 종류로만 외부에 전달됩니다. 반복 refresh는 외부 알림을 보내지 않습니다.
+
+설정 예시:
+
+```yaml
+ops:
+  notifications:
+    webhook:
+      enabled: true
+      url: http://127.0.0.1:18081/hooks
+      connect-timeout-ms: 1000
+      read-timeout-ms: 1000
+      headers:
+        X-Ops-Token: local-phase4
+```
+
+sample payload:
+
+```json
+{
+  "eventType": "ESCALATED",
+  "service": "rebootfocus-api",
+  "emittedAt": "2026-05-08T10:00:00+09:00",
+  "previousStatus": "ACTIVE",
+  "previousSeverity": "WARNING",
+  "alert": {
+    "alertKey": "processing_lag:daily_kpi_pipeline:demo-user",
+    "pipelineKey": "daily_kpi_pipeline",
+    "stage": "processing_lag",
+    "userId": "demo-user",
+    "severity": "CRITICAL",
+    "active": true,
+    "status": "ACTIVE",
+    "summary": "Processing lag exceeded the configured threshold.",
+    "details": {
+      "lastProcessedDate": "2026-05-05",
+      "lagDays": "3"
+    },
+    "firstSeenAt": "2026-05-08T09:50:00+09:00",
+    "lastSeenAt": "2026-05-08T10:00:00+09:00",
+    "resolvedAt": null,
+    "occurrenceCount": 2,
+    "reopenCount": 0,
+    "lastChangedAt": "2026-05-08T10:00:00+09:00"
+  }
+}
+```
+
+로컬 검증은 간단한 HTTP 수신기를 띄운 뒤, alert를 발생시키고 수신 JSON을 확인하는 방식으로 할 수 있습니다.
+
 ## Tech Stack
 
 - Java 21

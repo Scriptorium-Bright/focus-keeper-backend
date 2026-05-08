@@ -82,6 +82,7 @@ paths:
     get:
       tags: [Ops]
       summary: Get operations alerts
+      description: Returns alert lifecycle metadata and can be paired with webhook-delivered lifecycle events for external incident notification.
       operationId: getOperationsAlerts
       parameters:
         - in: query
