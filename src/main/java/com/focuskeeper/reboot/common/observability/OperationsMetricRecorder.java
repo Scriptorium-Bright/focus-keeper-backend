@@ -131,6 +131,15 @@ public class OperationsMetricRecorder {
                 .record(processedDays);
     }
 
+    public void recordAlertNotification(String event, String result) {
+        Counter.builder("reboot_ops_alert_notifications_total")
+                .description("Operations alert webhook notification count")
+                .tag("event", event)
+                .tag("result", result)
+                .register(meterRegistry)
+                .increment();
+    }
+
     /**
      * user/pipeline 조합별 DQ gauge를 lazy 생성하거나 기존 gauge를 재사용한다.
      *

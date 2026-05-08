@@ -121,6 +121,8 @@ flowchart LR
   - `GET /api/v1/ops/alerts`
   - `GET /api/v1/ops/runbooks`
 
+`/api/v1/ops/alerts`는 `activeOnly=true|false`로 현재 활성 incident만 볼지, resolved 이력까지 같이 볼지를 고를 수 있습니다. 응답에는 `status`, `firstSeenAt`, `lastSeenAt`, `resolvedAt`, `occurrenceCount`, `reopenCount`가 포함되어 alert lifecycle을 API만으로도 읽을 수 있습니다.
+
 ## Tech Stack
 
 - Java 21
@@ -148,6 +150,12 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 ## Docs And Ops Endpoints
 
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Alert webhook
+  - `ops.notifications.webhook.enabled`
+  - `ops.notifications.webhook.url`
+  - `ops.notifications.webhook.connect-timeout-ms`
+  - `ops.notifications.webhook.read-timeout-ms`
+  - `ops.notifications.webhook.headers.*`
 - OpenAPI JSON: `http://localhost:8080/api-docs`
 - App Health: `http://localhost:8080/api/v1/health`
 - Actuator Health: `http://localhost:8080/actuator/health`

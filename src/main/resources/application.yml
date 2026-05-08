@@ -32,6 +32,15 @@ logging:
   pattern:
     level: "%5p [traceId:%X{traceId:-}]"
 
+ops:
+  notifications:
+    webhook:
+      enabled: false
+      url:
+      connect-timeout-ms: 1000
+      read-timeout-ms: 1000
+      headers: {}
+
 springdoc:
   api-docs:
     path: /api-docs
