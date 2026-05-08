@@ -171,7 +171,48 @@ class OperationsControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("OPS_ALERTS_FETCHED"))
                 .andExpect(jsonPath("$.data[0].pipelineKey").value("daily_kpi_pipeline"))
                 .andExpect(jsonPath("$.data[0].stage").value("launch"))
-                .andExpect(jsonPath("$.data[0].active").value(true));
+                .andExpect(jsonPath("$.data[0].active").value(true))
+                .andExpect(jsonPath("$.data[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data[0].occurrenceCount").value(1))
+                .andExpect(jsonPath("$.data[0].reopenCount").value(0));
+    }
+
+    @Test
+    void alertsEndpointReturnsResolvedLifecycleAndSortsActiveFirstWhenActiveOnlyFalse() throws Exception {
+        operationsAlertService.reportBatchFailure(
+                OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                "quality",
+                "ops-alert-user",
+                "resolved later",
+                Map.of("metricDate", "2026-03-21")
+        );
+        operationsAlertService.resolveBatchFailure(
+                OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                "quality",
+                "ops-alert-user",
+                "resolved now",
+                Map.of("metricDate", "2026-03-21")
+        );
+        operationsAlertService.reportBatchFailure(
+                OperationsPipelineKeys.DAILY_KPI_PIPELINE,
+                "launch",
+                "ops-alert-user",
+                "still active",
+                Map.of("metricDate", "2026-03-22")
+        );
+
+        mockMvc.perform(get("/api/v1/ops/alerts").param("activeOnly", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.data[0].active").value(true))
+                .andExpect(jsonPath("$.data[0].resolvedAt").isEmpty())
+                .andExpect(jsonPath("$.data[0].firstSeenAt").isNotEmpty())
+                .andExpect(jsonPath("$.data[0].lastSeenAt").isNotEmpty())
+                .andExpect(jsonPath("$.data[1].status").value("RESOLVED"))
+                .andExpect(jsonPath("$.data[1].active").value(false))
+                .andExpect(jsonPath("$.data[1].resolvedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data[1].occurrenceCount").value(1))
+                .andExpect(jsonPath("$.data[1].reopenCount").value(0));
     }
 
     @Test
