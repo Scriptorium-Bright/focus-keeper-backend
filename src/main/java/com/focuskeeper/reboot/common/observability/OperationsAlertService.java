@@ -28,7 +28,17 @@ public class OperationsAlertService {
     private static final Logger log = LoggerFactory.getLogger(OperationsAlertService.class);
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
 
+    private final OperationsAlertTransitionPublisher transitionPublisher;
     private final ConcurrentMap<String, OperationsAlertState> alerts = new ConcurrentHashMap<>();
+
+    public OperationsAlertService(OperationsAlertTransitionPublisher transitionPublisher) {
+        this.transitionPublisher = transitionPublisher;
+    }
+
+    OperationsAlertService() {
+        this(event -> {
+        });
+    }
 
     /**
      * 특정 배치 stage 실패를 활성 alert로 등록한다.
@@ -223,6 +233,20 @@ public class OperationsAlertService {
             return;
         }
 
+        if (mutation.event() != null) {
+            transitionPublisher.publish(mutation.event());
+            log.info(
+                    "ops alert transition event={} pipeline={} stage={} userId={} previousStatus={} previousSeverity={} currentSeverity={}",
+                    mutation.event().eventType(),
+                    pipelineKey,
+                    stage,
+                    userId,
+                    mutation.event().previousStatus(),
+                    mutation.event().previousSeverity(),
+                    severity.name()
+            );
+        }
+
         if (mutation.state().isActive()) {
             log.warn(
                     "ops alert active pipeline={} stage={} userId={} severity={} summary={} details={}",
@@ -275,15 +299,36 @@ public class OperationsAlertService {
                         details,
                         now
                 );
-                holder.add(AlertMutation.changed(opened));
+                holder.add(AlertMutation.changed(
+                        opened,
+                        opened.transitionEvent(OperationsAlertTransitionType.OPENED, null, null, now)
+                ));
                 return opened;
             }
 
             if (active) {
-                OperationsAlertState next = existing.isActive()
-                        ? existing.refreshActive(severity, summary, details, now)
-                        : existing.reopen(severity, summary, details, now);
-                holder.add(AlertMutation.changed(next));
+                OperationsAlertState next;
+                OperationsAlertTransitionEvent event = null;
+                if (existing.isActive()) {
+                    next = existing.refreshActive(severity, summary, details, now);
+                    if (severity.isHigherThan(existing.severity())) {
+                        event = next.transitionEvent(
+                                OperationsAlertTransitionType.ESCALATED,
+                                existing.status().name(),
+                                existing.severity().name(),
+                                now
+                        );
+                    }
+                } else {
+                    next = existing.reopen(severity, summary, details, now);
+                    event = next.transitionEvent(
+                            OperationsAlertTransitionType.REOPENED,
+                            existing.status().name(),
+                            existing.severity().name(),
+                            now
+                    );
+                }
+                holder.add(AlertMutation.changed(next, event));
                 return next;
             }
 
@@ -293,7 +338,15 @@ public class OperationsAlertService {
             }
 
             OperationsAlertState resolved = existing.resolve(severity, summary, details, now);
-            holder.add(AlertMutation.changed(resolved));
+            holder.add(AlertMutation.changed(
+                    resolved,
+                    resolved.transitionEvent(
+                            OperationsAlertTransitionType.RESOLVED,
+                            existing.status().name(),
+                            existing.severity().name(),
+                            now
+                    )
+            ));
             return resolved;
         });
 
@@ -314,14 +367,18 @@ public class OperationsAlertService {
         RESOLVED
     }
 
-    private record AlertMutation(boolean changed, OperationsAlertState state) {
+    private record AlertMutation(
+            boolean changed,
+            OperationsAlertState state,
+            OperationsAlertTransitionEvent event
+    ) {
 
-        private static AlertMutation changed(OperationsAlertState state) {
-            return new AlertMutation(true, state);
+        private static AlertMutation changed(OperationsAlertState state, OperationsAlertTransitionEvent event) {
+            return new AlertMutation(true, state, event);
         }
 
         private static AlertMutation noop() {
-            return new AlertMutation(false, null);
+            return new AlertMutation(false, null, null);
         }
     }
 
@@ -372,6 +429,21 @@ public class OperationsAlertService {
 
         private boolean isActive() {
             return status == OperationsAlertStatus.ACTIVE;
+        }
+
+        private OperationsAlertTransitionEvent transitionEvent(
+                OperationsAlertTransitionType eventType,
+                String previousStatus,
+                String previousSeverity,
+                OffsetDateTime now
+        ) {
+            return new OperationsAlertTransitionEvent(
+                    eventType,
+                    now.toString(),
+                    previousStatus,
+                    previousSeverity,
+                    toResponse()
+            );
         }
 
         private OperationsAlertState refreshActive(
