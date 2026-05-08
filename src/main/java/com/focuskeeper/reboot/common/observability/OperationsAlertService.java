@@ -173,7 +173,10 @@ public class OperationsAlertService {
         return alerts.values().stream()
                 .filter(alert -> !activeOnly || alert.isActive())
                 .filter(alert -> userId == null || userId.isBlank() || userId.equals(alert.userId()))
-                .sorted(Comparator.comparing(OperationsAlertState::lastChangedAt).reversed())
+                .sorted(
+                        Comparator.comparing(OperationsAlertState::isActive, Comparator.reverseOrder())
+                                .thenComparing(OperationsAlertState::lastChangedAt, Comparator.reverseOrder())
+                )
                 .map(OperationsAlertState::toResponse)
                 .toList();
     }
@@ -451,8 +454,14 @@ public class OperationsAlertService {
                     userId,
                     severity.name(),
                     isActive(),
+                    status.name(),
                     summary,
                     details,
+                    firstSeenAt.toString(),
+                    lastSeenAt.toString(),
+                    resolvedAt == null ? null : resolvedAt.toString(),
+                    occurrenceCount,
+                    reopenCount,
                     lastChangedAt.toString()
             );
         }
