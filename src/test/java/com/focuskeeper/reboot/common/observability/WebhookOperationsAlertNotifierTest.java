@@ -92,6 +92,45 @@ class WebhookOperationsAlertNotifierTest {
     }
 
     @Test
+    void webhookTimeoutDoesNotThrowAndRecordsFailureMetric() throws Exception {
+        HttpServer server = startServer(exchange -> {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+
+        OperationsAlertWebhookProperties properties = enabledProperties(server);
+        properties.setReadTimeoutMs(50);
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        OperationsMetricRecorder operationsMetricRecorder = new OperationsMetricRecorder(meterRegistry);
+
+        WebhookOperationsAlertNotifier notifier = new WebhookOperationsAlertNotifier(
+                properties,
+                operationsMetricRecorder,
+                RestClient.builder(),
+                "rebootfocus-api"
+        );
+
+        try {
+            notifier.notify(sampleEvent(OperationsAlertTransitionType.REOPENED));
+
+            assertThat(
+                    meterRegistry.get("reboot_ops_alert_notifications_total")
+                            .tag("event", "REOPENED")
+                            .tag("result", "failure")
+                            .counter()
+                            .count()
+            ).isEqualTo(1.0);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void disabledWebhookDoesNothing() {
         OperationsAlertWebhookProperties properties = new OperationsAlertWebhookProperties();
         SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
