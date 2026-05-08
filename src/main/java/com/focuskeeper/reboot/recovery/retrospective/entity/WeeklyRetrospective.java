@@ -10,6 +10,12 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+/**
+ * 사용자의 한 주간(월~일) 회복/실패 데이터를 집계하고, 코칭 정책(Policy)이 해석한
+ * 요약 문장과 다음 주 행동 처방(Anti-slip Action)을 영속화하는 엔티티다.
+ *
+ * 매주 파이프라인이 돌 때마다 동일 주차(weekStart)에 대해 데이터를 최신화하여 덮어쓴다(regenerate).
+ */
 @Entity
 @Table(name = "weekly_retrospectives")
 public class WeeklyRetrospective {
@@ -97,6 +103,9 @@ public class WeeklyRetrospective {
         this.generatedAt = generatedAt;
     }
 
+    /**
+     * 특정 주차에 대한 새로운 주간 회고 엔티티를 생성한다.
+     */
     public static WeeklyRetrospective create(
             String userId,
             LocalDate weekStart,
@@ -130,6 +139,10 @@ public class WeeklyRetrospective {
         );
     }
 
+    /**
+     * 기존에 생성된 주간 회고 엔티티의 통계 및 코칭 데이터를 최신 계산 결과로 덮어쓴다(Update).
+     * 파이프라인의 멱등성 보장을 위해 사용된다.
+     */
     public void regenerate(
             long sessionStartedCount,
             long sessionCompletedCount,
@@ -154,6 +167,9 @@ public class WeeklyRetrospective {
         this.generatedAt = generatedAt;
     }
 
+    /**
+     * 응답 처리 및 외부 전송을 위해 내부 엔티티 모델을 읽기 전용 DTO 객체(Response)로 변환한다.
+     */
     public WeeklyRetrospectiveResponse toResponse() {
         return new WeeklyRetrospectiveResponse(
                 id,

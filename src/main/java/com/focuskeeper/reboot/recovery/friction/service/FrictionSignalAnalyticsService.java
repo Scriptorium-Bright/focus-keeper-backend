@@ -2,7 +2,9 @@ package com.focuskeeper.reboot.recovery.friction.service;
 
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
+import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
 import com.focuskeeper.reboot.recovery.friction.FrictionSignalType;
 import com.focuskeeper.reboot.recovery.friction.entity.RecoveryFrictionSignal;
 import com.focuskeeper.reboot.recovery.friction.repository.RecoveryFrictionSignalRepository;
@@ -48,28 +50,38 @@ public class FrictionSignalAnalyticsService {
         OffsetDateTime periodEndExclusive = metricDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
         OffsetDateTime restartEndExclusive = periodEndExclusive.plusHours(48);
 
-        List<FailureEventRepository.FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+        List<FailureSlice> failures = failureEventRepository.findSlicesByUserIdAndOccurredAtBetween(
                 userId,
                 periodStart,
                 periodEndExclusive
         );
-        List<RestartEventRepository.RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
+        List<RestartSlice> restarts = restartEventRepository.findSlicesByUserIdAndOccurredAtBetween(
                 userId,
                 periodStart,
                 restartEndExclusive
         );
 
-        Map<String, List<RestartEventRepository.RestartSlice>> restartByFailureEventId = restarts.stream()
-                .collect(Collectors.groupingBy(RestartEventRepository.RestartSlice::getFailureEventId));
+        Map<String, List<RestartSlice>> restartByFailureEventId = restarts.stream()
+                .collect(Collectors.groupingBy(RestartSlice::getFailureEventId));
 
-        int tooBigRepeatCount = (int) failures.stream()
-                .filter(failure -> failure.getReason() == FailureReason.TOO_BIG)
-                .count();
+        long count = 0L;
+        for (FailureSlice failureSlice : failures) {
+            if (failureSlice.getReason() == FailureReason.TOO_BIG) {
+                count++;
+            }
+        }
+        int tooBigRepeatCount = (int) count;
 
         int lateRestartCount = (int) failures.stream()
-                .filter(failure -> restartByFailureEventId.getOrDefault(failure.getFailureEventId(), List.of()).stream()
-                        .anyMatch(restart -> restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(24))
-                                && !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48))))
+                .filter(failure -> {
+                    for (RestartSlice restart : restartByFailureEventId.getOrDefault(failure.getFailureEventId(), List.of())) {
+                        if (restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(24))
+                                && !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48))) {
+                            return true;
+                        }
+                    }
+                    return false;
+                })
                 .count();
 
         OffsetDateTime generatedAt = OffsetDateTime.now();

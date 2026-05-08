@@ -131,6 +131,10 @@ public class DailyKpiBackfillService {
                 List<FailureSlice> dailyFailures = failuresByDate.getOrDefault(current, List.of());
                 List<RestartSlice> dailyRestarts = restartsByDate.getOrDefault(current, List.of());
 
+                // [1] KPI 수치 집계 및 마트 구축 (generateMetric)
+                // 메모리에 미리 Grouping 해둔 해당 날짜(current)의 Session, Failure, Restart 조각들만 넘깁니다. 
+                // 이 내부에서 앞서 설계했던 "원자적 Upsert (DailyKpiMetricUpsertJdbcRepository)"가 호출되어 
+                // 해당 날짜의 통계 데이터가 DB에 중복 없이 안전하게 덮어써집니다.
                 dailyKpiPipelineService.generateMetric(
                         userId,
                         current,
@@ -140,6 +144,10 @@ public class DailyKpiBackfillService {
                         workTimeboxesByDate.getOrDefault(current, List.of()),
                         generatedAt
                 );
+                
+                // [2] 데이터 논리적 무결성 및 품질(DQ) 검사 (generateFromSlices)
+                // KPI가 정상 수집되었더라도 "원천 이벤트들 간에 논리적 모순이 없는지" (예: Timebox 유실, 미래시간 참조 등)
+                // 하루 치 범위 안에서 품질을 교차 검증합니다. 
                 dailyKpiQualityService.generateFromSlices(
                         userId,
                         current,
