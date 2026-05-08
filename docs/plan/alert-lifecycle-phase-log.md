@@ -147,36 +147,66 @@
 ### 수정 전 코드 스냅샷
 
 - 대상 파일:
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertService.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertSeverity.java`
 - 핵심 구조:
+  - lifecycle state는 있었지만 전이 결과를 외부 소비자가 재사용할 contract는 없었다.
+  - reopen/escalation/resolve가 모두 내부 상태 변경으로만 끝났다.
 - 한계:
+  - notifier나 overview가 붙더라도 어떤 전이를 이벤트로 볼지 서비스 바깥에서 다시 해석해야 했다.
+  - severity 상승만 별도 incident 신호로 다루는 기준이 코드에 고정돼 있지 않았다.
 
 ### 대상
 
 - 변경 대상 클래스/파일:
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertService.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertSeverity.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertTransitionType.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertTransitionEvent.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/OperationsAlertTransitionPublisher.java`
+  - `src/main/java/com/focuskeeper/reboot/common/observability/NoopOperationsAlertTransitionPublisher.java`
+  - `src/test/java/com/focuskeeper/reboot/common/observability/OperationsAlertServiceTest.java`
 
 ### 변경 이유
 
 - 왜 notifier/overview 이전에 event semantics를 고정해야 하는가:
+  - 외부 소비자가 `opened`, `reopened`, `escalated`, `resolved`를 서비스 밖에서 다시 계산하면 의미가 흔들린다.
+  - lifecycle engine이 전이 의미를 먼저 고정해야 notifier와 UI가 같은 규칙을 그대로 재사용할 수 있다.
 
 ### 변경 내용
 
-- 
+- `OperationsAlertTransitionType`를 `OPENED`, `REOPENED`, `ESCALATED`, `RESOLVED`로 도입했다.
+- `OperationsAlertTransitionEvent`를 추가해 `eventType`, `emittedAt`, `previousStatus`, `previousSeverity`, `alert snapshot`을 고정했다.
+- `OperationsAlertTransitionPublisher` 인터페이스와 phase 3용 no-op 구현을 추가했다.
+- `OperationsAlertService`는 상태 전이 시 event를 생성하고 publisher에 전달한다.
+- active 상태에서 severity가 `WARNING -> CRITICAL`로 올라갈 때만 `ESCALATED`를 발행하고, severity 하향이나 동일 severity refresh는 event를 만들지 않는다.
 
 ### 동작 변경 요약
 
 - 이전:
+  - alert state는 바뀌었지만, 어떤 전이가 운영 이벤트인지 외부에서 알 방법이 없었다.
 - 이후:
+  - lifecycle engine이 event semantics를 같이 생산한다.
+  - no-op transition은 event가 없고, severity 상승만 `ESCALATED`로 구분된다.
 
 ### 테스트 결과
 
 - 실행 테스트:
+  - `gradle test --tests com.focuskeeper.reboot.common.observability.OperationsAlertServiceTest`
+  - `gradle test --tests com.focuskeeper.reboot.common.observability.OperationsControllerIntegrationTest`
 - 검증 시나리오:
+  - `new resolved -> no event`
+  - repeated active refresh -> `OPENED`만 발행
+  - `active -> resolved -> reopened` -> `OPENED`, `RESOLVED`, `REOPENED`
+  - warning -> critical severity 상승 -> `ESCALATED`
 - 결과:
+  - 둘 다 성공
+  - controller integration도 기존대로 유지됨
 
 ### 커밋
 
-- `feat : `
-- `test : `
+- `feat : alert transition event contract 도입`
+- `test : alert transition event semantics 테스트 추가`
 
 ---
 
