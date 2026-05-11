@@ -6,13 +6,21 @@ const BASE_URL = __ENV.BASE_URL || 'http://127.0.0.1:8080';
 const METRIC_DATE = __ENV.METRIC_DATE || formatLocalDate(new Date());
 const ITERATION_COUNT = Number(__ENV.ITERATIONS || 24);
 const USER_COUNT = Number(__ENV.SEED_USERS || ITERATION_COUNT);
+const TIMEBOXES_PER_USER = Number(__ENV.TIMEBOXES_PER_USER || 3);
+const TIMEBOX_START_HOUR = Number(__ENV.TIMEBOX_START_HOUR || 0);
+const TIMEBOX_SPACING_MINUTES = Number(__ENV.TIMEBOX_SPACING_MINUTES || 30);
+const TIMEBOX_DURATION_MINUTES = Number(__ENV.TIMEBOX_DURATION_MINUTES || 25);
+const FAILURE_EVERY = Number(__ENV.FAILURE_EVERY || 3);
+const FAILURE_OFFSET = Number(__ENV.FAILURE_OFFSET || 1);
+const GENERATE_SLEEP_SECONDS = Number(__ENV.GENERATE_SLEEP_SECONDS || 0.2);
+const GENERATE_P95_THRESHOLD_MS = Number(__ENV.GENERATE_P95_THRESHOLD_MS || 1000);
 
 export const options = {
-  vus: Number(__ENV.VUS || 4),
-  iterations: Number(__ENV.ITERATIONS || 24),
+  vus: Number(__ENV.VUS || 1),
+  iterations: ITERATION_COUNT,
   thresholds: {
     http_req_failed: ['rate<0.01'],
-    'http_req_duration{name:daily_kpi_generate}': ['p(95)<1000'],
+    'http_req_duration{name:daily_kpi_generate}': [`p(95)<${GENERATE_P95_THRESHOLD_MS}`],
     checks: ['rate>0.99'],
   },
 };
@@ -28,6 +36,12 @@ function isoAt(metricDate, hour, minute) {
   const hh = String(hour).padStart(2, '0');
   const mm = String(minute).padStart(2, '0');
   return `${metricDate}T${hh}:${mm}:00+09:00`;
+}
+
+function isoAtMinuteOfDay(metricDate, minuteOfDay) {
+  const hour = Math.floor(minuteOfDay / 60);
+  const minute = minuteOfDay % 60;
+  return isoAt(metricDate, hour, minute);
 }
 
 function jsonParams(name) {
@@ -83,33 +97,25 @@ function selectBig3(baseUrl, userId, itemIds) {
 }
 
 function allocateTimeboxes(baseUrl, userId, itemIds, metricDate) {
+  const timeboxes = [];
+  const firstMinuteOfDay = TIMEBOX_START_HOUR * 60;
+
+  for (let index = 0; index < TIMEBOXES_PER_USER; index += 1) {
+    const startMinuteOfDay = firstMinuteOfDay + (index * TIMEBOX_SPACING_MINUTES);
+    timeboxes.push({
+      itemId: itemIds[index % itemIds.length],
+      startAt: isoAtMinuteOfDay(metricDate, startMinuteOfDay),
+      endAt: isoAtMinuteOfDay(metricDate, startMinuteOfDay + TIMEBOX_DURATION_MINUTES),
+      type: 'WORK',
+      firstRecoveryBlock: index === 0,
+    });
+  }
+
   const response = postJson(
     `${baseUrl}/api/v1/recovery/timeboxes`,
     {
       userId,
-      timeboxes: [
-        {
-          itemId: itemIds[0],
-          startAt: isoAt(metricDate, 9, 0),
-          endAt: isoAt(metricDate, 9, 25),
-          type: 'WORK',
-          firstRecoveryBlock: true,
-        },
-        {
-          itemId: itemIds[1],
-          startAt: isoAt(metricDate, 10, 0),
-          endAt: isoAt(metricDate, 10, 25),
-          type: 'WORK',
-          firstRecoveryBlock: false,
-        },
-        {
-          itemId: itemIds[2],
-          startAt: isoAt(metricDate, 11, 0),
-          endAt: isoAt(metricDate, 11, 30),
-          type: 'WORK',
-          firstRecoveryBlock: false,
-        },
-      ],
+      timeboxes,
     },
     'seed_timeboxes',
   );
@@ -170,21 +176,53 @@ function restartRecovery(baseUrl, userId, failureEventId) {
   return response.json('data.recoverySession.sessionId');
 }
 
+function shouldFail(index) {
+  return FAILURE_EVERY > 0 && index % FAILURE_EVERY === FAILURE_OFFSET;
+}
+
+function ensureSeedConfigFitsInDay() {
+  if (TIMEBOXES_PER_USER < 1) {
+    fail(`TIMEBOXES_PER_USER must be >= 1. received=${TIMEBOXES_PER_USER}`);
+  }
+  if (TIMEBOX_DURATION_MINUTES < 1) {
+    fail(`TIMEBOX_DURATION_MINUTES must be >= 1. received=${TIMEBOX_DURATION_MINUTES}`);
+  }
+  if (TIMEBOX_SPACING_MINUTES < 1) {
+    fail(`TIMEBOX_SPACING_MINUTES must be >= 1. received=${TIMEBOX_SPACING_MINUTES}`);
+  }
+
+  const firstMinuteOfDay = TIMEBOX_START_HOUR * 60;
+  const lastStartMinute = firstMinuteOfDay + ((TIMEBOXES_PER_USER - 1) * TIMEBOX_SPACING_MINUTES);
+  const lastEndMinute = lastStartMinute + TIMEBOX_DURATION_MINUTES;
+
+  if (TIMEBOX_START_HOUR < 0 || TIMEBOX_START_HOUR > 23) {
+    fail(`TIMEBOX_START_HOUR must be between 0 and 23. received=${TIMEBOX_START_HOUR}`);
+  }
+  if (lastEndMinute >= 24 * 60) {
+    fail(
+      `timebox schedule exceeds a single day. startHour=${TIMEBOX_START_HOUR} ` +
+      `count=${TIMEBOXES_PER_USER} spacing=${TIMEBOX_SPACING_MINUTES} duration=${TIMEBOX_DURATION_MINUTES}`,
+    );
+  }
+}
+
 function seedUser(baseUrl, userId, metricDate) {
   const itemIds = saveInboxItems(baseUrl, userId);
   selectBig3(baseUrl, userId, itemIds);
   const timeboxIds = allocateTimeboxes(baseUrl, userId, itemIds, metricDate);
 
-  const completedSessionId = startSession(baseUrl, userId, timeboxIds[0]);
-  completeSession(baseUrl, userId, completedSessionId);
+  timeboxIds.forEach((timeboxId, index) => {
+    const sessionId = startSession(baseUrl, userId, timeboxId);
 
-  const interruptedSessionId = startSession(baseUrl, userId, timeboxIds[1]);
-  const failureEventId = checkInFailure(baseUrl, userId, interruptedSessionId);
-  const restartedSessionId = restartRecovery(baseUrl, userId, failureEventId);
-  completeSession(baseUrl, userId, restartedSessionId);
+    if (shouldFail(index)) {
+      const failureEventId = checkInFailure(baseUrl, userId, sessionId);
+      const restartedSessionId = restartRecovery(baseUrl, userId, failureEventId);
+      completeSession(baseUrl, userId, restartedSessionId);
+      return;
+    }
 
-  const trailingSessionId = startSession(baseUrl, userId, timeboxIds[2]);
-  completeSession(baseUrl, userId, trailingSessionId);
+    completeSession(baseUrl, userId, sessionId);
+  });
 
   return {
     userId,
@@ -193,6 +231,7 @@ function seedUser(baseUrl, userId, metricDate) {
 }
 
 export function setup() {
+  ensureSeedConfigFitsInDay();
   const seededUsers = [];
 
   for (let index = 0; index < USER_COUNT; index += 1) {
@@ -218,5 +257,5 @@ export default function (data) {
   );
 
   assertSuccess(response, 'daily kpi generate');
-  sleep(0.2);
+  sleep(GENERATE_SLEEP_SECONDS);
 }

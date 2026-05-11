@@ -4,6 +4,7 @@ const state = {
     userId: "",
     metricDate: "",
     activeStage: 0,
+    alertsActiveOnly: true,
     inboxItems: [],
     big3Items: [],
     timeboxes: [],
@@ -37,6 +38,7 @@ const el = {
     recoveryJson: document.getElementById("recovery-overview-json"),
     batchJson: document.getElementById("batch-overview-json"),
     alertsJson: document.getElementById("alerts-json"),
+    alertsLifecycleView: document.getElementById("alerts-lifecycle-view"),
     summaryRecovery24: document.getElementById("summary-recovery24"),
     summaryTtr: document.getElementById("summary-ttr"),
     summaryCycle: document.getElementById("summary-cycle"),
@@ -269,13 +271,17 @@ function bindForms() {
         await refreshInsights();
     });
 
-    document.getElementById("refresh-alerts-button").addEventListener("click", async () => {
+    const refreshAlertsButton = document.getElementById("refresh-alerts-button");
+    refreshAlertsButton.addEventListener("click", async () => {
         if (!safeEnsureContext()) {
             return;
         }
-        const alerts = await api(`/api/v1/ops/alerts?userId=${encodeURIComponent(state.userId)}&activeOnly=true`);
+        state.alertsActiveOnly = !state.alertsActiveOnly;
+        const alerts = await api(`/api/v1/ops/alerts?userId=${encodeURIComponent(state.userId)}&activeOnly=${state.alertsActiveOnly}`);
         el.alertsJson.textContent = pretty(alerts.data);
-        toast("활성 알림을 조회했습니다.");
+        renderAlertLifecycleCards(alerts.data);
+        refreshAlertsButton.textContent = state.alertsActiveOnly ? "전체 알림 보기" : "활성 알림만 보기";
+        toast(state.alertsActiveOnly ? "활성 알림을 조회했습니다." : "전체 알림을 조회했습니다.");
     });
 }
 
@@ -323,11 +329,13 @@ async function refreshInsights() {
 
     const recovery = await api(`/api/v1/ops/overview/recovery-loop?userId=${encodeURIComponent(state.userId)}&metricDate=${state.metricDate}`);
     const batch = await api(`/api/v1/ops/overview/batch?userId=${encodeURIComponent(state.userId)}&metricDate=${state.metricDate}`);
-    const alerts = await api(`/api/v1/ops/alerts?userId=${encodeURIComponent(state.userId)}&activeOnly=true`);
+    const alerts = await api(`/api/v1/ops/alerts?userId=${encodeURIComponent(state.userId)}&activeOnly=${state.alertsActiveOnly}`);
 
     el.recoveryJson.textContent = pretty(recovery.data);
     el.batchJson.textContent = pretty(batch.data);
     el.alertsJson.textContent = pretty(alerts.data);
+    renderAlertLifecycleCards(alerts.data);
+    document.getElementById("refresh-alerts-button").textContent = state.alertsActiveOnly ? "전체 알림 보기" : "활성 알림만 보기";
 
     const dailyKpi = recovery.data.dailyKpi;
     el.summaryRecovery24.textContent = dailyKpi ? boolText(dailyKpi.recovery24) : "-";
@@ -337,6 +345,30 @@ async function refreshInsights() {
 
     setStage(3);
     toast("Recovery / Batch overview를 갱신했습니다.");
+}
+
+function renderAlertLifecycleCards(alerts) {
+    if (!alerts || alerts.length === 0) {
+        el.alertsLifecycleView.className = "result-list empty-state";
+        el.alertsLifecycleView.textContent = "표시할 alert가 없습니다.";
+        return;
+    }
+
+    el.alertsLifecycleView.className = "result-list item-list";
+    el.alertsLifecycleView.innerHTML = alerts.map((alert) => `
+        <div class="item-row">
+            <div>
+                <div>${escapeHtml(alert.summary)}</div>
+                <small class="meta-kicker">
+                    ${escapeHtml(alert.status)} · ${escapeHtml(alert.severity)} · occurrence ${alert.occurrenceCount} · reopen ${alert.reopenCount}
+                </small>
+                <small class="meta-kicker">
+                    firstSeen ${escapeHtml(alert.firstSeenAt || "-")} / resolved ${escapeHtml(alert.resolvedAt || "-")}
+                </small>
+            </div>
+            <span class="chip">${escapeHtml(alert.stage)}</span>
+        </div>
+    `).join("");
 }
 
 async function api(url, options = {}) {

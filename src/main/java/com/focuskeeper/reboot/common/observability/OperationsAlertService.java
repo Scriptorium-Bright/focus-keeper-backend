@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,17 @@ public class OperationsAlertService {
     private static final Logger log = LoggerFactory.getLogger(OperationsAlertService.class);
     private static final ZoneOffset DEFAULT_OFFSET = ZoneOffset.ofHours(9);
 
-    private final ConcurrentMap<String, OperationsAlertResponse> alerts = new ConcurrentHashMap<>();
+    private final OperationsAlertTransitionPublisher transitionPublisher;
+    private final ConcurrentMap<String, OperationsAlertState> alerts = new ConcurrentHashMap<>();
+
+    public OperationsAlertService(OperationsAlertTransitionPublisher transitionPublisher) {
+        this.transitionPublisher = transitionPublisher;
+    }
+
+    OperationsAlertService() {
+        this(event -> {
+        });
+    }
 
     /**
      * 특정 배치 stage 실패를 활성 alert로 등록한다.
@@ -170,9 +181,13 @@ public class OperationsAlertService {
      */
     public List<OperationsAlertResponse> getAlerts(boolean activeOnly, String userId) {
         return alerts.values().stream()
-                .filter(alert -> !activeOnly || alert.active())
+                .filter(alert -> !activeOnly || alert.isActive())
                 .filter(alert -> userId == null || userId.isBlank() || userId.equals(alert.userId()))
-                .sorted(Comparator.comparing(OperationsAlertResponse::lastChangedAt).reversed())
+                .sorted(
+                        Comparator.comparing(OperationsAlertState::isActive, Comparator.reverseOrder())
+                                .thenComparing(OperationsAlertState::lastChangedAt, Comparator.reverseOrder())
+                )
+                .map(OperationsAlertState::toResponse)
                 .toList();
     }
 
@@ -202,20 +217,37 @@ public class OperationsAlertService {
             String summary,
             Map<String, String> details
     ) {
-        OperationsAlertResponse updated = new OperationsAlertResponse(
+        OffsetDateTime now = OffsetDateTime.now();
+        AlertMutation mutation = mutateAlert(
                 alertKey,
                 pipelineKey,
                 stage,
                 userId,
-                severity.name(),
+                severity,
                 active,
                 summary,
-                Map.copyOf(details),
-                OffsetDateTime.now().toString()
+                details,
+                now
         );
-        alerts.put(alertKey, updated);
+        if (!mutation.changed()) {
+            return;
+        }
 
-        if (active) {
+        if (mutation.event() != null) {
+            transitionPublisher.publish(mutation.event());
+            log.info(
+                    "ops alert transition event={} pipeline={} stage={} userId={} previousStatus={} previousSeverity={} currentSeverity={}",
+                    mutation.event().eventType(),
+                    pipelineKey,
+                    stage,
+                    userId,
+                    mutation.event().previousStatus(),
+                    mutation.event().previousSeverity(),
+                    severity.name()
+            );
+        }
+
+        if (mutation.state().isActive()) {
             log.warn(
                     "ops alert active pipeline={} stage={} userId={} severity={} summary={} details={}",
                     pipelineKey,
@@ -238,6 +270,89 @@ public class OperationsAlertService {
         }
     }
 
+    private AlertMutation mutateAlert(
+            String alertKey,
+            String pipelineKey,
+            String stage,
+            String userId,
+            OperationsAlertSeverity severity,
+            boolean active,
+            String summary,
+            Map<String, String> details,
+            OffsetDateTime now
+    ) {
+        List<AlertMutation> holder = new ArrayList<>(1);
+        alerts.compute(alertKey, (key, existing) -> {
+            if (existing == null) {
+                if (!active) {
+                    holder.add(AlertMutation.noop());
+                    return null;
+                }
+
+                OperationsAlertState opened = OperationsAlertState.opened(
+                        alertKey,
+                        pipelineKey,
+                        stage,
+                        userId,
+                        severity,
+                        summary,
+                        details,
+                        now
+                );
+                holder.add(AlertMutation.changed(
+                        opened,
+                        opened.transitionEvent(OperationsAlertTransitionType.OPENED, null, null, now)
+                ));
+                return opened;
+            }
+
+            if (active) {
+                OperationsAlertState next;
+                OperationsAlertTransitionEvent event = null;
+                if (existing.isActive()) {
+                    next = existing.refreshActive(severity, summary, details, now);
+                    if (severity.isHigherThan(existing.severity())) {
+                        event = next.transitionEvent(
+                                OperationsAlertTransitionType.ESCALATED,
+                                existing.status().name(),
+                                existing.severity().name(),
+                                now
+                        );
+                    }
+                } else {
+                    next = existing.reopen(severity, summary, details, now);
+                    event = next.transitionEvent(
+                            OperationsAlertTransitionType.REOPENED,
+                            existing.status().name(),
+                            existing.severity().name(),
+                            now
+                    );
+                }
+                holder.add(AlertMutation.changed(next, event));
+                return next;
+            }
+
+            if (!existing.isActive()) {
+                holder.add(AlertMutation.noop());
+                return existing;
+            }
+
+            OperationsAlertState resolved = existing.resolve(severity, summary, details, now);
+            holder.add(AlertMutation.changed(
+                    resolved,
+                    resolved.transitionEvent(
+                            OperationsAlertTransitionType.RESOLVED,
+                            existing.status().name(),
+                            existing.severity().name(),
+                            now
+                    )
+            ));
+            return resolved;
+        });
+
+        return holder.isEmpty() ? AlertMutation.noop() : holder.getFirst();
+    }
+
     /**
      * batch failure alert의 논리 키를 만든다.
      *
@@ -245,5 +360,182 @@ public class OperationsAlertService {
      */
     private String batchFailureKey(String pipelineKey, String stage, String userId) {
         return "batch_failure:" + pipelineKey + ":" + stage + ":" + userId;
+    }
+
+    private enum OperationsAlertStatus {
+        ACTIVE,
+        RESOLVED
+    }
+
+    private record AlertMutation(
+            boolean changed,
+            OperationsAlertState state,
+            OperationsAlertTransitionEvent event
+    ) {
+
+        private static AlertMutation changed(OperationsAlertState state, OperationsAlertTransitionEvent event) {
+            return new AlertMutation(true, state, event);
+        }
+
+        private static AlertMutation noop() {
+            return new AlertMutation(false, null, null);
+        }
+    }
+
+    private record OperationsAlertState(
+            String alertKey,
+            String pipelineKey,
+            String stage,
+            String userId,
+            OperationsAlertSeverity severity,
+            OperationsAlertStatus status,
+            String summary,
+            Map<String, String> details,
+            OffsetDateTime firstSeenAt,
+            OffsetDateTime lastSeenAt,
+            OffsetDateTime resolvedAt,
+            int occurrenceCount,
+            int reopenCount,
+            OffsetDateTime lastChangedAt
+    ) {
+
+        private static OperationsAlertState opened(
+                String alertKey,
+                String pipelineKey,
+                String stage,
+                String userId,
+                OperationsAlertSeverity severity,
+                String summary,
+                Map<String, String> details,
+                OffsetDateTime now
+        ) {
+            return new OperationsAlertState(
+                    alertKey,
+                    pipelineKey,
+                    stage,
+                    userId,
+                    severity,
+                    OperationsAlertStatus.ACTIVE,
+                    summary,
+                    Map.copyOf(details),
+                    now,
+                    now,
+                    null,
+                    1,
+                    0,
+                    now
+            );
+        }
+
+        private boolean isActive() {
+            return status == OperationsAlertStatus.ACTIVE;
+        }
+
+        private OperationsAlertTransitionEvent transitionEvent(
+                OperationsAlertTransitionType eventType,
+                String previousStatus,
+                String previousSeverity,
+                OffsetDateTime now
+        ) {
+            return new OperationsAlertTransitionEvent(
+                    eventType,
+                    now.toString(),
+                    previousStatus,
+                    previousSeverity,
+                    toResponse()
+            );
+        }
+
+        private OperationsAlertState refreshActive(
+                OperationsAlertSeverity severity,
+                String summary,
+                Map<String, String> details,
+                OffsetDateTime now
+        ) {
+            return new OperationsAlertState(
+                    alertKey,
+                    pipelineKey,
+                    stage,
+                    userId,
+                    severity,
+                    OperationsAlertStatus.ACTIVE,
+                    summary,
+                    Map.copyOf(details),
+                    firstSeenAt,
+                    now,
+                    null,
+                    occurrenceCount + 1,
+                    reopenCount,
+                    now
+            );
+        }
+
+        private OperationsAlertState resolve(
+                OperationsAlertSeverity severity,
+                String summary,
+                Map<String, String> details,
+                OffsetDateTime now
+        ) {
+            return new OperationsAlertState(
+                    alertKey,
+                    pipelineKey,
+                    stage,
+                    userId,
+                    severity,
+                    OperationsAlertStatus.RESOLVED,
+                    summary,
+                    Map.copyOf(details),
+                    firstSeenAt,
+                    now,
+                    now,
+                    occurrenceCount,
+                    reopenCount,
+                    now
+            );
+        }
+
+        private OperationsAlertState reopen(
+                OperationsAlertSeverity severity,
+                String summary,
+                Map<String, String> details,
+                OffsetDateTime now
+        ) {
+            return new OperationsAlertState(
+                    alertKey,
+                    pipelineKey,
+                    stage,
+                    userId,
+                    severity,
+                    OperationsAlertStatus.ACTIVE,
+                    summary,
+                    Map.copyOf(details),
+                    firstSeenAt,
+                    now,
+                    null,
+                    occurrenceCount + 1,
+                    reopenCount + 1,
+                    now
+            );
+        }
+
+        private OperationsAlertResponse toResponse() {
+            return new OperationsAlertResponse(
+                    alertKey,
+                    pipelineKey,
+                    stage,
+                    userId,
+                    severity.name(),
+                    isActive(),
+                    status.name(),
+                    summary,
+                    details,
+                    firstSeenAt.toString(),
+                    lastSeenAt.toString(),
+                    resolvedAt == null ? null : resolvedAt.toString(),
+                    occurrenceCount,
+                    reopenCount,
+                    lastChangedAt.toString()
+            );
+        }
     }
 }

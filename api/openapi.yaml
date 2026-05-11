@@ -30,6 +30,91 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ActuatorHealthResponse"
+  /api/v1/ops/overview/recovery-loop:
+    get:
+      tags: [Ops]
+      summary: Get recovery loop overview
+      operationId: getRecoveryLoopOverview
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Recovery loop overview fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRecoveryLoopOverview"
+  /api/v1/ops/overview/batch:
+    get:
+      tags: [Ops]
+      summary: Get batch overview
+      operationId: getBatchOverview
+      parameters:
+        - in: query
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: metricDate
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Batch overview fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseBatchOverview"
+  /api/v1/ops/alerts:
+    get:
+      tags: [Ops]
+      summary: Get operations alerts
+      description: Returns alert lifecycle metadata and can be paired with webhook-delivered lifecycle events for external incident notification.
+      operationId: getOperationsAlerts
+      parameters:
+        - in: query
+          name: userId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: activeOnly
+          required: false
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: Operations alerts fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseOperationsAlerts"
+  /api/v1/ops/runbooks:
+    get:
+      tags: [Ops]
+      summary: Get operations runbooks
+      operationId: getOperationsRunbooks
+      responses:
+        "200":
+          description: Operations runbooks fetched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseRunbooks"
   /api/v1/recovery/inbox-items:
     post:
       tags: [Recovery]
@@ -567,6 +652,62 @@ components:
         message:
           type: string
           example: DAILY_KPI_LAST_PROCESSED_DATE_FETCHED
+        traceId:
+          type: string
+    ApiResponseRecoveryLoopOverview:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/RecoveryLoopOverviewResponse"
+        message:
+          type: string
+          example: OPS_RECOVERY_LOOP_OVERVIEW_FETCHED
+        traceId:
+          type: string
+    ApiResponseBatchOverview:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/BatchOverviewResponse"
+        message:
+          type: string
+          example: OPS_BATCH_OVERVIEW_FETCHED
+        traceId:
+          type: string
+    ApiResponseOperationsAlerts:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsAlertResponse"
+        message:
+          type: string
+          example: OPS_ALERTS_FETCHED
+        traceId:
+          type: string
+    ApiResponseRunbooks:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunbookScenarioResponse"
+        message:
+          type: string
+          example: OPS_RUNBOOKS_FETCHED
         traceId:
           type: string
     ApiResponseFailureHourDistribution:
@@ -1143,6 +1284,111 @@ components:
           type: string
         evidence:
           type: string
+    OperationsAlertResponse:
+      type: object
+      properties:
+        alertKey:
+          type: string
+        pipelineKey:
+          type: string
+        stage:
+          type: string
+        userId:
+          type: string
+        severity:
+          type: string
+          enum: [WARNING, CRITICAL]
+        active:
+          type: boolean
+        status:
+          type: string
+          enum: [ACTIVE, RESOLVED]
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: string
+        firstSeenAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        occurrenceCount:
+          type: integer
+        reopenCount:
+          type: integer
+        lastChangedAt:
+          type: string
+          format: date-time
+    RecoveryLoopOverviewResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        dailyKpi:
+          $ref: "#/components/schemas/DailyKpiResponse"
+        failureHour:
+          $ref: "#/components/schemas/FailureHourDistributionResponse"
+        frictionSignals:
+          $ref: "#/components/schemas/FrictionSignalReportResponse"
+        frictionSegments:
+          $ref: "#/components/schemas/FrictionSegmentReportResponse"
+        metricNames:
+          type: array
+          items:
+            type: string
+        activeAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsAlertResponse"
+    BatchOverviewResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        metricDate:
+          type: string
+          format: date
+        qualityReport:
+          $ref: "#/components/schemas/DailyKpiQualityResponse"
+        lastProcessedDate:
+          $ref: "#/components/schemas/DailyKpiLastProcessedDateResponse"
+        weeklyRetrospective:
+          $ref: "#/components/schemas/WeeklyRetrospectiveResponse"
+        metricNames:
+          type: array
+          items:
+            type: string
+        activeAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsAlertResponse"
+    RunbookScenarioResponse:
+      type: object
+      properties:
+        scenarioKey:
+          type: string
+        title:
+          type: string
+        trigger:
+          type: string
+        checklist:
+          type: array
+          items:
+            type: string
+        signals:
+          type: array
+          items:
+            type: string
     AppHealthResponse:
       type: object
       required:

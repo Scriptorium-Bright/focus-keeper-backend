@@ -92,6 +92,7 @@ public class DailyKpiQualityService {
                     periodEndExclusive
             );
 
+            // pipeline이 없어도, raw data에 대한 quality 검증이 가능하다.
             generateFromLoadedRaw(
                     userId,
                     metricDate,
@@ -146,6 +147,7 @@ public class DailyKpiQualityService {
                     timeboxesById,
                     loadFailureOccurredAtById(failures, restarts, userId)
             );
+        // 하루치만을 위한 fromLoadedRaw , 장기를 위한 generateFromSlices
     }
 
     /**
@@ -166,29 +168,29 @@ public class DailyKpiQualityService {
     ) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
-            RestartQualityStats restartStats = analyzeRestarts(restarts, failureOccurredAtById);
-            SessionQualityStats sessionStats = analyzeSessions(sessions, timeboxesById);
-            int failureTimezoneMismatchCount = countFailureTimezoneMismatch(failures);
-            int timeboxTimezoneMismatchCount = countTimeboxTimezoneMismatch(timeboxesById.values());
+            RestartQualityStats restartStats = analyzeRestarts(restarts, failureOccurredAtById); // 재시작 이벤트 시간/참조 모순 검사 결과
+            SessionQualityStats sessionStats = analyzeSessions(sessions, timeboxesById); // 세션 이벤트 논리적 모순 검사 결과
+            int failureTimezoneMismatchCount = countFailureTimezoneMismatch(failures); // KST(한국기준) 타임존을 벗어난 실패 이벤트 수
+            int timeboxTimezoneMismatchCount = countTimeboxTimezoneMismatch(timeboxesById.values()); // KST 타임존을 벗어난 타임박스 수
 
-            int duplicateRestartLinkCount = restartStats.duplicateRestartLinkCount();
-            int orphanRestartCount = restartStats.orphanRestartCount();
-            int restartBeforeFailureCount = restartStats.restartBeforeFailureCount();
-            int lateRestartLinkCount = restartStats.lateRestartLinkCount();
-            int breakSessionReferenceCount = sessionStats.breakSessionReferenceCount();
-            int missingTimeboxReferenceCount = sessionStats.missingTimeboxReferenceCount();
+            int duplicateRestartLinkCount = restartStats.duplicateRestartLinkCount(); // 하나의 실패에 중복 연결된 비정상 재시작 수
+            int orphanRestartCount = restartStats.orphanRestartCount(); // 부모(실패 이벤트)가 DB에 없는 고아 재시작 수
+            int restartBeforeFailureCount = restartStats.restartBeforeFailureCount(); // 실패하기도 전에 발생한 재시작 수
+            int lateRestartLinkCount = restartStats.lateRestartLinkCount(); // 48시간 유효기간이 한참 지나서 들어온 지각 재시작 수
+            int breakSessionReferenceCount = sessionStats.breakSessionReferenceCount(); // 휴식(Break) 타임박스에 잘못 연결된 비정상 세션 수
+            int missingTimeboxReferenceCount = sessionStats.missingTimeboxReferenceCount(); // 존재하지 않는 타임박스를 참조하는 유실 세션 수
             int timezoneMismatchCount = restartStats.timezoneMismatchCount()
                     + sessionStats.timezoneMismatchCount()
                     + failureTimezoneMismatchCount
-                    + timeboxTimezoneMismatchCount;
+                    + timeboxTimezoneMismatchCount; // 전체 이벤트 중 타임존이 오염된 총합
             int totalIssueCount = duplicateRestartLinkCount
                     + orphanRestartCount
                     + restartBeforeFailureCount
                     + lateRestartLinkCount
                     + breakSessionReferenceCount
                     + missingTimeboxReferenceCount
-                    + timezoneMismatchCount;
-            boolean healthy = totalIssueCount == 0;
+                    + timezoneMismatchCount; // 해당 날짜에 발견된 모든 데이터 품질(DQ) 결함의 총합
+            boolean healthy = totalIssueCount == 0; // 결함이 단 하나도 없어야 건강함(true)으로 판정
 
             dailyKpiQualityReportRepository.findByUserIdAndMetricDate(userId, metricDate)
                     .map(existing -> {
@@ -327,7 +329,7 @@ public class DailyKpiQualityService {
         Set<String> seenFailureEventIds = new HashSet<>();
         Set<String> duplicateFailureEventIds = new HashSet<>();
         int orphanRestartCount = 0;
-        int restartBeforeFailureCount = 0;
+        int restartBeforeFailureCount = 0; // failure 전의 restart
         int lateRestartLinkCount = 0;
         int timezoneMismatchCount = 0;
 

@@ -50,7 +50,6 @@ public interface RestartEventRepository extends JpaRepository<RestartEvent, Stri
      */
     interface RestartSlice {
         String getFailureEventId();
-
         OffsetDateTime getOccurredAt();
     }
 }

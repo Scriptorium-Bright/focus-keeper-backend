@@ -121,6 +121,9 @@ public class DailyKpiPipelineService {
                     .collect(Collectors.toMap(Timebox::getId, Function.identity()));
 
             OffsetDateTime generatedAt = OffsetDateTime.now();
+            // [1] KPI 수치 집계 및 마트 구축 (generateMetric)
+            // 조회해 온 Session, Failure 등의 이벤트를 바탕으로 KPI 수치(성공률, 24시간 내 재시작 횟수 등)를 계산하고
+            // 이를 DB에 Upsert (DailyKpiMetricUpsertJdbcRepository) 하여 일간 마트를 갱신합니다.
             generateMetric(
                     userId,
                     metricDate,
@@ -130,7 +133,10 @@ public class DailyKpiPipelineService {
                     plannedWorkTimeboxes,
                     generatedAt
             );
-            // generate가 이미 읽은 raw slice를 quality에도 재사용해 같은 날짜 범위를 다시 조회하지 않게 한다.
+
+            // [2] 데이터 논리적 무결성 및 품질(DQ) 검사 (generateFromLoadedRaw)
+            // KPI 집계에 사용된 원천 데이터(raw slice)를 DB에서 또 조회(N+1)하지 않기 위해 메모리 객체를 그대로 넘겨 재사용합니다.
+            // 이벤트 간의 시간적 모순이나 유실 등 논리적 정합성을 검증하여 품질 마트를 함께 갱신합니다.
             dailyKpiQualityService.generateFromLoadedRaw(
                     userId,
                     metricDate,
@@ -140,7 +146,10 @@ public class DailyKpiPipelineService {
                     dailyRestarts,
                     dailyTimeboxesById
             );
-            // mart 저장 직후 같은 generatedAt으로 품질 리포트와 lastProcessedDate를 갱신해 한 번의 생성 배치로 묶는다.
+
+            // [3] 워터마크(Watermark) 전진 (advance)
+            // 마트 저장 및 품질 검사가 모두 성공적으로 끝났을 때만 마지막 처리 기준점을 전진시킵니다.
+            // 예외가 발생해 트랜잭션이 롤백되면 이 코드가 확정되지 않으므로, 다음 재시도(Retry) 시 데이터가 누락되지 않고 안전하게 재실행됩니다.
             dailyKpiLastProcessedDateService.advance(userId, metricDate, generatedAt);
             operationsMetricRecorder.recordBatchStage(
                     sample,

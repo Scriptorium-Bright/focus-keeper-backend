@@ -9,8 +9,14 @@ public record OperationsAlertResponse(
         String userId,
         String severity,
         boolean active,
+        String status,
         String summary,
         Map<String, String> details,
+        String firstSeenAt,
+        String lastSeenAt,
+        String resolvedAt,
+        int occurrenceCount,
+        int reopenCount,
         String lastChangedAt
 ) {
 }

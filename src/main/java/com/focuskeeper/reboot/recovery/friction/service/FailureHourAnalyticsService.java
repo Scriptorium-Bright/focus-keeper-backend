@@ -73,6 +73,7 @@ public class FailureHourAnalyticsService {
         OffsetDateTime generatedAt = OffsetDateTime.now();
 
         failureHourMetricRepository.deleteAllByUserIdAndMetricDate(userId, metricDate);
+
         List<FailureHourMetric> metrics = failureCountByHour.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .map(entry -> FailureHourMetric.create(
