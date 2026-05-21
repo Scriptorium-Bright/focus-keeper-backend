@@ -69,6 +69,10 @@ public class DailyKpiQualityService {
 
     /**
      * KPI 계산에 사용된 세션, 실패, 재시작, 타임박스를 점검해 일간 데이터 품질 리포트를 생성하거나 갱신한다.
+     * Q. 얘는 왜 사용하는 곳이 없음 ?
+     * A. 현재 main 흐름에서는 DailyKpiPipelineService가 raw slice를 이미 읽은 뒤 generateFromLoadedRaw를 호출해서 중복 조회를 피한다.
+     *    이 메소드는 품질 리포트만 단독 재생성하거나, 파이프라인과 분리된 운영/수동 실행 진입점으로 남겨둔 형태다.
+     *    당장 외부에서 쓰지 않을 거면 YAGNI 관점에서는 제거하거나 별도 API/배치에서 실제로 연결하는 편이 더 선명하다.
      */
     public void generate(String userId, LocalDate metricDate, OffsetDateTime generatedAt) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
@@ -155,6 +159,10 @@ public class DailyKpiQualityService {
      *
      * 호출자는 데이터를 어떤 방식으로 읽어왔는지와 상관없이, 이 메소드에 규격화된 slice만 넘기면 된다.
      * upsert 전환대상
+     * T. 얘도 Transform단계로 보이는데 .. 정제를 두 번 하는건가? PipeLine에서 한번, 여기서 한번
+     * A. Transform이 맞지만 역할이 다르다. DailyKpiPipelineService의 Transform은 KPI 값을 만드는 계산이고,
+     *    여기 Transform은 같은 raw event를 품질 지표로 바꿔 결함 수를 계산하는 DQ 변환이다.
+     *    그래서 "정제를 두 번"이라기보다, 같은 원천 데이터를 KPI mart와 quality report라는 서로 다른 산출물로 변환하는 구조다.
      */
     void generateFromSlices(
             String userId,
@@ -170,11 +178,16 @@ public class DailyKpiQualityService {
         try {
             RestartQualityStats restartStats = analyzeRestarts(restarts, failureOccurredAtById); // 재시작 이벤트 시간/참조 모순 검사 결과
             SessionQualityStats sessionStats = analyzeSessions(sessions, timeboxesById); // 세션 이벤트 논리적 모순 검사 결과
+
+            // Q. 근데 Timezone을 벗어난 Data에 대해, 사용자의 책임이 있을 수 있나? 갑자기 의문이 드네 보통 서버에서 변환못하는 문제 아닌가?
+            // A. 보통 사용자 책임이라기보다 수집/서버/클라이언트 변환 책임에 가깝다.
+            //    여기서는 사용자를 탓하려는 지표가 아니라, KPI 기준일을 잘못 자를 수 있는 데이터 오염 신호를 잡는 DQ 항목으로 보는 게 맞다.
             int failureTimezoneMismatchCount = countFailureTimezoneMismatch(failures); // KST(한국기준) 타임존을 벗어난 실패 이벤트 수
             int timeboxTimezoneMismatchCount = countTimeboxTimezoneMismatch(timeboxesById.values()); // KST 타임존을 벗어난 타임박스 수
 
+
             int duplicateRestartLinkCount = restartStats.duplicateRestartLinkCount(); // 하나의 실패에 중복 연결된 비정상 재시작 수
-            int orphanRestartCount = restartStats.orphanRestartCount(); // 부모(실패 이벤트)가 DB에 없는 고아 재시작 수
+            int orphanRestartCount = restartStats.orphanRestartCount(); // 부모(실패 이벤트)가 DB에 없는 고아 재시작 수 , 그니까 실패를 안했는데 재시작을 한거처럼 ..
             int restartBeforeFailureCount = restartStats.restartBeforeFailureCount(); // 실패하기도 전에 발생한 재시작 수
             int lateRestartLinkCount = restartStats.lateRestartLinkCount(); // 48시간 유효기간이 한참 지나서 들어온 지각 재시작 수
             int breakSessionReferenceCount = sessionStats.breakSessionReferenceCount(); // 휴식(Break) 타임박스에 잘못 연결된 비정상 세션 수
@@ -190,6 +203,10 @@ public class DailyKpiQualityService {
                     + breakSessionReferenceCount
                     + missingTimeboxReferenceCount
                     + timezoneMismatchCount; // 해당 날짜에 발견된 모든 데이터 품질(DQ) 결함의 총합
+
+            // Q. 결함이 있는 경우와 없는 경우의 저장소를 나누는 방식은 어떤지, 하나로 섞여있으면 뭔가 복잡할거같아서
+            // A. 지금처럼 하루 요약 리포트라면 healthy flag와 issue count를 한 row에 두는 편이 단순하다.
+            //    다만 결함 상세를 추적하거나 remediation workflow가 생기면 summary table과 issue detail table을 분리하는 구조가 더 낫다.
             boolean healthy = totalIssueCount == 0; // 결함이 단 하나도 없어야 건강함(true)으로 판정
 
             dailyKpiQualityReportRepository.findByUserIdAndMetricDate(userId, metricDate)
@@ -421,6 +438,9 @@ public class DailyKpiQualityService {
         return timeboxMismatchCount;
     }
 
+    // Q. 무슨 기준의 DTO들인지?
+    // A. 외부 API DTO가 아니라 품질 계산 중간 결과를 묶는 내부 통계 record다.
+    //    RestartQualityStats는 restart 이벤트 기준 결함 수, SessionQualityStats는 session/timebox 참조 기준 결함 수를 담는다.
     private record RestartQualityStats(
             int duplicateRestartLinkCount,
             int orphanRestartCount,

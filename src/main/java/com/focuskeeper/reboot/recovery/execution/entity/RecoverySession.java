@@ -35,6 +35,7 @@ public class RecoverySession {
 
     @Column(name = "timebox_id", nullable = false, length = 36)
     private String timeboxId;
+    // RecoverySession은 Timebox를 소유하거나 탐색하는 객체가 아니라 “어떤 timebox를 실행했는지”만 기록하면 되므로, JPA 연관관계 대신 timeboxId 참조로 느슨하게 연결했다.
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)

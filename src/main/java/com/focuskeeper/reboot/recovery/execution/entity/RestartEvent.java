@@ -27,6 +27,7 @@ public class RestartEvent {
 
     @Column(name = "failure_event_id", nullable = false, length = 36)
     private String failureEventId;
+    // RestartEvent는 특정 FailureEvent 이후 발생한 재시작 사실을 기록하는 이벤트이므로, JPA 연관관계로 묶기보다 failureEventId 참조만 저장해 실행/이벤트 흐름을 느슨하게 연결했다.
 
     @Enumerated(EnumType.STRING)
     @Column(name = "restart_type", nullable = false, length = 30)

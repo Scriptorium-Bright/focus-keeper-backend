@@ -42,6 +42,11 @@ public class DailyKpiBatchLauncher {
 
     /**
      * 일간 KPI Job을 실행하고, 배치가 정상 종료되지 않으면 서비스 레벨 예외로 감싼다.
+     * Q. Batch의 자세한 동작과 필요한 이유, 등등에 대해 좀 설명이 필요해 갑자기 헷갈려, 이게 observability를 위한건지 .. 뭔지
+     * A. Batch 자체의 주목적은 observability가 아니라 "사용자+날짜 기준 KPI 생성 작업"을 독립 실행 단위로 관리하는 것이다.
+     *    현재는 단일 Tasklet Job이라 구조가 가볍지만, JobParameter/JobExecution/Step 트랜잭션 경계를 갖기 때문에
+     *    나중에 스케줄 실행, 재시도, 백필, 실행 이력 추적을 같은 경로로 확장하기 좋다.
+     *    observability는 그 실행 단위의 성공/실패/소요 시간을 밖에서 볼 수 있게 붙인 운영 보강 책임이다.
      */
     public void launch(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();

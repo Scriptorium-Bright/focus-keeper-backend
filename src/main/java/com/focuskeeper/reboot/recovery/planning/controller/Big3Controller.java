@@ -39,6 +39,7 @@ public class Big3Controller {
     public ApiResponse<SelectBig3Response> selectBig3(
             @Valid @RequestBody SelectBig3Request request
     ) {
+
         Big3SelectionResponse selection = big3Service.selectTodayBig3(request.userId(), request.itemIds());
         List<Big3ItemResponse> selectedItems = selection.selectedItems().stream()
                 .map(Big3ItemResponse::from)

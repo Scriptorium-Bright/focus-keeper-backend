@@ -31,7 +31,7 @@ public class DailyKpiLastProcessedDate {
 
     @Column(name = "pipeline_key", nullable = false, length = 50)
     private String pipelineKey;
-
+    // pipeline_key는 metric과 조인하려는 key가 아니라, “어떤 파이프라인의 처리 진도/상태인지”를 식별하는 운영 메타데이터 key
     @Column(name = "user_id", nullable = false, length = 100)
     private String userId;
 

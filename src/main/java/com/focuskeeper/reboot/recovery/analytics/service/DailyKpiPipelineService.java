@@ -81,13 +81,18 @@ public class DailyKpiPipelineService {
 
     /**
      * 원천 실행 이벤트를 읽어 사용자의 일간 KPI를 계산하고, mart 저장 후 품질 리포트와 lastProcessedDate까지 갱신한다.
+     * T. Extract 단계
+     * A. 맞다. 여기서는 metricDate 기준으로 원천 이벤트와 계획 데이터를 먼저 읽어오는 Extract 역할을 한다.
+     *    다만 메소드 전체는 Extract만 하는 게 아니라, 이후 Transform/Load까지 이어지는 파이프라인 오케스트레이션이다.
      */
     public void generate(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
             // KPI 기준일은 KST 하루 범위로 자르고, 재시작은 Recovery48 계산을 위해 48시간 뒤까지 함께 읽는다.
+
             OffsetDateTime periodStart = metricDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
             OffsetDateTime periodEndExclusive = metricDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);
+
             OffsetDateTime restartEndExclusive = periodEndExclusive.plusHours(48);
 
             List<SessionSlice> sessions = recoverySessionRepository.findSlicesByUserIdAndStartedAtBetween(
@@ -105,11 +110,17 @@ public class DailyKpiPipelineService {
                     periodStart,
                     restartEndExclusive
             );
+            // T. 세션 / 실패 / 재시작 log들을 metricDate에서 정한 날부터 시작해서 하루, 재시작은 48시간 이후까지 가져와 측정한다 (metricDate를 뭐로 이해해야할지)
+            // A. 맞다. metricDate는 "KPI를 계산할 기준 날짜"다. 세션/실패는 그날 KST 00:00~24:00 범위만 보고,
+            //    재시작은 failure 이후 24/48시간 회복 여부를 계산해야 하므로 기준일 다음날 이후까지 더 넓게 읽는다.
             List<Timebox> dailyTimeboxes = timeboxRepository.findAllByUserIdAndStartAtGreaterThanEqualAndStartAtLessThanOrderByStartAtAsc(
                     userId,
                     periodStart,
                     periodEndExclusive
-            );
+            ); // Q. 얘는 어떤 TimeBoxes들을 들고오는건지?
+            // A. metricDate 하루 안에 시작하는 해당 사용자의 계획 timebox들이다.
+            //    이 중 WORK timebox만 골라 계획 대비 실행률과 계획 작업 시간을 계산하는 기준으로 쓴다.
+
             // 계획 대비 실행률은 휴식 블록을 제외한 실제 work timebox만 기준으로 본다.
             List<Timebox> plannedWorkTimeboxes = dailyTimeboxes.stream()
                     .filter(timebox -> timebox.getType() == TimeboxType.WORK)
@@ -150,6 +161,9 @@ public class DailyKpiPipelineService {
             // [3] 워터마크(Watermark) 전진 (advance)
             // 마트 저장 및 품질 검사가 모두 성공적으로 끝났을 때만 마지막 처리 기준점을 전진시킵니다.
             // 예외가 발생해 트랜잭션이 롤백되면 이 코드가 확정되지 않으므로, 다음 재시도(Retry) 시 데이터가 누락되지 않고 안전하게 재실행됩니다.
+            // T. 현재시간 기준으로 lpd를 밀어줌 (왜 ? 나중에 backfill같은거 할 때, 날짜가 안밀려있으면 동기화하거나 하는데 문제 생긴다? 이걸 뭐라 풀어써야할지..)
+            // A. lpd는 현재시간이 아니라 "성공적으로 처리한 metricDate"까지 전진한다.
+            //    updatedAt은 그 처리가 언제 반영됐는지 남기는 갱신 시각이고, lastProcessedDate는 재시도/백필/운영 lag 판단의 기준점이다.
             dailyKpiLastProcessedDateService.advance(userId, metricDate, generatedAt);
             operationsMetricRecorder.recordBatchStage(
                     sample,
@@ -172,6 +186,9 @@ public class DailyKpiPipelineService {
      * 이미 읽어온 raw slice를 바탕으로 KPI 숫자 자체만 계산해 mart 저장까지 수행한다.
      *
      * 외부에서 동일 raw 데이터를 재사용할 수 있게 조회와 계산을 분리해둔 내부 메소드다.
+     * T. Transform 단계
+     * A. 맞다. 이미 읽어온 raw slice를 KPI 지표 값으로 바꾸는 Transform 단계다.
+     *    마지막에 persistMetric을 호출하므로 좁게는 Transform, 넓게는 작은 Transform+Load 단위로 볼 수 있다.
      */
     void generateMetric(
             String userId,
@@ -182,21 +199,29 @@ public class DailyKpiPipelineService {
             List<Timebox> plannedWorkTimeboxes,
             OffsetDateTime generatedAt
     ) {
-        int sessionStartedCount = sessions.size();
+        int sessionStartedCount = sessions.size(); // 세션 시작 count
         int sessionCompletedCount = (int) sessions.stream()
                 .filter(session -> session.getStatus() == RecoverySessionStatus.COMPLETED)
-                .count();
+                .count(); // 세션 완수 count
         boolean activation = sessionStartedCount > 0;
+        // Q. 그냥 이 사람이 timebox를 활성화했는지 물어보는건가?
+        // A. 거의 맞다. 여기서 activation은 해당 날짜에 사용자가 최소 1개의 recovery session을 시작했는지,
+        //    즉 계획만 세운 상태를 넘어 실제 실행 흐름에 진입했는지를 나타내는 KPI 플래그다.
 
-        int failureCount = failures.size();
+        int failureCount = failures.size(); // 실패 count
         int restartCount24 = 0;
         int restartCount48 = 0;
         boolean recovery24 = false;
         boolean recovery48 = false;
+        // 24/48시간 이내에 재시작했는가?
         Long ttrMinutes = null;
+        // Q. ttr이 뭘 의미하는지 처음 읽었을 때 이해할 수 있는가 ..?
+        // A. 처음 보면 약어라 모호하다. 여기서는 Time To Restart/Recovery에 가까운 값으로,
+        //    failure 발생 후 첫 restart까지 걸린 시간을 분 단위로 저장한다는 설명이 같이 있어야 읽힌다.
 
         for (FailureSlice failure : failures) {
             // 하나의 failure에 restart가 여러 번 붙을 수 있으므로 시간순으로 정렬한 뒤 윈도우별로 잘라 본다.
+
             List<RestartSlice> linkedRestarts = restartByFailureEventId
                     .getOrDefault(failure.getFailureEventId(), List.of())
                     .stream()
@@ -210,6 +235,10 @@ public class DailyKpiPipelineService {
                     .filter(restart -> !restart.getOccurredAt().isAfter(failure.getOccurredAt().plusHours(48)))
                     .toList();
 
+            // Q. 윈도우별로 잘라본다는게 24/48시간으로 나눠본다는건가?
+            // A. 맞다. 각 failure를 기준으로 이후 24시간, 48시간 안에 연결된 restart가 있었는지 나눠 본다는 뜻이다.
+            //    그래서 recovery24/recovery48과 restartCount24/restartCount48을 따로 계산한다.
+
             restartCount24 += within24.size();
             restartCount48 += within48.size();
             recovery24 = recovery24 || !within24.isEmpty();
@@ -221,21 +250,30 @@ public class DailyKpiPipelineService {
                         failure.getOccurredAt(),
                         within48.getFirst().getOccurredAt()
                 ).toMinutes();
+
                 ttrMinutes = ttrMinutes == null ? candidateTtr : Math.min(ttrMinutes, candidateTtr);
             }
         }
 
+        // T. Session 시작대비 얼마나 완수했는지에 대한 비율 (1에 가까울 수록 완수율이 높다 ..)
+        // A. 맞다. 시작한 session 중 COMPLETED 상태까지 간 비율이라, 사용자가 시작한 실행 사이클을 얼마나 끝냈는지 보는 지표다.
         BigDecimal cycleCompletionRate = ratio(sessionCompletedCount, sessionStartedCount);
 
+
+        // T. 시작'된' timebox들에 대해 중복없이 가져온다.
+        // A. 맞다. 같은 timebox에서 session이 여러 번 열릴 수 있으므로, planExecutionRate는 중복 session 수가 아니라 distinct timebox 수로 본다.
         Set<String> startedTimeboxIds = sessions.stream()
                 .map(SessionSlice::getTimeboxId)
                 .collect(Collectors.toSet());
         // 한 timebox에서 세션이 여러 번 생겨도 "계획한 블록을 실제로 시작했는가"만 보도록 distinct timebox 기준으로 계산한다.
         BigDecimal planExecutionRate = ratio(startedTimeboxIds.size(), plannedWorkTimeboxes.size());
 
+        // 계획된 시간은 몇시간인지? Q. (minute 기준?)
+        // A. 맞다. 이 값은 시간(hour)이 아니라 minute 기준이다. WORK timebox들의 startAt~endAt duration을 분으로 합산한다.
         long plannedWorkMinutes = plannedWorkTimeboxes.stream()
                 .mapToLong(timebox -> Duration.between(timebox.getStartAt(), timebox.getEndAt()).toMinutes())
                 .sum();
+        // 실제 몇 시간정도 수행했는지
         long actualWorkMinutes = sessions.stream()
                 .filter(session -> session.getEndedAt() != null)
                 .mapToLong(session -> Duration.between(session.getStartedAt(), session.getEndedAt()).toMinutes())
@@ -243,6 +281,8 @@ public class DailyKpiPipelineService {
         // 계획 시간과 실제 세션 종료 시간 합계를 비교해 "얼마나 빗나갔는지"만 절대값으로 남긴다.
         long estimationErrorMinutes = Math.abs(plannedWorkMinutes - actualWorkMinutes);
 
+        // T. 얘를 또 보내는데, 그냥 책임을 나눈거나 다름없다고 보면 될듯? 얘는 정제하는 역할이고, persistMetric은 적재하는 책임이고
+        // A. 맞다. generateMetric은 계산/정제 책임이고, persistMetric은 DB별 저장 방식(JDBC upsert/JPA save)을 숨기는 적재 책임이다.
         persistMetric(
                 userId,
                 metricDate,

@@ -54,6 +54,10 @@ public class TimeboxService {
         timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
 
         Big3SelectionResponse selection = big3Service.getTodayBig3(userId);
+        // Q. 책임에 대해서 물을 때, 왜 itemId Map 기준 재구성을 TimeboxService에서 해야하는건지? (그니까 Big3 항목을 왜 여기서 하냐라는거)
+        // A. 여기 책임은 "Big3를 조회한 뒤 timebox 생성에 쓸 형태로 조립"하는 orchestration이다.
+        //    validator는 규칙만 검사하고, service는 조회 결과를 다음 단계(materialize/검증)에 맞게 준비한다.
+        //    특히 itemContent snapshot 복사까지 이어지므로, itemId index를 여기서 만드는 편이 흐름상 자연스럽다.
         Map<String, InboxItemResponse> selectedItems = indexSelectedItems(selection);
         timeboxAllocationValidator.validateSelectedItems(commands, selectedItems);
 
@@ -105,16 +109,23 @@ public class TimeboxService {
             String userId,
             List<TimeboxCommand> commands,
             Map<String, InboxItemResponse> selectedItems) {
+
         List<Timebox> requestedTimeboxes = new ArrayList<>();
         commands.forEach((TimeboxCommand command) -> {
             OffsetDateTime startAt = parseDateTime("startAt", command.startAt());
             OffsetDateTime endAt = parseDateTime("endAt", command.endAt());
+
+            // Q. Validator를 따로 빼놨으면 철저하게 Validate의 책임은 Validator가 가져가야 하는 것 아닌가? parseType같은 것들은 반환하는 것이 명확하다고 하지만
+            // A. 그 지적이 맞다. 지금은 validator도 parseType을 하고 service도 parseType을 해서 경계가 조금 겹친다.
+            //    parsing은 규칙 검증이라기보다 외부 입력을 내부 타입으로 번역하는 책임에 가깝다.
+            //    이상적으로는 command가 처음부터 OffsetDateTime/TimeboxType을 들고 오고, validator는 그 상태의 규칙만 봐야 더 깔끔하다.
             if (!startAt.isBefore(endAt)) {
                 throw new BusinessException(
                         ErrorCode.COMMON_BAD_REQUEST,
                         Map.of("timeboxes", "startAt은 endAt보다 빨라야 합니다.")
                 );
             }
+
             InboxItemResponse sourceItem = selectedItems.get(command.itemId());
             requestedTimeboxes.add(Timebox.create(
                     userId,
@@ -127,6 +138,9 @@ public class TimeboxService {
                     OffsetDateTime.now()
             ));
         });
+        // Q. Request의 명칭은 사용자 입력이 아닌가? 좀 뭔가 애매하지 않나
+        // A. 맞다. 여기서는 이미 request를 검증/파싱해서 엔티티 후보로 만든 상태라 "request"보다는 "candidate"나
+        //    "pending"이 더 정확하다. 지금 이름은 "아직 저장 전"이라는 뜻은 전달하지만, 계층 의미상은 다소 흐리다.
         return requestedTimeboxes;
     }
 
@@ -154,6 +168,9 @@ public class TimeboxService {
             throw new BusinessException(
                     ErrorCode.COMMON_BAD_REQUEST,
                     Map.of(fieldName, "ISO-8601 형식의 날짜시간이어야 합니다.")
+                    // "startAt": "ISO-8601 형식의 날짜시간이어야 합니다." :
+                    //   - "2026-05-20T22:15:00" = LocalDateTime 형식
+                    //  - "2026-05-20T22:15:00+09:00" = OffsetDateTime 형식
             );
         }
     }

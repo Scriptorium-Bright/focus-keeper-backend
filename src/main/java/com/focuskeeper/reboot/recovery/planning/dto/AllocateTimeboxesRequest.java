@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
+// timebox들을 받는거같음 아마
 public record AllocateTimeboxesRequest(
         @NotBlank(message = "userId는 필수입니다.")
         String userId,
