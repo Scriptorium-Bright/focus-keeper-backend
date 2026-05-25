@@ -81,6 +81,13 @@ public class Big3SelectionItem {
     }
 
     /**
+     * Big3 선택 항목 식별자를 반환한다.
+     */
+    public String getId() {
+        return id;
+    }
+
+    /**
      * Big3 안에서의 정렬 순서를 반환한다.
      */
     public int getSortOrder() {

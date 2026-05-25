@@ -2,20 +2,21 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
-import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
+import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxAllocationValidator;
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxOverlapValidator;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,18 +29,18 @@ import org.springframework.transaction.annotation.Transactional;
  */
 public class TimeboxService {
 
-    private final Big3Service big3Service;
+    private final ExecutionUnitRepository executionUnitRepository;
     private final TimeboxRepository timeboxRepository;
     private final TimeboxAllocationValidator timeboxAllocationValidator;
     private final TimeboxOverlapValidator timeboxOverlapValidator;
 
     public TimeboxService(
-            Big3Service big3Service,
+            ExecutionUnitRepository executionUnitRepository,
             TimeboxRepository timeboxRepository,
             TimeboxAllocationValidator timeboxAllocationValidator,
             TimeboxOverlapValidator timeboxOverlapValidator
     ) {
-        this.big3Service = big3Service;
+        this.executionUnitRepository = executionUnitRepository;
         this.timeboxRepository = timeboxRepository;
         this.timeboxAllocationValidator = timeboxAllocationValidator;
         this.timeboxOverlapValidator = timeboxOverlapValidator;
@@ -53,15 +54,10 @@ public class TimeboxService {
         timeboxAllocationValidator.validateTypes(commands);
         timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
 
-        Big3SelectionResponse selection = big3Service.getTodayBig3(userId);
-        // Q. 책임에 대해서 물을 때, 왜 itemId Map 기준 재구성을 TimeboxService에서 해야하는건지? (그니까 Big3 항목을 왜 여기서 하냐라는거)
-        // A. 여기 책임은 "Big3를 조회한 뒤 timebox 생성에 쓸 형태로 조립"하는 orchestration이다.
-        //    validator는 규칙만 검사하고, service는 조회 결과를 다음 단계(materialize/검증)에 맞게 준비한다.
-        //    특히 itemContent snapshot 복사까지 이어지므로, itemId index를 여기서 만드는 편이 흐름상 자연스럽다.
-        Map<String, InboxItemResponse> selectedItems = indexSelectedItems(selection);
-        timeboxAllocationValidator.validateSelectedItems(commands, selectedItems);
+        Map<String, ExecutionUnit> executionUnits = indexExecutionUnits(userId, commands);
+        timeboxAllocationValidator.validateExecutionUnits(commands, executionUnits);
 
-        List<Timebox> requestedTimeboxes = materializeTimeboxes(userId, commands, selectedItems);
+        List<Timebox> requestedTimeboxes = materializeTimeboxes(userId, commands, executionUnits);
         timeboxOverlapValidator.validate(
                 timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId),
                 requestedTimeboxes
@@ -90,25 +86,27 @@ public class TimeboxService {
     }
 
     /**
-     * 오늘의 Big3 항목을 itemId 기준 맵으로 재구성한다.
+     * 요청에 포함된 execution unit을 사용자 소유 범위에서 조회해 id 기준 맵으로 재구성한다.
      */
-    private Map<String, InboxItemResponse> indexSelectedItems(Big3SelectionResponse selection) {
-        Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
-        for (InboxItemResponse item : selection.selectedItems()) {
-            indexedItems.put(item.id(), item);
-        }
-        return indexedItems;
+    private Map<String, ExecutionUnit> indexExecutionUnits(String userId, List<TimeboxCommand> commands) {
+        List<String> executionUnitIds = commands.stream()
+                .map(TimeboxCommand::itemId)
+                .distinct()
+                .toList();
+        return executionUnitRepository.findAllByIdInAndBig3SelectionItem_Selection_UserId(executionUnitIds, userId)
+                .stream()
+                .collect(Collectors.toMap(ExecutionUnit::getId, Function.identity()));
     }
 
     /**
      * 요청 DTO를 실제 저장 가능한 Timebox 엔티티 목록으로 materialize한다.
      *
-     * 이 단계에서 문자열 시각/타입을 파싱하고, Big3 item의 현재 제목(content)도 snapshot처럼 함께 복사한다.
+     * 이 단계에서 문자열 시각/타입을 파싱하고, execution unit 제목도 snapshot처럼 함께 복사한다.
      */
     private List<Timebox> materializeTimeboxes(
             String userId,
             List<TimeboxCommand> commands,
-            Map<String, InboxItemResponse> selectedItems) {
+            Map<String, ExecutionUnit> executionUnits) {
 
         List<Timebox> requestedTimeboxes = new ArrayList<>();
         commands.forEach((TimeboxCommand command) -> {
@@ -126,11 +124,10 @@ public class TimeboxService {
                 );
             }
 
-            InboxItemResponse sourceItem = selectedItems.get(command.itemId());
+            ExecutionUnit executionUnit = executionUnits.get(command.itemId());
             requestedTimeboxes.add(Timebox.create(
                     userId,
-                    sourceItem.id(),
-                    sourceItem.content(),
+                    executionUnit,
                     parseType(command.type()),
                     startAt,
                     endAt,

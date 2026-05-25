@@ -6,8 +6,11 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -16,7 +19,8 @@ import java.util.UUID;
 @Table(
         name = "recovery_timeboxes",
         indexes = {
-                @Index(name = "idx_recovery_timeboxes_user_start_at", columnList = "user_id, start_at")
+                @Index(name = "idx_recovery_timeboxes_user_start_at", columnList = "user_id, start_at"),
+                @Index(name = "idx_recovery_timeboxes_execution_unit", columnList = "execution_unit_id")
         }
 )
 /**
@@ -31,8 +35,9 @@ public class Timebox {
     @Column(name = "user_id", nullable = false, length = 100)
     private String userId;
 
-    @Column(name = "item_id", nullable = false, length = 36)
-    private String itemId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "execution_unit_id", nullable = false)
+    private ExecutionUnit executionUnit;
 
     @Column(name = "item_content", nullable = false, length = 200)
     private String itemContent;
@@ -59,7 +64,7 @@ public class Timebox {
     private Timebox(
             String id,
             String userId,
-            String itemId,
+            ExecutionUnit executionUnit,
             String itemContent,
             TimeboxType type,
             OffsetDateTime startAt,
@@ -69,7 +74,7 @@ public class Timebox {
     ) {
         this.id = id;
         this.userId = userId;
-        this.itemId = itemId;
+        this.executionUnit = executionUnit;
         this.itemContent = itemContent;
         this.type = type;
         this.startAt = startAt;
@@ -83,8 +88,7 @@ public class Timebox {
      */
     public static Timebox create(
             String userId,
-            String itemId,
-            String itemContent,
+            ExecutionUnit executionUnit,
             TimeboxType type,
             OffsetDateTime startAt,
             OffsetDateTime endAt,
@@ -94,8 +98,8 @@ public class Timebox {
         return new Timebox(
                 UUID.randomUUID().toString(),
                 userId,
-                itemId,
-                itemContent,
+                executionUnit,
+                executionUnit.getTitle(),
                 type,
                 startAt,
                 endAt,
@@ -110,7 +114,7 @@ public class Timebox {
     public TimeboxResponse toResponse() {
         return new TimeboxResponse(
                 id,
-                itemId,
+                executionUnit.getId(),
                 itemContent,
                 startAt.toString(),
                 endAt.toString(),
