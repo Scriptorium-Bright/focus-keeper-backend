@@ -350,7 +350,7 @@ public class OperationsAlertService {
             return resolved;
         });
 
-        return holder.isEmpty() ? AlertMutation.noop() : holder.getFirst();
+        return holder.getFirst();
     }
 
     /**

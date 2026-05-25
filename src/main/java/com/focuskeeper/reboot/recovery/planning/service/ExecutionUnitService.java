@@ -41,6 +41,9 @@ public class ExecutionUnitService {
                 ));
 
         ExecutionUnit executionUnit = ExecutionUnit.create(big3SelectionItem, title, OffsetDateTime.now());
+        big3SelectionItem.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
+        big3SelectionItem.updateStatusFromUnits();
+        
         return toResponse(executionUnitRepository.save(executionUnit));
     }
 
@@ -48,12 +51,15 @@ public class ExecutionUnitService {
     public ExecutionUnitResponse updateUnit(String userId, String executionUnitId, String title) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
         executionUnit.rename(title);
+        executionUnit.getBig3SelectionItem().updateStatusFromUnits();
+        
         return toResponse(executionUnitRepository.save(executionUnit));
     }
 
     @Transactional
     public ExecutionUnitResponse completeUnit(String userId, String executionUnitId) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
+
         if (executionUnit.getStatus() == ExecutionUnitStatus.COMPLETED) {
             throw new BusinessException(
                     ErrorCode.CONFLICT,
@@ -66,6 +72,10 @@ public class ExecutionUnitService {
         }
 
         executionUnit.complete(OffsetDateTime.now());
+
+        Big3SelectionItem parent = executionUnit.getBig3SelectionItem();
+        parent.updateStatusFromUnits();
+
         return toResponse(executionUnitRepository.save(executionUnit));
     }
 

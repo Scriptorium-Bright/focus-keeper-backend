@@ -31,16 +31,13 @@ public class Big3Service {
 
     private final InboxItemRepository inboxItemRepository;
     private final Big3SelectionRepository big3SelectionRepository;
-    private final ExecutionUnitRepository executionUnitRepository;
 
     public Big3Service(
             InboxItemRepository inboxItemRepository,
-            Big3SelectionRepository big3SelectionRepository,
-            ExecutionUnitRepository executionUnitRepository
+            Big3SelectionRepository big3SelectionRepository
     ) {
         this.inboxItemRepository = inboxItemRepository;
         this.big3SelectionRepository = big3SelectionRepository;
-        this.executionUnitRepository = executionUnitRepository;
     }
 
     /**
@@ -86,7 +83,7 @@ public class Big3Service {
 
         selection.replaceItems(selectedItems, selectedAt); // 이 부분은 조금 이해가 안 감 -> › big3를 이미 고른 상태여도 다시 선택할 수 있으니까 replace
 
-        return toResponseWithRollUp(big3SelectionRepository.save(selection));
+        return big3SelectionRepository.save(selection).toResponse();
     }
 
     /**
@@ -94,7 +91,7 @@ public class Big3Service {
      */
     public Big3SelectionResponse getTodayBig3(String userId) {
         return big3SelectionRepository.findByUserIdAndSelectedDate(userId, LocalDate.now())
-                .map(this::toResponseWithRollUp)
+                .map(Big3Selection::toResponse)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of(
@@ -103,6 +100,8 @@ public class Big3Service {
                         )
                 ));
     }
+
+
 
     /**
      * 입력 순서를 보존한 채 itemId 중복만 제거한다.
@@ -136,42 +135,5 @@ public class Big3Service {
         }
     }
 
-    private Big3SelectionResponse toResponseWithRollUp(Big3Selection selection) {
-        Big3SelectionResponse response = selection.toResponse();
-        List<String> selectionItemIds = response.selectedItems().stream()
-                .map(Big3ItemResponse::big3SelectionItemId)
-                .toList();
-        Map<String, List<ExecutionUnit>> unitsBySelectionItemId = executionUnitRepository
-                .findAllByBig3SelectionItem_IdInOrderByCreatedAtAsc(selectionItemIds)
-                .stream()
-                .collect(Collectors.groupingBy(ExecutionUnit::getBig3SelectionItemId));
 
-        List<Big3ItemResponse> selectedItems = response.selectedItems().stream()
-                .map(item -> new Big3ItemResponse(
-                        item.big3SelectionItemId(),
-                        item.itemId(),
-                        item.content(),
-                        resolveCompletionStatus(unitsBySelectionItemId.getOrDefault(
-                                item.big3SelectionItemId(),
-                                List.of()
-                        )).name()
-                ))
-                .toList();
-
-        return new Big3SelectionResponse(
-                response.userId(),
-                response.selectedDate(),
-                response.selectedAt(),
-                selectedItems
-        );
-    }
-
-    private Big3ItemCompletionStatus resolveCompletionStatus(List<ExecutionUnit> executionUnits) {
-        if (executionUnits.isEmpty()) {
-            return Big3ItemCompletionStatus.NOT_STARTED;
-        }
-        boolean allCompleted = executionUnits.stream()
-                .allMatch(unit -> unit.getStatus() == ExecutionUnitStatus.COMPLETED);
-        return allCompleted ? Big3ItemCompletionStatus.COMPLETED : Big3ItemCompletionStatus.IN_PROGRESS;
-    }
 }

@@ -88,6 +88,10 @@ public class ExecutionUnit {
         return big3SelectionItem.getId();
     }
 
+    public Big3SelectionItem getBig3SelectionItem() {
+        return big3SelectionItem;
+    }
+
     public String getTitle() {
         return title;
     }

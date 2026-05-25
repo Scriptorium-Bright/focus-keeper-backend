@@ -1,15 +1,13 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
+import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
+import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -36,8 +34,15 @@ public class Big3SelectionItem {
     @JoinColumn(name = "inbox_item_id", nullable = false)
     private InboxItem inboxItem;
 
+    @OneToMany(mappedBy = "big3SelectionItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ExecutionUnit> units = new ArrayList<>();
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "big3_status", nullable = false, length = 20)
+    private Big3ItemCompletionStatus status;
 
     protected Big3SelectionItem() {
     }
@@ -52,6 +57,7 @@ public class Big3SelectionItem {
         this.selection = selection;
         this.inboxItem = inboxItem;
         this.sortOrder = sortOrder;
+        this.status = Big3ItemCompletionStatus.NOT_STARTED;
     }
 
     /**
@@ -77,8 +83,21 @@ public class Big3SelectionItem {
      * 선택 항목을 Big3 응답 형태로 변환한다.
      */
     public Big3ItemResponse toResponse() {
-        return new Big3ItemResponse(id, inboxItem.getId(), inboxItem.getContent());
+        return new Big3ItemResponse(id, inboxItem.getId(), inboxItem.getContent(), status.name());
     }
+
+    public void updateStatusFromUnits() {
+        if (this.units.isEmpty()) {
+            this.status = Big3ItemCompletionStatus.NOT_STARTED;
+            return;
+        }
+
+        boolean allCompleted = this.units.stream()
+                .allMatch(unit -> unit.getStatus() == ExecutionUnitStatus.COMPLETED);
+
+        this.status = allCompleted ? Big3ItemCompletionStatus.COMPLETED : Big3ItemCompletionStatus.IN_PROGRESS;
+    }
+
 
     /**
      * Big3 선택 항목 식별자를 반환한다.
@@ -92,5 +111,9 @@ public class Big3SelectionItem {
      */
     public int getSortOrder() {
         return sortOrder;
+    }
+
+    public List<ExecutionUnit> getUnits() {
+        return units;
     }
 }

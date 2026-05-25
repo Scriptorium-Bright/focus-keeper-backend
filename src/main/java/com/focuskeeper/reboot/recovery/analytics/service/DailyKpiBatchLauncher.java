@@ -48,6 +48,7 @@ public class DailyKpiBatchLauncher {
      *    나중에 스케줄 실행, 재시도, 백필, 실행 이력 추적을 같은 경로로 확장하기 좋다.
      *    observability는 그 실행 단위의 성공/실패/소요 시간을 밖에서 볼 수 있게 붙인 운영 보강 책임이다.
      */
+
     public void launch(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
