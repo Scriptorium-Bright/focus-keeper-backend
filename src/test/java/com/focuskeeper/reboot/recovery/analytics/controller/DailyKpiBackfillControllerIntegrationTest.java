@@ -18,8 +18,10 @@ import com.focuskeeper.reboot.recovery.execution.repository.FailureEventReposito
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.support.PlanningTestFixtures;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -57,6 +59,9 @@ class DailyKpiBackfillControllerIntegrationTest {
 
     @Autowired
     private RestartEventRepository restartEventRepository;
+
+    @Autowired
+    private PlanningTestFixtures planningTestFixtures;
 
     @BeforeEach
     void setUp() {
@@ -201,10 +206,13 @@ class DailyKpiBackfillControllerIntegrationTest {
         OffsetDateTime firstStart = metricDate.atTime(9, 0).atOffset(SEOUL_OFFSET);
         OffsetDateTime firstEnd = metricDate.atTime(9, 25).atOffset(SEOUL_OFFSET);
 
+        ExecutionUnit executionUnit = planningTestFixtures.saveExecutionUnit(
+                userId,
+                "핵심 작업 %s".formatted(metricDate)
+        );
         Timebox timebox = timeboxRepository.save(Timebox.create(
                 userId,
-                "item-%s".formatted(metricDate),
-                "핵심 작업 %s".formatted(metricDate),
+                executionUnit,
                 TimeboxType.WORK,
                 firstStart,
                 firstEnd,

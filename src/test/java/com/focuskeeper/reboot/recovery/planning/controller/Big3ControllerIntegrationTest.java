@@ -50,6 +50,7 @@ class Big3ControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.selectedCount").value(3))
                 .andExpect(jsonPath("$.data.selectedDate").isString())
                 .andExpect(jsonPath("$.data.selectedAt").isString())
+                .andExpect(jsonPath("$.data.selectedItems[0].big3SelectionItemId").isString())
                 .andExpect(jsonPath("$.data.selectedItems[0].itemId").value(savedItemIds.get(0)))
                 .andExpect(jsonPath("$.traceId").isString())
                 .andReturn();

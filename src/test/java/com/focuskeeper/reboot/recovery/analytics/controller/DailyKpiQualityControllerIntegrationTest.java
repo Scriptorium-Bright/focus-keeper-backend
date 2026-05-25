@@ -19,8 +19,10 @@ import com.focuskeeper.reboot.recovery.execution.repository.FailureEventReposito
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.support.PlanningTestFixtures;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -62,6 +64,9 @@ class DailyKpiQualityControllerIntegrationTest {
 
     @Autowired
     private RestartEventRepository restartEventRepository;
+
+    @Autowired
+    private PlanningTestFixtures planningTestFixtures;
 
     @BeforeEach
     void setUp() {
@@ -133,10 +138,10 @@ class DailyKpiQualityControllerIntegrationTest {
         OffsetDateTime workStart = metricDate.atTime(9, 0).atOffset(SEOUL_OFFSET);
         OffsetDateTime workEnd = metricDate.atTime(9, 25).atOffset(SEOUL_OFFSET);
 
+        ExecutionUnit workUnit = planningTestFixtures.saveExecutionUnit(userId, "복귀 품질 점검 작업");
         Timebox workTimebox = timeboxRepository.save(Timebox.create(
                 userId,
-                "quality-item-1",
-                "복귀 품질 점검 작업",
+                workUnit,
                 TimeboxType.WORK,
                 workStart,
                 workEnd,
@@ -192,10 +197,10 @@ class DailyKpiQualityControllerIntegrationTest {
 
         OffsetDateTime breakStartUtc = OffsetDateTime.of(metricDate.atTime(11, 0), UTC_OFFSET);
         OffsetDateTime breakEndUtc = breakStartUtc.plusMinutes(10);
+        ExecutionUnit breakUnit = planningTestFixtures.saveExecutionUnit(userId, "잘못 시작된 휴식 블록");
         Timebox breakTimebox = timeboxRepository.save(Timebox.create(
                 userId,
-                "quality-break-item",
-                "잘못 시작된 휴식 블록",
+                breakUnit,
                 TimeboxType.BREAK,
                 breakStartUtc,
                 breakEndUtc,

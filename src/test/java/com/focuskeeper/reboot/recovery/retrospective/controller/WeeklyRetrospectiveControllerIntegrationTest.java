@@ -261,7 +261,7 @@ class WeeklyRetrospectiveControllerIntegrationTest {
 
     private List<String> allocateRecoveryTimeboxes(String userId, int startHour) throws Exception {
         List<String> itemIds = saveInboxItems(userId);
-        selectBig3(userId, itemIds.subList(0, 2));
+        List<String> executionUnitIds = createExecutionUnits(userId, selectBig3(userId, itemIds.subList(0, 2)));
 
         int secondHour = startHour + 1;
         MvcResult result = mockMvc.perform(
@@ -272,14 +272,14 @@ class WeeklyRetrospectiveControllerIntegrationTest {
                                           "userId": "%s",
                                           "timeboxes": [
                                             {
-                                              "itemId": "%s",
+                                              "executionUnitId": "%s",
                                               "startAt": "2026-03-19T%02d:00:00+09:00",
                                               "endAt": "2026-03-19T%02d:30:00+09:00",
                                               "type": "WORK",
                                               "firstRecoveryBlock": true
                                             },
                                             {
-                                              "itemId": "%s",
+                                              "executionUnitId": "%s",
                                               "startAt": "2026-03-19T%02d:00:00+09:00",
                                               "endAt": "2026-03-19T%02d:25:00+09:00",
                                               "type": "WORK",
@@ -287,7 +287,7 @@ class WeeklyRetrospectiveControllerIntegrationTest {
                                             }
                                           ]
                                         }
-                                        """.formatted(userId, itemIds.get(0), startHour, startHour, itemIds.get(1), secondHour, secondHour))
+                                        """.formatted(userId, executionUnitIds.get(0), startHour, startHour, executionUnitIds.get(1), secondHour, secondHour))
                 )
                 .andExpect(status().isOk())
                 .andReturn();
@@ -330,8 +330,8 @@ class WeeklyRetrospectiveControllerIntegrationTest {
         return itemIds;
     }
 
-    private void selectBig3(String userId, List<String> itemIds) throws Exception {
-        mockMvc.perform(
+    private List<String> selectBig3(String userId, List<String> itemIds) throws Exception {
+        MvcResult result = mockMvc.perform(
                         post("/api/v1/recovery/big3")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -341,6 +341,39 @@ class WeeklyRetrospectiveControllerIntegrationTest {
                                         }
                                         """.formatted(userId, itemIds.get(0), itemIds.get(1)))
                 )
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode selectedItems = objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("selectedItems");
+        List<String> selectionItemIds = new ArrayList<>();
+        for (JsonNode selectedItem : selectedItems) {
+            selectionItemIds.add(selectedItem.path("big3SelectionItemId").asText());
+        }
+        return selectionItemIds;
+    }
+
+    private List<String> createExecutionUnits(String userId, List<String> selectionItemIds) throws Exception {
+        List<String> executionUnitIds = new ArrayList<>();
+        for (int index = 0; index < selectionItemIds.size(); index++) {
+            MvcResult result = mockMvc.perform(
+                            post("/api/v1/recovery/execution-units")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                            {
+                                              "userId": "%s",
+                                              "big3SelectionItemId": "%s",
+                                              "title": "회고 실행 단위 %d"
+                                            }
+                                            """.formatted(userId, selectionItemIds.get(index), index + 1))
+                    )
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+            executionUnitIds.add(body.path("data").path("executionUnitId").asText());
+        }
+        return executionUnitIds;
     }
 }
