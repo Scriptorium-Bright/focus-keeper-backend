@@ -2,6 +2,7 @@ import type {
   AllocatedTimebox,
   BatchOverview,
   Big3Item,
+  ExecutionUnit,
   FailureCheckInResponse,
   OperationsAlert,
   RecoveryLoopOverview,
@@ -19,6 +20,7 @@ export interface WorkflowState {
   alertsActiveOnly: boolean;
   inboxItems: SavedInboxItem[];
   big3Items: Big3Item[];
+  executionUnits: ExecutionUnit[];
   timeboxes: AllocatedTimebox[];
   activeSession: RecoverySession | null;
   latestFailureEventId: string | null;
@@ -33,6 +35,7 @@ export type WorkflowAction =
   | { type: "stageChanged"; stage: number }
   | { type: "inboxSaved"; items: SavedInboxItem[] }
   | { type: "big3Selected"; items: Big3Item[] }
+  | { type: "executionUnitsCreated"; units: ExecutionUnit[] }
   | { type: "timeboxesAllocated"; timeboxes: AllocatedTimebox[] }
   | { type: "sessionChanged"; session: RecoverySession }
   | { type: "failureCheckedIn"; failure: FailureCheckInResponse }
@@ -54,6 +57,7 @@ export function createInitialWorkflowState(): WorkflowState {
     alertsActiveOnly: true,
     inboxItems: [],
     big3Items: [],
+    executionUnits: [],
     timeboxes: [],
     activeSession: null,
     latestFailureEventId: null,
@@ -80,6 +84,7 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
         ...state,
         inboxItems: action.items,
         big3Items: [],
+        executionUnits: [],
         timeboxes: [],
         activeSession: null,
         latestFailureEventId: null,
@@ -89,6 +94,16 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
       return {
         ...state,
         big3Items: action.items,
+        executionUnits: [],
+        timeboxes: [],
+        activeSession: null,
+        latestFailureEventId: null,
+        latestFailure: null
+      };
+    case "executionUnitsCreated":
+      return {
+        ...state,
+        executionUnits: action.units,
         timeboxes: [],
         activeSession: null,
         latestFailureEventId: null,

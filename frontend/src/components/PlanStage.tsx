@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import type { AllocateTimeboxPayload, Big3Item, SavedInboxItem, TimeboxType } from "../types";
+import type {
+  AllocateTimeboxPayload,
+  Big3Item,
+  CreateExecutionUnitPayload,
+  ExecutionUnit,
+  SavedInboxItem,
+  TimeboxType
+} from "../types";
 import { defaultLocalSlot, formatTimeRange, toIso } from "../utils";
 
 interface PlanStageProps {
@@ -7,9 +14,10 @@ interface PlanStageProps {
   metricDate: string;
   inboxItems: SavedInboxItem[];
   big3Items: Big3Item[];
+  executionUnits: ExecutionUnit[];
   timeboxes: Array<{
     timeboxId: string;
-    itemId: string;
+    executionUnitId: string;
     content: string;
     startAt: string;
     endAt: string;
@@ -19,23 +27,30 @@ interface PlanStageProps {
   pendingAction: string | null;
   onSaveInbox: (contents: string[]) => Promise<boolean>;
   onSelectBig3: (itemIds: string[]) => Promise<boolean>;
+  onCreateExecutionUnits: (payload: CreateExecutionUnitPayload[]) => Promise<boolean>;
   onAllocateTimeboxes: (payload: AllocateTimeboxPayload[]) => Promise<boolean>;
   onStageChange: (stage: number) => void;
 }
 
+interface ExecutionUnitDraft {
+  big3SelectionItemId: string;
+  title: string;
+}
+
 interface TimeboxDraft {
-  itemId: string;
+  executionUnitId: string;
   startAt: string;
   endAt: string;
   firstRecoveryBlock: boolean;
   type: TimeboxType;
 }
 
-type PlanStep = "inbox" | "big3" | "timebox";
+type PlanStep = "inbox" | "big3" | "unit" | "timebox";
 
 const planSteps: Array<{ id: PlanStep; title: string; description: string }> = [
   { id: "inbox", title: "Inbox", description: "머릿속 작업 저장" },
   { id: "big3", title: "Big 3", description: "오늘 붙잡을 3개" },
+  { id: "unit", title: "Unit", description: "작은 실행 단위" },
   { id: "timebox", title: "Timebox", description: "실행 블록 배정" }
 ];
 
@@ -44,15 +59,18 @@ export function PlanStage({
   metricDate,
   inboxItems,
   big3Items,
+  executionUnits,
   timeboxes,
   pendingAction,
   onSaveInbox,
   onSelectBig3,
+  onCreateExecutionUnits,
   onAllocateTimeboxes,
   onStageChange
 }: PlanStageProps) {
   const [inboxText, setInboxText] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [unitDrafts, setUnitDrafts] = useState<ExecutionUnitDraft[]>([]);
   const [timeboxDrafts, setTimeboxDrafts] = useState<TimeboxDraft[]>([]);
   const [activePlanStep, setActivePlanStep] = useState<PlanStep>("inbox");
 
@@ -63,13 +81,29 @@ export function PlanStage({
   }, [inboxItems]);
 
   useEffect(() => {
+    setUnitDrafts((current) =>
+      big3Items.map((item) => {
+        const existing = current.find(
+          (draft) => draft.big3SelectionItemId === item.big3SelectionItemId
+        );
+        return (
+          existing ?? {
+            big3SelectionItemId: item.big3SelectionItemId,
+            title: item.content
+          }
+        );
+      })
+    );
+  }, [big3Items]);
+
+  useEffect(() => {
     setTimeboxDrafts((current) =>
-      big3Items.map((item, index) => {
-        const existing = current.find((draft) => draft.itemId === item.itemId);
+      executionUnits.map((unit, index) => {
+        const existing = current.find((draft) => draft.executionUnitId === unit.executionUnitId);
         const defaults = defaultLocalSlot(metricDate, index);
         return (
           existing ?? {
-            itemId: item.itemId,
+            executionUnitId: unit.executionUnitId,
             startAt: defaults.start,
             endAt: defaults.end,
             firstRecoveryBlock: index === 0,
@@ -78,7 +112,7 @@ export function PlanStage({
         );
       })
     );
-  }, [big3Items, metricDate]);
+  }, [executionUnits, metricDate]);
 
   const inboxContents = inboxText
     .split("\n")
@@ -91,7 +125,9 @@ export function PlanStage({
       <section className="stage-intro reveal">
         <p className="eyebrow">02 PLAN</p>
         <h2>복귀를 위한 최소 계획만 남기고 바로 실행 가능한 상태로 만듭니다.</h2>
-        <p className="section-note">긴 계획표 대신 Inbox, Big 3, 타임박스 세 단계만 유지합니다.</p>
+        <p className="section-note">
+          긴 계획표 대신 Inbox, Big 3, 실행 단위, 타임박스 흐름만 유지합니다.
+        </p>
       </section>
 
       <div className="step-tabs" aria-label="계획 세부 단계">
@@ -112,115 +148,161 @@ export function PlanStage({
       <div className="plan-step-layout">
         {activePlanStep === "inbox" && (
           <article className="flow-card reveal">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">BRAIN DUMP</p>
-              <h2>브레인 덤프</h2>
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">BRAIN DUMP</p>
+                <h2>브레인 덤프</h2>
+              </div>
+              <p className="section-note">한 줄에 하나씩 입력하면 Inbox Item으로 저장됩니다.</p>
             </div>
-            <p className="section-note">한 줄에 하나씩 입력하면 Inbox Item으로 저장됩니다.</p>
-          </div>
-          <form
-            className="stack-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const saved = await onSaveInbox(inboxContents);
-              if (saved) {
-                setInboxText("");
-                setActivePlanStep("big3");
-              }
-            }}
-          >
-            <label>
-              <span>오늘 머릿속에 쌓인 일</span>
-              <textarea
-                rows={6}
-                placeholder={"회의 정리\n보고서 초안\n운동 20분"}
-                value={inboxText}
-                onChange={(event) => setInboxText(event.target.value)}
-              />
-            </label>
-            <button className="primary-button" type="submit" disabled={pendingAction === "inbox"}>
-              Inbox 저장
-            </button>
-          </form>
-          <InboxResult items={inboxItems} />
-        </article>
+            <form
+              className="stack-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const saved = await onSaveInbox(inboxContents);
+                if (saved) {
+                  setInboxText("");
+                  setActivePlanStep("big3");
+                }
+              }}
+            >
+              <label>
+                <span>오늘 머릿속에 쌓인 일</span>
+                <textarea
+                  rows={6}
+                  placeholder={"회의 정리\n보고서 초안\n운동 20분"}
+                  value={inboxText}
+                  onChange={(event) => setInboxText(event.target.value)}
+                />
+              </label>
+              <button className="primary-button" type="submit" disabled={pendingAction === "inbox"}>
+                Inbox 저장
+              </button>
+            </form>
+            <InboxResult items={inboxItems} />
+          </article>
         )}
 
         {activePlanStep === "big3" && (
           <article className="flow-card reveal">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">TODAY'S FOCUS</p>
-              <h2>오늘의 Big 3</h2>
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">TODAY'S FOCUS</p>
+                <h2>오늘의 Big 3</h2>
+              </div>
+              <p className="section-note">저장된 항목 중 최대 3개를 선택합니다.</p>
             </div>
-            <p className="section-note">저장된 항목 중 최대 3개를 선택합니다.</p>
-          </div>
-          <form
-            className="stack-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onSelectBig3(selectedIds.slice(0, 3)).then((selected) => {
-                if (selected) {
-                  setActivePlanStep("timebox");
-                }
-              });
-            }}
-          >
-            <Big3Candidates
-              inboxItems={inboxItems}
-              selectedIds={selectedIds}
-              onToggle={(itemId) => {
-                setSelectedIds((current) => {
-                  if (current.includes(itemId)) {
-                    return current.filter((id) => id !== itemId);
+            <form
+              className="stack-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onSelectBig3(selectedIds.slice(0, 3)).then((selected) => {
+                  if (selected) {
+                    setActivePlanStep("unit");
                   }
-                  return [...current, itemId].slice(0, 3);
                 });
               }}
-            />
-            <button className="primary-button" type="submit" disabled={pendingAction === "big3"}>
-              Big 3 확정
-            </button>
-          </form>
-          <Big3Result items={big3Items} />
-        </article>
+            >
+              <Big3Candidates
+                inboxItems={inboxItems}
+                selectedIds={selectedIds}
+                onToggle={(itemId) => {
+                  setSelectedIds((current) => {
+                    if (current.includes(itemId)) {
+                      return current.filter((id) => id !== itemId);
+                    }
+                    return [...current, itemId].slice(0, 3);
+                  });
+                }}
+              />
+              <button className="primary-button" type="submit" disabled={pendingAction === "big3"}>
+                Big 3 확정
+              </button>
+            </form>
+            <Big3Result items={big3Items} />
+          </article>
+        )}
+
+        {activePlanStep === "unit" && (
+          <article className="flow-card reveal">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">EXECUTION GRAIN</p>
+                <h2>실행 단위 입력</h2>
+              </div>
+              <p className="section-note">Big 3를 바로 시간에 넣지 않고 완료 가능한 단위로 쪼갭니다.</p>
+            </div>
+            <form
+              className="stack-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onCreateExecutionUnits(
+                  unitDrafts.map((draft) => ({
+                    big3SelectionItemId: draft.big3SelectionItemId,
+                    title: draft.title.trim()
+                  }))
+                ).then((created) => {
+                  if (created) {
+                    setActivePlanStep("timebox");
+                  }
+                });
+              }}
+            >
+              <ExecutionUnitBuilder
+                items={big3Items}
+                drafts={unitDrafts}
+                onChange={(next) => setUnitDrafts(next)}
+              />
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={pendingAction === "executionUnits"}
+              >
+                실행 단위 생성
+              </button>
+            </form>
+            <ExecutionUnitResult units={executionUnits} />
+          </article>
         )}
 
         {activePlanStep === "timebox" && (
           <article className="flow-card reveal">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">TIME DESIGN</p>
-              <h2>타임박스 설계</h2>
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">TIME DESIGN</p>
+                <h2>타임박스 설계</h2>
+              </div>
+              <p className="section-note">첫 복귀 블록은 정확히 1개여야 합니다.</p>
             </div>
-            <p className="section-note">첫 복귀 블록은 정확히 1개여야 합니다.</p>
-          </div>
-          <form
-            className="stack-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onAllocateTimeboxes(
-                timeboxDrafts.map((draft) => ({
-                  ...draft,
-                  startAt: toIso(draft.startAt),
-                  endAt: toIso(draft.endAt)
-                }))
-              );
-            }}
-          >
-            <TimeboxBuilder
-              items={big3Items}
-              drafts={timeboxDrafts}
-              onChange={(next) => setTimeboxDrafts(next)}
-              metricDate={metricDate}
-            />
-            <button className="primary-button" type="submit" disabled={pendingAction === "timeboxes"}>
-              타임박스 할당
-            </button>
-          </form>
-          <TimeboxResult timeboxes={timeboxes} />
-        </article>
+            <form
+              className="stack-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onAllocateTimeboxes(
+                  timeboxDrafts.map((draft) => ({
+                    ...draft,
+                    startAt: toIso(draft.startAt),
+                    endAt: toIso(draft.endAt)
+                  }))
+                );
+              }}
+            >
+              <TimeboxBuilder
+                units={executionUnits}
+                drafts={timeboxDrafts}
+                onChange={(next) => setTimeboxDrafts(next)}
+                metricDate={metricDate}
+              />
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={pendingAction === "timeboxes"}
+              >
+                타임박스 할당
+              </button>
+            </form>
+            <TimeboxResult timeboxes={timeboxes} />
+          </article>
         )}
 
         <aside className="plan-summary-panel">
@@ -234,6 +316,10 @@ export function PlanStage({
               <strong>{big3Items.length}</strong>
             </div>
             <div className="mini-summary">
+              <span>Unit</span>
+              <strong>{executionUnits.length}</strong>
+            </div>
+            <div className="mini-summary">
               <span>Timebox</span>
               <strong>{timeboxes.length}</strong>
             </div>
@@ -245,8 +331,10 @@ export function PlanStage({
                 "먼저 할 일을 저장하면 Big 3 선택 화면으로 넘어갑니다."}
               {activePlanStep === "big3" &&
                 "저장된 항목 중 오늘 다시 붙잡을 항목을 최대 3개 고릅니다."}
+              {activePlanStep === "unit" &&
+                "선택한 Big 3마다 실제로 끝낼 수 있는 실행 단위를 먼저 만듭니다."}
               {activePlanStep === "timebox" &&
-                "선택한 Big 3를 실제 실행 시간으로 배정하면 실행 단계로 넘어갑니다."}
+                "실행 단위를 실제 실행 시간으로 배정하면 실행 단계로 넘어갑니다."}
             </p>
           </div>
         </aside>
@@ -323,12 +411,12 @@ function Big3Result({ items }: { items: Big3Item[] }) {
   return (
     <div className="result-list item-list">
       {items.map((item, index) => (
-        <div className="item-row" key={item.itemId}>
+        <div className="item-row" key={item.big3SelectionItemId}>
           <div>
             <div>
               {index + 1}. {item.content}
             </div>
-            <small className="meta-kicker">{item.itemId}</small>
+            <small className="meta-kicker">{item.big3SelectionItemId}</small>
           </div>
           <span className="chip">BIG 3</span>
         </div>
@@ -337,32 +425,108 @@ function Big3Result({ items }: { items: Big3Item[] }) {
   );
 }
 
-function TimeboxBuilder({
+function ExecutionUnitBuilder({
   items,
   drafts,
-  onChange,
-  metricDate
+  onChange
 }: {
   items: Big3Item[];
-  drafts: TimeboxDraft[];
-  onChange: (drafts: TimeboxDraft[]) => void;
-  metricDate: string;
+  drafts: ExecutionUnitDraft[];
+  onChange: (drafts: ExecutionUnitDraft[]) => void;
 }) {
   if (items.length === 0) {
-    return <div className="builder-list empty-state">Big 3를 고르면 자동으로 입력 폼이 생성됩니다.</div>;
+    return <div className="builder-list empty-state">Big 3를 고르면 실행 단위를 입력할 수 있습니다.</div>;
   }
 
-  const updateDraft = (itemId: string, patch: Partial<TimeboxDraft>) => {
-    onChange(drafts.map((draft) => (draft.itemId === itemId ? { ...draft, ...patch } : draft)));
+  const updateDraft = (big3SelectionItemId: string, title: string) => {
+    onChange(
+      drafts.map((draft) =>
+        draft.big3SelectionItemId === big3SelectionItemId ? { ...draft, title } : draft
+      )
+    );
   };
 
   return (
     <div className="builder-list timebox-list">
       {items.map((item, index) => {
+        const draft =
+          drafts.find((candidate) => candidate.big3SelectionItemId === item.big3SelectionItemId) ?? {
+            big3SelectionItemId: item.big3SelectionItemId,
+            title: item.content
+          };
+
+        return (
+          <div className="timebox-row" key={item.big3SelectionItemId}>
+            <div className="timebox-meta">
+              <span className="meta-kicker">BIG 3 {index + 1}</span>
+              <strong>{item.content}</strong>
+            </div>
+            <label>
+              <span>실행 단위</span>
+              <input
+                name="executionUnitTitle"
+                type="text"
+                value={draft.title}
+                onChange={(event) => updateDraft(item.big3SelectionItemId, event.target.value)}
+              />
+            </label>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExecutionUnitResult({ units }: { units: ExecutionUnit[] }) {
+  if (units.length === 0) {
+    return <div className="result-list empty-state">아직 생성된 실행 단위가 없습니다.</div>;
+  }
+
+  return (
+    <div className="result-list item-list">
+      {units.map((unit) => (
+        <div className="item-row" key={unit.executionUnitId}>
+          <div>
+            <div>{unit.title}</div>
+            <small className="meta-kicker">{unit.executionUnitId}</small>
+          </div>
+          <span className="chip">UNIT</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TimeboxBuilder({
+  units,
+  drafts,
+  onChange,
+  metricDate
+}: {
+  units: ExecutionUnit[];
+  drafts: TimeboxDraft[];
+  onChange: (drafts: TimeboxDraft[]) => void;
+  metricDate: string;
+}) {
+  if (units.length === 0) {
+    return <div className="builder-list empty-state">실행 단위를 만들면 자동으로 입력 폼이 생성됩니다.</div>;
+  }
+
+  const updateDraft = (executionUnitId: string, patch: Partial<TimeboxDraft>) => {
+    onChange(
+      drafts.map((draft) =>
+        draft.executionUnitId === executionUnitId ? { ...draft, ...patch } : draft
+      )
+    );
+  };
+
+  return (
+    <div className="builder-list timebox-list">
+      {units.map((unit, index) => {
         const defaults = defaultLocalSlot(metricDate, index);
         const draft =
-          drafts.find((candidate) => candidate.itemId === item.itemId) ?? {
-            itemId: item.itemId,
+          drafts.find((candidate) => candidate.executionUnitId === unit.executionUnitId) ?? {
+            executionUnitId: unit.executionUnitId,
             startAt: defaults.start,
             endAt: defaults.end,
             firstRecoveryBlock: index === 0,
@@ -370,10 +534,10 @@ function TimeboxBuilder({
           };
 
         return (
-          <div className="timebox-row" key={item.itemId}>
+          <div className="timebox-row" key={unit.executionUnitId}>
             <div className="timebox-meta">
-              <span className="meta-kicker">ITEM {index + 1}</span>
-              <strong>{item.content}</strong>
+              <span className="meta-kicker">UNIT {index + 1}</span>
+              <strong>{unit.title}</strong>
             </div>
             <label>
               <span>시작</span>
@@ -381,7 +545,7 @@ function TimeboxBuilder({
                 name="startAt"
                 type="datetime-local"
                 value={draft.startAt}
-                onChange={(event) => updateDraft(item.itemId, { startAt: event.target.value })}
+                onChange={(event) => updateDraft(unit.executionUnitId, { startAt: event.target.value })}
               />
             </label>
             <label>
@@ -390,7 +554,7 @@ function TimeboxBuilder({
                 name="endAt"
                 type="datetime-local"
                 value={draft.endAt}
-                onChange={(event) => updateDraft(item.itemId, { endAt: event.target.value })}
+                onChange={(event) => updateDraft(unit.executionUnitId, { endAt: event.target.value })}
               />
             </label>
             <div>
@@ -399,7 +563,9 @@ function TimeboxBuilder({
                 <select
                   name="type"
                   value={draft.type}
-                  onChange={(event) => updateDraft(item.itemId, { type: event.target.value as TimeboxType })}
+                  onChange={(event) =>
+                    updateDraft(unit.executionUnitId, { type: event.target.value as TimeboxType })
+                  }
                 >
                   <option value="WORK">WORK</option>
                   <option value="BREAK">BREAK</option>
@@ -413,7 +579,7 @@ function TimeboxBuilder({
                       onChange(
                         drafts.map((candidate) => ({
                           ...candidate,
-                          firstRecoveryBlock: candidate.itemId === item.itemId
+                          firstRecoveryBlock: candidate.executionUnitId === unit.executionUnitId
                         }))
                       )
                     }

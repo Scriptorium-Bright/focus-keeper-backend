@@ -3,6 +3,8 @@ import type {
   AllocateTimeboxesResponse,
   ApiResponse,
   BatchOverview,
+  CreateExecutionUnitPayload,
+  ExecutionUnit,
   FailureCheckInResponse,
   FailureReason,
   OperationsAlert,
@@ -10,7 +12,8 @@ import type {
   RecoverySession,
   RestartRecoveryResponse,
   SaveInboxItemsResponse,
-  SelectBig3Response
+  SelectBig3Response,
+  UpdateExecutionUnitPayload
 } from "./types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
@@ -52,6 +55,27 @@ export function saveInboxItems(userId: string, contents: string[]) {
 
 export function selectBig3(userId: string, itemIds: string[]) {
   return post<SelectBig3Response>("/api/v1/recovery/big3", { userId, itemIds });
+}
+
+export function createExecutionUnit(userId: string, payload: CreateExecutionUnitPayload) {
+  return post<ExecutionUnit>("/api/v1/recovery/execution-units", {
+    userId,
+    ...payload
+  });
+}
+
+export function updateExecutionUnit(
+  userId: string,
+  executionUnitId: string,
+  payload: UpdateExecutionUnitPayload
+) {
+  return request<ExecutionUnit>(`/api/v1/recovery/execution-units/${executionUnitId}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      userId,
+      ...payload
+    })
+  });
 }
 
 export function allocateTimeboxes(userId: string, timeboxes: AllocateTimeboxPayload[]) {

@@ -3,6 +3,7 @@ import {
   allocateTimeboxes,
   checkInFailure,
   completeRecoverySession,
+  createExecutionUnit,
   getAlerts,
   getBatchOverview,
   getRecoveryLoopOverview,
@@ -23,11 +24,12 @@ import {
   persistContext,
   workflowReducer
 } from "./state";
-import type { AllocateTimeboxPayload, FailureReason } from "./types";
+import type { AllocateTimeboxPayload, CreateExecutionUnitPayload, FailureReason } from "./types";
 
 type PendingAction =
   | "inbox"
   | "big3"
+  | "executionUnits"
   | "timeboxes"
   | "session"
   | "failure"
@@ -151,6 +153,34 @@ export function App() {
       const response = await selectBig3(state.userId, itemIds);
       dispatch({ type: "big3Selected", items: response.selectedItems });
       showToast(`${response.selectedCount}개의 Big 3를 확정했습니다.`);
+    });
+  };
+
+  const handleCreateExecutionUnits = async (payload: CreateExecutionUnitPayload[]) => {
+    if (!ensureContext()) {
+      return false;
+    }
+    if (payload.length === 0) {
+      showToast("Big 3를 먼저 선택해 주세요.");
+      return false;
+    }
+
+    const normalized = payload.map((unit) => ({
+      big3SelectionItemId: unit.big3SelectionItemId,
+      title: unit.title.trim()
+    }));
+
+    if (normalized.some((unit) => !unit.big3SelectionItemId || !unit.title)) {
+      showToast("실행 단위 제목을 모두 입력해 주세요.");
+      return false;
+    }
+
+    return runAction("executionUnits", async () => {
+      const units = await Promise.all(
+        normalized.map((unit) => createExecutionUnit(state.userId, unit))
+      );
+      dispatch({ type: "executionUnitsCreated", units });
+      showToast(`${units.length}개의 실행 단위를 만들었습니다.`);
     });
   };
 
@@ -294,10 +324,12 @@ export function App() {
             metricDate={state.metricDate}
             inboxItems={state.inboxItems}
             big3Items={state.big3Items}
+            executionUnits={state.executionUnits}
             timeboxes={state.timeboxes}
             pendingAction={pendingAction}
             onSaveInbox={handleSaveInbox}
             onSelectBig3={handleSelectBig3}
+            onCreateExecutionUnits={handleCreateExecutionUnits}
             onAllocateTimeboxes={handleAllocateTimeboxes}
             onStageChange={handleStageChange}
           />

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAlerts, saveInboxItems } from "../api";
+import { allocateTimeboxes, createExecutionUnit, getAlerts, saveInboxItems } from "../api";
 
 describe("api client", () => {
   afterEach(() => {
@@ -45,5 +45,100 @@ describe("api client", () => {
     } as Response);
 
     await expect(getAlerts("demo-user", true)).rejects.toThrow("metricDate가 올바르지 않습니다.");
+  });
+
+  it("creates execution units under Big3 selection items", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          executionUnitId: "unit-1",
+          big3SelectionItemId: "selection-1",
+          title: "보고서 목차 잡기",
+          createdAt: "2026-05-13T00:00:00Z"
+        },
+        message: "EXECUTION_UNIT_CREATED",
+        traceId: "trace-1"
+      })
+    } as Response);
+
+    await expect(
+      createExecutionUnit("demo-user", {
+        big3SelectionItemId: "selection-1",
+        title: "보고서 목차 잡기"
+      })
+    ).resolves.toMatchObject({
+      executionUnitId: "unit-1",
+      big3SelectionItemId: "selection-1"
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/recovery/execution-units",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          userId: "demo-user",
+          big3SelectionItemId: "selection-1",
+          title: "보고서 목차 잡기"
+        })
+      })
+    );
+  });
+
+  it("allocates timeboxes with executionUnitId", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          plannedDate: "2026-05-13",
+          allocatedCount: 1,
+          timeboxes: [
+            {
+              timeboxId: "timebox-1",
+              executionUnitId: "unit-1",
+              content: "보고서 목차 잡기",
+              startAt: "2026-05-13T00:00:00Z",
+              endAt: "2026-05-13T01:00:00Z",
+              firstRecoveryBlock: true,
+              type: "WORK",
+              createdAt: "2026-05-13T00:00:00Z"
+            }
+          ]
+        },
+        message: "TIMEBOXES_ALLOCATED",
+        traceId: "trace-1"
+      })
+    } as Response);
+
+    await allocateTimeboxes("demo-user", [
+      {
+        executionUnitId: "unit-1",
+        startAt: "2026-05-13T00:00:00Z",
+        endAt: "2026-05-13T01:00:00Z",
+        firstRecoveryBlock: true,
+        type: "WORK"
+      }
+    ]);
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/recovery/timeboxes",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          userId: "demo-user",
+          timeboxes: [
+            {
+              executionUnitId: "unit-1",
+              startAt: "2026-05-13T00:00:00Z",
+              endAt: "2026-05-13T01:00:00Z",
+              firstRecoveryBlock: true,
+              type: "WORK"
+            }
+          ]
+        })
+      })
+    );
   });
 });
