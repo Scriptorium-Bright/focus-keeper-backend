@@ -213,6 +213,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiResponseExecutionUnit"
+  /api/v1/recovery/execution-units/{executionUnitId}/complete:
+    post:
+      tags: [Recovery]
+      summary: Complete execution unit
+      operationId: completeExecutionUnit
+      parameters:
+        - name: executionUnitId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteExecutionUnitRequest"
+      responses:
+        "200":
+          description: Execution unit completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseExecutionUnit"
+        "409":
+          description: Execution unit is already completed
   /api/v1/recovery/sessions/start:
     post:
       tags: [Recovery]
@@ -878,6 +904,9 @@ components:
           type: string
         content:
           type: string
+        completionStatus:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
     CreateExecutionUnitRequest:
       type: object
       required: [userId, big3SelectionItemId, title]
@@ -898,6 +927,12 @@ components:
         title:
           type: string
           maxLength: 200
+    CompleteExecutionUnitRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
     ExecutionUnitResponse:
       type: object
       properties:
@@ -907,6 +942,13 @@ components:
           type: string
         title:
           type: string
+        status:
+          type: string
+          enum: [PLANNED, COMPLETED]
+        completedAt:
+          type: string
+          nullable: true
+          format: date-time
         createdAt:
           type: string
           format: date-time

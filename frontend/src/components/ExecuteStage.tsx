@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type {
   AllocatedTimebox,
+  ExecutionUnit,
   FailureCheckInResponse,
   FailureReason,
   RecoverySession
@@ -9,12 +10,14 @@ import type {
 interface ExecuteStageProps {
   active: boolean;
   timeboxes: AllocatedTimebox[];
+  executionUnits: ExecutionUnit[];
   activeSession: RecoverySession | null;
   latestFailure: FailureCheckInResponse | null;
   latestFailureEventId: string | null;
   pendingAction: string | null;
   onStartSession: (timeboxId: string) => Promise<void>;
   onCompleteSession: () => Promise<void>;
+  onCompleteExecutionUnit: (executionUnitId: string) => Promise<void>;
   onInterruptSession: () => Promise<void>;
   onCheckInFailure: (reason: FailureReason, note: string) => Promise<void>;
   onRestart: () => Promise<void>;
@@ -32,12 +35,14 @@ const failureReasons: FailureReason[] = [
 export function ExecuteStage({
   active,
   timeboxes,
+  executionUnits,
   activeSession,
   latestFailure,
   latestFailureEventId,
   pendingAction,
   onStartSession,
   onCompleteSession,
+  onCompleteExecutionUnit,
   onInterruptSession,
   onCheckInFailure,
   onRestart,
@@ -89,6 +94,21 @@ export function ExecuteStage({
               </button>
             </div>
           </div>
+        </article>
+
+        <article className="flow-card reveal">
+          <div className="section-head">
+            <div>
+              <p className="eyebrow">UNIT COMPLETE</p>
+              <h2>실행 단위 완료</h2>
+            </div>
+            <p className="section-note">세션 완료와 별개로 실제 작업 완료를 명시합니다.</p>
+          </div>
+          <ExecutionUnitActions
+            units={executionUnits}
+            disabled={pendingAction === "executionUnitCompletion"}
+            onCompleteExecutionUnit={onCompleteExecutionUnit}
+          />
         </article>
 
         <article className="flow-card reveal">
@@ -152,6 +172,44 @@ export function ExecuteStage({
         </button>
       </div>
     </section>
+  );
+}
+
+function ExecutionUnitActions({
+  units,
+  disabled,
+  onCompleteExecutionUnit
+}: {
+  units: ExecutionUnit[];
+  disabled: boolean;
+  onCompleteExecutionUnit: (executionUnitId: string) => Promise<void>;
+}) {
+  if (units.length === 0) {
+    return <div className="result-list empty-state">실행 단위 생성 후 완료 버튼이 보입니다.</div>;
+  }
+
+  return (
+    <div className="result-list item-list">
+      {units.map((unit) => {
+        const completed = unit.status === "COMPLETED";
+        return (
+          <div className="item-row" key={unit.executionUnitId}>
+            <div>
+              <div>{unit.title}</div>
+              <small className="meta-kicker">{unit.status ?? "PLANNED"}</small>
+            </div>
+            <button
+              className={completed ? "ghost-button" : "secondary-button"}
+              type="button"
+              disabled={disabled || completed}
+              onClick={() => void onCompleteExecutionUnit(unit.executionUnitId)}
+            >
+              {completed ? "완료됨" : "Unit 완료"}
+            </button>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

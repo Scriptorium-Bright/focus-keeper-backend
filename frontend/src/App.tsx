@@ -2,6 +2,7 @@ import { useEffect, useReducer, useState } from "react";
 import {
   allocateTimeboxes,
   checkInFailure,
+  completeExecutionUnit,
   completeRecoverySession,
   createExecutionUnit,
   getAlerts,
@@ -30,6 +31,7 @@ type PendingAction =
   | "inbox"
   | "big3"
   | "executionUnits"
+  | "executionUnitCompletion"
   | "timeboxes"
   | "session"
   | "failure"
@@ -231,6 +233,18 @@ export function App() {
     });
   };
 
+  const handleCompleteExecutionUnit = async (executionUnitId: string) => {
+    if (!ensureContext()) {
+      return;
+    }
+
+    await runAction("executionUnitCompletion", async () => {
+      const unit = await completeExecutionUnit(state.userId, executionUnitId);
+      dispatch({ type: "executionUnitChanged", unit });
+      showToast("실행 단위를 완료했습니다.");
+    });
+  };
+
   const handleInterruptSession = async () => {
     if (!state.activeSession) {
       showToast("먼저 세션을 시작해 주세요.");
@@ -339,12 +353,14 @@ export function App() {
           <ExecuteStage
             active
             timeboxes={state.timeboxes}
+            executionUnits={state.executionUnits}
             activeSession={state.activeSession}
             latestFailure={state.latestFailure}
             latestFailureEventId={state.latestFailureEventId}
             pendingAction={pendingAction}
             onStartSession={handleStartSession}
             onCompleteSession={handleCompleteSession}
+            onCompleteExecutionUnit={handleCompleteExecutionUnit}
             onInterruptSession={handleInterruptSession}
             onCheckInFailure={handleCheckInFailure}
             onRestart={handleRestart}

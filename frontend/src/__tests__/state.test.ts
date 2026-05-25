@@ -115,6 +115,45 @@ describe("workflow state", () => {
     expect(next.timeboxes).toEqual([]);
   });
 
+  it("updates a completed execution unit without changing session state", () => {
+    const state = {
+      ...createInitialWorkflowState(),
+      executionUnits: [
+        {
+          executionUnitId: "unit-1",
+          big3SelectionItemId: "selection-1",
+          title: "old unit",
+          status: "PLANNED",
+          completedAt: null,
+          createdAt: "2026-05-13T00:00:00Z"
+        }
+      ],
+      activeSession: {
+        sessionId: "session-1",
+        timeboxId: "timebox-1",
+        status: "STARTED",
+        startedAt: "2026-05-13T00:00:00Z",
+        endedAt: null,
+        createdAt: "2026-05-13T00:00:00Z"
+      }
+    };
+
+    const next = workflowReducer(state, {
+      type: "executionUnitChanged",
+      unit: {
+        executionUnitId: "unit-1",
+        big3SelectionItemId: "selection-1",
+        title: "old unit",
+        status: "COMPLETED",
+        completedAt: "2026-05-13T01:00:00Z",
+        createdAt: "2026-05-13T00:00:00Z"
+      }
+    });
+
+    expect(next.executionUnits[0].status).toBe("COMPLETED");
+    expect(next.activeSession?.status).toBe("STARTED");
+  });
+
   it("uses defaults when storage is invalid", () => {
     window.localStorage.setItem(storageKey, "{not-json");
 

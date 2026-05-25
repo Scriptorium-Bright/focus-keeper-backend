@@ -78,6 +78,12 @@ export function updateExecutionUnit(
   });
 }
 
+export function completeExecutionUnit(userId: string, executionUnitId: string) {
+  return post<ExecutionUnit>(`/api/v1/recovery/execution-units/${executionUnitId}/complete`, {
+    userId
+  });
+}
+
 export function allocateTimeboxes(userId: string, timeboxes: AllocateTimeboxPayload[]) {
   return post<AllocateTimeboxesResponse>("/api/v1/recovery/timeboxes", {
     userId,

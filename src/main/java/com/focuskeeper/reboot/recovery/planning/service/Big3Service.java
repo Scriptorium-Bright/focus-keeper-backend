@@ -4,12 +4,18 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
+import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
+import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
+import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Selection;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3SelectionRepository;
+import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,13 +31,16 @@ public class Big3Service {
 
     private final InboxItemRepository inboxItemRepository;
     private final Big3SelectionRepository big3SelectionRepository;
+    private final ExecutionUnitRepository executionUnitRepository;
 
     public Big3Service(
             InboxItemRepository inboxItemRepository,
-            Big3SelectionRepository big3SelectionRepository
+            Big3SelectionRepository big3SelectionRepository,
+            ExecutionUnitRepository executionUnitRepository
     ) {
         this.inboxItemRepository = inboxItemRepository;
         this.big3SelectionRepository = big3SelectionRepository;
+        this.executionUnitRepository = executionUnitRepository;
     }
 
     /**
@@ -77,7 +86,7 @@ public class Big3Service {
 
         selection.replaceItems(selectedItems, selectedAt); // 이 부분은 조금 이해가 안 감 -> › big3를 이미 고른 상태여도 다시 선택할 수 있으니까 replace
 
-        return big3SelectionRepository.save(selection).toResponse();
+        return toResponseWithRollUp(big3SelectionRepository.save(selection));
     }
 
     /**
@@ -85,7 +94,7 @@ public class Big3Service {
      */
     public Big3SelectionResponse getTodayBig3(String userId) {
         return big3SelectionRepository.findByUserIdAndSelectedDate(userId, LocalDate.now())
-                .map(Big3Selection::toResponse)
+                .map(this::toResponseWithRollUp)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of(
@@ -125,5 +134,44 @@ public class Big3Service {
                     Map.of("itemIds", "중복된 itemId는 허용되지 않습니다.")
             );
         }
+    }
+
+    private Big3SelectionResponse toResponseWithRollUp(Big3Selection selection) {
+        Big3SelectionResponse response = selection.toResponse();
+        List<String> selectionItemIds = response.selectedItems().stream()
+                .map(Big3ItemResponse::big3SelectionItemId)
+                .toList();
+        Map<String, List<ExecutionUnit>> unitsBySelectionItemId = executionUnitRepository
+                .findAllByBig3SelectionItem_IdInOrderByCreatedAtAsc(selectionItemIds)
+                .stream()
+                .collect(Collectors.groupingBy(ExecutionUnit::getBig3SelectionItemId));
+
+        List<Big3ItemResponse> selectedItems = response.selectedItems().stream()
+                .map(item -> new Big3ItemResponse(
+                        item.big3SelectionItemId(),
+                        item.itemId(),
+                        item.content(),
+                        resolveCompletionStatus(unitsBySelectionItemId.getOrDefault(
+                                item.big3SelectionItemId(),
+                                List.of()
+                        )).name()
+                ))
+                .toList();
+
+        return new Big3SelectionResponse(
+                response.userId(),
+                response.selectedDate(),
+                response.selectedAt(),
+                selectedItems
+        );
+    }
+
+    private Big3ItemCompletionStatus resolveCompletionStatus(List<ExecutionUnit> executionUnits) {
+        if (executionUnits.isEmpty()) {
+            return Big3ItemCompletionStatus.NOT_STARTED;
+        }
+        boolean allCompleted = executionUnits.stream()
+                .allMatch(unit -> unit.getStatus() == ExecutionUnitStatus.COMPLETED);
+        return allCompleted ? Big3ItemCompletionStatus.COMPLETED : Big3ItemCompletionStatus.IN_PROGRESS;
     }
 }

@@ -1,6 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.CompleteExecutionUnitRequest;
 import com.focuskeeper.reboot.recovery.planning.dto.CreateExecutionUnitRequest;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.UpdateExecutionUnitRequest;
@@ -56,5 +57,15 @@ public class ExecutionUnitController {
                 request.title()
         );
         return ApiResponse.success(response, "EXECUTION_UNIT_UPDATED");
+    }
+
+    @PostMapping("/{executionUnitId}/complete")
+    @Operation(summary = "Complete execution unit", description = "Marks an execution unit as completed without changing session state.")
+    public ApiResponse<ExecutionUnitResponse> completeUnit(
+            @PathVariable String executionUnitId,
+            @Valid @RequestBody CompleteExecutionUnitRequest request
+    ) {
+        ExecutionUnitResponse response = executionUnitService.completeUnit(request.userId(), executionUnitId);
+        return ApiResponse.success(response, "EXECUTION_UNIT_COMPLETED");
     }
 }

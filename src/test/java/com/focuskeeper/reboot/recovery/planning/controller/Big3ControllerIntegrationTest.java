@@ -52,12 +52,60 @@ class Big3ControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.selectedAt").isString())
                 .andExpect(jsonPath("$.data.selectedItems[0].big3SelectionItemId").isString())
                 .andExpect(jsonPath("$.data.selectedItems[0].itemId").value(savedItemIds.get(0)))
+                .andExpect(jsonPath("$.data.selectedItems[0].completionStatus").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.traceId").isString())
                 .andReturn();
 
         String responseTraceId = readTraceIdFromBody(result);
         String headerTraceId = result.getResponse().getHeader("X-Trace-Id");
         assertThat(responseTraceId).isEqualTo(headerTraceId);
+    }
+
+    @Test
+    void selectBig3RollsUpExecutionUnitCompletionStatus() throws Exception {
+        String userId = "big3-rollup-user";
+        List<String> savedItemIds = saveInboxItems(userId);
+        String requestBody = """
+                {
+                  "userId": "%s",
+                  "itemIds": ["%s", "%s"]
+                }
+                """.formatted(userId, savedItemIds.get(0), savedItemIds.get(1));
+
+        MvcResult firstSelection = mockMvc.perform(
+                        post("/api/v1/recovery/big3")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.selectedItems[0].completionStatus").value("NOT_STARTED"))
+                .andReturn();
+
+        String big3SelectionItemId = objectMapper.readTree(firstSelection.getResponse().getContentAsString())
+                .path("data")
+                .path("selectedItems")
+                .get(0)
+                .path("big3SelectionItemId")
+                .asText();
+        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "roll-up 확인 단위");
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/big3")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.selectedItems[0].completionStatus").value("IN_PROGRESS"));
+
+        completeExecutionUnit(userId, executionUnitId);
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/big3")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.selectedItems[0].completionStatus").value("COMPLETED"));
     }
 
     @Test
@@ -189,6 +237,40 @@ class Big3ControllerIntegrationTest {
             itemIds.add(savedItem.path("id").asText());
         }
         return itemIds;
+    }
+
+    private String createExecutionUnit(String userId, String big3SelectionItemId, String title) throws Exception {
+        MvcResult result = mockMvc.perform(
+                        post("/api/v1/recovery/execution-units")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "big3SelectionItemId": "%s",
+                                          "title": "%s"
+                                        }
+                                        """.formatted(userId, big3SelectionItemId, title))
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("executionUnitId")
+                .asText();
+    }
+
+    private void completeExecutionUnit(String userId, String executionUnitId) throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s"
+                                        }
+                                        """.formatted(userId))
+                )
+                .andExpect(status().isOk());
     }
 
     private String readTraceIdFromBody(MvcResult result) throws Exception {

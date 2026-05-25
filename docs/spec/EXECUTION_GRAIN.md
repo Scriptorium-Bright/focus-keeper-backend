@@ -89,7 +89,9 @@ COMPLETED = unit이 1개 이상 있고, 모든 unit이 COMPLETED
 ## 5. API 계약 방향
 
 - Big3 응답은 `big3SelectionItemId`, `itemId`, `content`를 함께 내려준다.
+- Big3 응답은 `completionStatus`로 하위 `ExecutionUnit` roll-up을 함께 내려준다.
 - `ExecutionUnit` 생성/수정 API는 `big3SelectionItemId`를 기준으로 동작한다.
+- `ExecutionUnit` 완료 API는 `executionUnitId`를 기준으로 명시 호출한다.
 - Timebox 생성 요청은 `itemId`가 아니라 `executionUnitId`를 받는다.
 - Timebox 응답도 `executionUnitId`를 노출한다.
 

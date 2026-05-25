@@ -36,6 +36,7 @@ export type WorkflowAction =
   | { type: "inboxSaved"; items: SavedInboxItem[] }
   | { type: "big3Selected"; items: Big3Item[] }
   | { type: "executionUnitsCreated"; units: ExecutionUnit[] }
+  | { type: "executionUnitChanged"; unit: ExecutionUnit }
   | { type: "timeboxesAllocated"; timeboxes: AllocatedTimebox[] }
   | { type: "sessionChanged"; session: RecoverySession }
   | { type: "failureCheckedIn"; failure: FailureCheckInResponse }
@@ -108,6 +109,13 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
         activeSession: null,
         latestFailureEventId: null,
         latestFailure: null
+      };
+    case "executionUnitChanged":
+      return {
+        ...state,
+        executionUnits: state.executionUnits.map((unit) =>
+          unit.executionUnitId === action.unit.executionUnitId ? action.unit : unit
+        )
       };
     case "timeboxesAllocated":
       return {

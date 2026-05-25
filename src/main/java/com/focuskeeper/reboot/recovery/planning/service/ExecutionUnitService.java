@@ -2,6 +2,7 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
+import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3SelectionItem;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
@@ -45,15 +46,36 @@ public class ExecutionUnitService {
 
     @Transactional
     public ExecutionUnitResponse updateUnit(String userId, String executionUnitId, String title) {
-        ExecutionUnit executionUnit = executionUnitRepository
+        ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
+        executionUnit.rename(title);
+        return toResponse(executionUnitRepository.save(executionUnit));
+    }
+
+    @Transactional
+    public ExecutionUnitResponse completeUnit(String userId, String executionUnitId) {
+        ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
+        if (executionUnit.getStatus() == ExecutionUnitStatus.COMPLETED) {
+            throw new BusinessException(
+                    ErrorCode.CONFLICT,
+                    Map.of(
+                            "executionUnitId", executionUnitId,
+                            "currentStatus", executionUnit.getStatus().name(),
+                            "targetStatus", ExecutionUnitStatus.COMPLETED.name()
+                    )
+            );
+        }
+
+        executionUnit.complete(OffsetDateTime.now());
+        return toResponse(executionUnitRepository.save(executionUnit));
+    }
+
+    private ExecutionUnit requireUnit(String userId, String executionUnitId) {
+        return executionUnitRepository
                 .findByIdAndBig3SelectionItem_Selection_UserId(executionUnitId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("executionUnitId", executionUnitId)
                 ));
-
-        executionUnit.rename(title);
-        return toResponse(executionUnitRepository.save(executionUnit));
     }
 
     private ExecutionUnitResponse toResponse(ExecutionUnit executionUnit) {
@@ -61,6 +83,8 @@ public class ExecutionUnitService {
                 executionUnit.getId(),
                 executionUnit.getBig3SelectionItemId(),
                 executionUnit.getTitle(),
+                executionUnit.getStatus().name(),
+                executionUnit.getCompletedAt() == null ? null : executionUnit.getCompletedAt().toString(),
                 executionUnit.getCreatedAt().toString()
         );
     }

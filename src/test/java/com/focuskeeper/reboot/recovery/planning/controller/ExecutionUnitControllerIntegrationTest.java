@@ -52,6 +52,8 @@ class ExecutionUnitControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.executionUnitId").isString())
                 .andExpect(jsonPath("$.data.big3SelectionItemId").value(big3SelectionItemId))
                 .andExpect(jsonPath("$.data.title").value("README 문제 섹션 초안 작성"))
+                .andExpect(jsonPath("$.data.status").value("PLANNED"))
+                .andExpect(jsonPath("$.data.completedAt").isEmpty())
                 .andExpect(jsonPath("$.traceId").isString())
                 .andReturn();
 
@@ -80,7 +82,63 @@ class ExecutionUnitControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("EXECUTION_UNIT_UPDATED"))
                 .andExpect(jsonPath("$.data.executionUnitId").value(executionUnitId))
-                .andExpect(jsonPath("$.data.title").value("초안 검토까지 완료"));
+                .andExpect(jsonPath("$.data.title").value("초안 검토까지 완료"))
+                .andExpect(jsonPath("$.data.status").value("PLANNED"));
+    }
+
+    @Test
+    void completeExecutionUnitMarksUnitCompletedWithoutSessionCompletion() throws Exception {
+        String userId = "execution-unit-complete-user";
+        String big3SelectionItemId = selectFirstBig3Item(userId);
+        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "작은 실행 완료");
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s"
+                                        }
+                                        """.formatted(userId))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("EXECUTION_UNIT_COMPLETED"))
+                .andExpect(jsonPath("$.data.executionUnitId").value(executionUnitId))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.completedAt").isString());
+    }
+
+    @Test
+    void completeExecutionUnitReturnsConflictWhenAlreadyCompleted() throws Exception {
+        String userId = "execution-unit-complete-conflict-user";
+        String big3SelectionItemId = selectFirstBig3Item(userId);
+        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "작은 실행 완료");
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s"
+                                        }
+                                        """.formatted(userId))
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s"
+                                        }
+                                        """.formatted(userId))
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
+                .andExpect(jsonPath("$.error.details.currentStatus").value("COMPLETED"));
     }
 
     @Test

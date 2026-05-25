@@ -1,7 +1,10 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
+import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -28,6 +31,13 @@ public class ExecutionUnit {
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private ExecutionUnitStatus status;
+
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -38,20 +48,36 @@ public class ExecutionUnit {
             String id,
             Big3SelectionItem big3SelectionItem,
             String title,
+            ExecutionUnitStatus status,
+            OffsetDateTime completedAt,
             OffsetDateTime createdAt
     ) {
         this.id = id;
         this.big3SelectionItem = big3SelectionItem;
         this.title = title;
+        this.status = status;
+        this.completedAt = completedAt;
         this.createdAt = createdAt;
     }
 
     public static ExecutionUnit create(Big3SelectionItem big3SelectionItem, String title, OffsetDateTime createdAt) {
-        return new ExecutionUnit(UUID.randomUUID().toString(), big3SelectionItem, title, createdAt);
+        return new ExecutionUnit(
+                UUID.randomUUID().toString(),
+                big3SelectionItem,
+                title,
+                ExecutionUnitStatus.PLANNED,
+                null,
+                createdAt
+        );
     }
 
     public void rename(String title) {
         this.title = title;
+    }
+
+    public void complete(OffsetDateTime completedAt) {
+        this.status = ExecutionUnitStatus.COMPLETED;
+        this.completedAt = completedAt;
     }
 
     public String getId() {
@@ -64,6 +90,14 @@ public class ExecutionUnit {
 
     public String getTitle() {
         return title;
+    }
+
+    public ExecutionUnitStatus getStatus() {
+        return status == null ? ExecutionUnitStatus.PLANNED : status;
+    }
+
+    public OffsetDateTime getCompletedAt() {
+        return completedAt;
     }
 
     public OffsetDateTime getCreatedAt() {

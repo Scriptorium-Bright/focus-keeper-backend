@@ -490,7 +490,7 @@ function ExecutionUnitResult({ units }: { units: ExecutionUnit[] }) {
             <div>{unit.title}</div>
             <small className="meta-kicker">{unit.executionUnitId}</small>
           </div>
-          <span className="chip">UNIT</span>
+          <span className="chip">{unit.status ?? "UNIT"}</span>
         </div>
       ))}
     </div>

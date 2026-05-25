@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { allocateTimeboxes, createExecutionUnit, getAlerts, saveInboxItems } from "../api";
+import {
+  allocateTimeboxes,
+  completeExecutionUnit,
+  createExecutionUnit,
+  getAlerts,
+  saveInboxItems
+} from "../api";
 
 describe("api client", () => {
   afterEach(() => {
@@ -138,6 +144,38 @@ describe("api client", () => {
             }
           ]
         })
+      })
+    );
+  });
+
+  it("completes execution units separately from sessions", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          executionUnitId: "unit-1",
+          big3SelectionItemId: "selection-1",
+          title: "보고서 목차 잡기",
+          status: "COMPLETED",
+          completedAt: "2026-05-13T01:00:00Z",
+          createdAt: "2026-05-13T00:00:00Z"
+        },
+        message: "EXECUTION_UNIT_COMPLETED",
+        traceId: "trace-1"
+      })
+    } as Response);
+
+    await expect(completeExecutionUnit("demo-user", "unit-1")).resolves.toMatchObject({
+      executionUnitId: "unit-1",
+      status: "COMPLETED"
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/recovery/execution-units/unit-1/complete",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ userId: "demo-user" })
       })
     );
   });
