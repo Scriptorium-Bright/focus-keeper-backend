@@ -90,7 +90,7 @@ public class TimeboxService {
      */
     private Map<String, ExecutionUnit> indexExecutionUnits(String userId, List<TimeboxCommand> commands) {
         List<String> executionUnitIds = commands.stream()
-                .map(TimeboxCommand::itemId)
+                .map(TimeboxCommand::executionUnitId)
                 .distinct()
                 .toList();
         return executionUnitRepository.findAllByIdInAndBig3SelectionItem_Selection_UserId(executionUnitIds, userId)
@@ -124,7 +124,7 @@ public class TimeboxService {
                 );
             }
 
-            ExecutionUnit executionUnit = executionUnits.get(command.itemId());
+            ExecutionUnit executionUnit = executionUnits.get(command.executionUnitId());
             requestedTimeboxes.add(Timebox.create(
                     userId,
                     executionUnit,

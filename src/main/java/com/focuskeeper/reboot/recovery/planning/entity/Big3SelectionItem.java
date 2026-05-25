@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
-import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
+import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -74,10 +74,10 @@ public class Big3SelectionItem {
     }
 
     /**
-     * 선택 항목을 inbox item 응답 형태로 변환한다.
+     * 선택 항목을 Big3 응답 형태로 변환한다.
      */
-    public InboxItemResponse toInboxItemResponse() {
-        return inboxItem.toResponse();
+    public Big3ItemResponse toResponse() {
+        return new Big3ItemResponse(id, inboxItem.getId(), inboxItem.getContent());
     }
 
     /**

@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
-import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
+import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -91,9 +91,9 @@ public class Big3Selection {
      * 엔티티를 외부 응답 DTO로 변환한다.
      */
     public Big3SelectionResponse toResponse() {
-        List<InboxItemResponse> items = selectedItems.stream()
+        List<Big3ItemResponse> items = selectedItems.stream()
                 .sorted((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()))
-                .map(Big3SelectionItem::toInboxItemResponse)
+                .map(Big3SelectionItem::toResponse)
                 .toList();
         return new Big3SelectionResponse(userId, selectedDate, selectedAt, items);
     }

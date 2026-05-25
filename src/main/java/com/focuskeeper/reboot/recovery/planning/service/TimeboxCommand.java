@@ -13,7 +13,7 @@ package com.focuskeeper.reboot.recovery.planning.service;
 //    구조를 더 다듬는다면 `planning.service.command`나 `planning.application.command` 쪽이 더 선명하다.
 
 public record TimeboxCommand(
-        String itemId,
+        String executionUnitId,
         String startAt,
         String endAt,
         boolean firstRecoveryBlock,

@@ -43,7 +43,7 @@ public class TimeboxController {
     ) {
         List<TimeboxCommand> commands = request.timeboxes().stream()
                 .map(timebox -> new TimeboxCommand(
-                        timebox.itemId(),
+                        timebox.executionUnitId(),
                         timebox.startAt(),
                         timebox.endAt(),
                         timebox.firstRecoveryBlock(),
@@ -55,7 +55,7 @@ public class TimeboxController {
         List<AllocatedTimeboxResponse> responseItems = allocatedTimeboxes.stream()
                 .map(timebox -> new AllocatedTimeboxResponse(
                         timebox.timeboxId(),
-                        timebox.itemId(),
+                        timebox.executionUnitId(),
                         timebox.content(),
                         timebox.startAt(),
                         timebox.endAt(),

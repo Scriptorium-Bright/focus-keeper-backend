@@ -50,6 +50,10 @@ public class ExecutionUnit {
         return new ExecutionUnit(UUID.randomUUID().toString(), big3SelectionItem, title, createdAt);
     }
 
+    public void rename(String title) {
+        this.title = title;
+    }
+
     public String getId() {
         return id;
     }

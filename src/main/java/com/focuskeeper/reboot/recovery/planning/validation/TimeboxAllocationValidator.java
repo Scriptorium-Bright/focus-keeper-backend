@@ -77,7 +77,7 @@ public class TimeboxAllocationValidator {
      */
     public void validateExecutionUnits(List<TimeboxCommand> commands, Map<String, ExecutionUnit> executionUnits) {
         List<String> invalidExecutionUnitIds = commands.stream()
-                .map(TimeboxCommand::itemId)
+                .map(TimeboxCommand::executionUnitId)
                 .filter(executionUnitId -> !executionUnits.containsKey(executionUnitId))
                 .distinct()
                 .toList();
