@@ -7,6 +7,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+  batch:
+    job:
+      enabled: false
   main:
     banner-mode: "off"
 
