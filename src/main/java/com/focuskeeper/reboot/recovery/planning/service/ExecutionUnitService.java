@@ -44,7 +44,7 @@ public class ExecutionUnitService {
         big3SelectionItem.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
         big3SelectionItem.updateStatusFromUnits();
         
-        return toResponse(executionUnitRepository.save(executionUnit));
+        return toResponse(executionUnit);
     }
 
     @Transactional
