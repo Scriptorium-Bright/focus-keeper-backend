@@ -171,6 +171,74 @@ paths:
                 $ref: "#/components/schemas/ApiResponseAllocateTimeboxes"
         "409":
           description: Conflicting timebox detected
+  /api/v1/recovery/execution-units:
+    post:
+      tags: [Recovery]
+      summary: Create execution unit
+      operationId: createExecutionUnit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateExecutionUnitRequest"
+      responses:
+        "200":
+          description: Execution unit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseExecutionUnit"
+  /api/v1/recovery/execution-units/{executionUnitId}:
+    patch:
+      tags: [Recovery]
+      summary: Update execution unit
+      operationId: updateExecutionUnit
+      parameters:
+        - name: executionUnitId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateExecutionUnitRequest"
+      responses:
+        "200":
+          description: Execution unit updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseExecutionUnit"
+  /api/v1/recovery/execution-units/{executionUnitId}/complete:
+    post:
+      tags: [Recovery]
+      summary: Complete execution unit
+      operationId: completeExecutionUnit
+      parameters:
+        - name: executionUnitId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteExecutionUnitRequest"
+      responses:
+        "200":
+          description: Execution unit completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponseExecutionUnit"
+        "409":
+          description: Execution unit is already completed
   /api/v1/recovery/sessions/start:
     post:
       tags: [Recovery]
@@ -550,6 +618,19 @@ components:
           example: TIMEBOXES_ALLOCATED
         traceId:
           type: string
+    ApiResponseExecutionUnit:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: "#/components/schemas/ExecutionUnitResponse"
+        message:
+          type: string
+          example: EXECUTION_UNIT_CREATED
+        traceId:
+          type: string
     ApiResponseRecoverySession:
       type: object
       properties:
@@ -817,10 +898,60 @@ components:
     Big3Item:
       type: object
       properties:
+        big3SelectionItemId:
+          type: string
         itemId:
           type: string
         content:
           type: string
+        completionStatus:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+    CreateExecutionUnitRequest:
+      type: object
+      required: [userId, big3SelectionItemId, title]
+      properties:
+        userId:
+          type: string
+        big3SelectionItemId:
+          type: string
+        title:
+          type: string
+          maxLength: 200
+    UpdateExecutionUnitRequest:
+      type: object
+      required: [userId, title]
+      properties:
+        userId:
+          type: string
+        title:
+          type: string
+          maxLength: 200
+    CompleteExecutionUnitRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+    ExecutionUnitResponse:
+      type: object
+      properties:
+        executionUnitId:
+          type: string
+        big3SelectionItemId:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum: [PLANNED, COMPLETED]
+        completedAt:
+          type: string
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
     AllocateTimeboxesRequest:
       type: object
       required: [userId, timeboxes]
@@ -835,9 +966,9 @@ components:
             $ref: "#/components/schemas/TimeboxPayload"
     TimeboxPayload:
       type: object
-      required: [itemId, startAt, endAt, type]
+      required: [executionUnitId, startAt, endAt, type]
       properties:
-        itemId:
+        executionUnitId:
           type: string
         startAt:
           type: string
@@ -867,7 +998,7 @@ components:
       properties:
         timeboxId:
           type: string
-        itemId:
+        executionUnitId:
           type: string
         content:
           type: string

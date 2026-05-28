@@ -15,6 +15,7 @@ public class TimeboxOverlapValidator {
 
     /**
      * 요청 블록끼리의 충돌과 기존 저장 블록과의 충돌을 모두 검사한다.
+     * 시간 겹치는거 방지
      */
     public void validate(List<Timebox> existingTimeboxes, List<Timebox> requestedTimeboxes) {
         for (int index = 0; index < requestedTimeboxes.size(); index++) {

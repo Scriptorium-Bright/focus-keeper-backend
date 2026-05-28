@@ -2,8 +2,8 @@ package com.focuskeeper.reboot.recovery.planning.validation;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.service.TimeboxCommand;
 import java.util.List;
 import java.util.Map;
@@ -73,21 +73,21 @@ public class TimeboxAllocationValidator {
     }
 
     /**
-     * timebox 요청에 포함된 itemId가 오늘의 Big3에 실제로 포함되는지 검증한다.
+     * timebox 요청에 포함된 executionUnitId가 사용자 소유 실행 단위인지 검증한다.
      */
-    public void validateSelectedItems(List<TimeboxCommand> commands, Map<String, InboxItemResponse> selectedItems) {
-        List<String> invalidItemIds = commands.stream()
-                .map(TimeboxCommand::itemId)
-                .filter(itemId -> !selectedItems.containsKey(itemId))
+    public void validateExecutionUnits(List<TimeboxCommand> commands, Map<String, ExecutionUnit> executionUnits) {
+        List<String> invalidExecutionUnitIds = commands.stream()
+                .map(TimeboxCommand::executionUnitId)
+                .filter(executionUnitId -> !executionUnits.containsKey(executionUnitId))
                 .distinct()
                 .toList();
 
-        if (!invalidItemIds.isEmpty()) {
+        if (!invalidExecutionUnitIds.isEmpty()) {
             throw new BusinessException(
                     ErrorCode.COMMON_BAD_REQUEST,
                     Map.of(
-                            "invalidItemIds", invalidItemIds,
-                            "itemIds", "오늘의 Big3에 포함된 항목만 timebox로 배정할 수 있습니다."
+                            "invalidExecutionUnitIds", invalidExecutionUnitIds,
+                            "executionUnitIds", "사용자 Big3 하위 execution unit만 timebox로 배정할 수 있습니다."
                     )
             );
         }

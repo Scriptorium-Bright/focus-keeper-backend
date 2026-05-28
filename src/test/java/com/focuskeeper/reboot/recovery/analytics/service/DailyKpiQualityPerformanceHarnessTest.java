@@ -15,8 +15,10 @@ import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepos
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.support.PlanningTestFixtures;
 import jakarta.persistence.EntityManagerFactory;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -68,6 +70,9 @@ class DailyKpiQualityPerformanceHarnessTest {
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    private PlanningTestFixtures planningTestFixtures;
 
     @BeforeEach
     void setUp() {
@@ -155,10 +160,13 @@ class DailyKpiQualityPerformanceHarnessTest {
                     .plusMinutes(index);
             OffsetDateTime endAt = startAt.plusMinutes(20);
 
+            ExecutionUnit executionUnit = planningTestFixtures.saveExecutionUnit(
+                    userId,
+                    "품질 측정 작업 %s-%d".formatted(metricDate, index)
+            );
             Timebox timebox = timeboxRepository.save(Timebox.create(
                     userId,
-                    "perf-quality-item-%s-%d".formatted(metricDate, index),
-                    "품질 측정 작업 %s-%d".formatted(metricDate, index),
+                    executionUnit,
                     TimeboxType.WORK,
                     startAt,
                     endAt,
@@ -216,10 +224,10 @@ class DailyKpiQualityPerformanceHarnessTest {
             }
         }
 
+        ExecutionUnit breakUnit = planningTestFixtures.saveExecutionUnit(userId, "품질 측정 휴식 블록");
         Timebox breakTimebox = timeboxRepository.save(Timebox.create(
                 userId,
-                "perf-quality-break-%s".formatted(metricDate),
-                "품질 측정 휴식 블록",
+                breakUnit,
                 TimeboxType.BREAK,
                 metricDate.atTime(23, 0).atOffset(SEOUL_OFFSET),
                 metricDate.atTime(23, 10).atOffset(SEOUL_OFFSET),

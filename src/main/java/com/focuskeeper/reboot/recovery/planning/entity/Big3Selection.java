@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
-import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
+import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -13,6 +13,7 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,6 +46,7 @@ public class Big3Selection {
     private List<Big3SelectionItem> selectedItems = new ArrayList<>();
 
     protected Big3Selection() {
+
     }
 
     private Big3Selection(String id, String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
@@ -69,7 +71,7 @@ public class Big3Selection {
      */
     public void replaceItems(List<InboxItem> inboxItems, OffsetDateTime selectedAt) {
         this.selectedAt = selectedAt;
-        selectedItems.sort((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()));
+        selectedItems.sort(Comparator.comparingInt(Big3SelectionItem::getSortOrder));
 
         int sharedSize = Math.min(selectedItems.size(), inboxItems.size());
         for (int index = 0; index < sharedSize; index++) {
@@ -77,7 +79,7 @@ public class Big3Selection {
         }
 
         while (selectedItems.size() > inboxItems.size()) {
-            selectedItems.remove(selectedItems.size() - 1);
+            selectedItems.removeLast();
         }
 
         for (int index = sharedSize; index < inboxItems.size(); index++) {
@@ -89,9 +91,9 @@ public class Big3Selection {
      * 엔티티를 외부 응답 DTO로 변환한다.
      */
     public Big3SelectionResponse toResponse() {
-        List<InboxItemResponse> items = selectedItems.stream()
+        List<Big3ItemResponse> items = selectedItems.stream()
                 .sorted((left, right) -> Integer.compare(left.getSortOrder(), right.getSortOrder()))
-                .map(Big3SelectionItem::toInboxItemResponse)
+                .map(Big3SelectionItem::toResponse)
                 .toList();
         return new Big3SelectionResponse(userId, selectedDate, selectedAt, items);
     }

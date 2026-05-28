@@ -3,6 +3,7 @@ package com.focuskeeper.reboot.recovery.inbox.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+// brainDump 내용 받는 request
 public record InboxItemPayloadRequest (
 
         @NotBlank(message = "content는 비어 있을 수 없습니다.")

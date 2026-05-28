@@ -1,12 +1,12 @@
 package com.focuskeeper.reboot.recovery.planning.dto;
 
-import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
-
 public record Big3ItemResponse(
+        String big3SelectionItemId,
         String itemId,
-        String content
+        String content,
+        String completionStatus
 ) {
-    public static Big3ItemResponse from(InboxItemResponse item) {
-        return new Big3ItemResponse(item.id(), item.content());
+    public Big3ItemResponse(String big3SelectionItemId, String itemId, String content) {
+        this(big3SelectionItemId, itemId, content, "NOT_STARTED");
     }
 }

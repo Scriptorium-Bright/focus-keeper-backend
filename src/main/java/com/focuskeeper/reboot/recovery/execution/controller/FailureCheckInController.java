@@ -5,7 +5,9 @@ import com.focuskeeper.reboot.common.response.ApiResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureCheckInRequest;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureCheckInResponse;
 import com.focuskeeper.reboot.recovery.execution.service.FailureEventService;
+import com.focuskeeper.reboot.recovery.execution.service.FailureEventService.FailureCheckInResult;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.Timer.Sample;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -46,9 +48,9 @@ public class FailureCheckInController {
     public ApiResponse<FailureCheckInResponse> checkIn(
             @Valid @RequestBody FailureCheckInRequest request
     ) {
-        Timer.Sample sample = operationsMetricRecorder.startSample();
+        Sample sample = operationsMetricRecorder.startSample();
         try {
-            FailureEventService.FailureCheckInResult result = failureEventService.checkIn(
+            FailureCheckInResult result = failureEventService.checkIn(
                     request.userId(),
                     request.sessionId(),
                     request.reason(),

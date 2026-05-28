@@ -15,8 +15,10 @@ import com.focuskeeper.reboot.recovery.execution.repository.FailureEventReposito
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.support.PlanningTestFixtures;
 import jakarta.persistence.EntityManagerFactory;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -72,6 +74,9 @@ class DailyKpiBackfillPerformanceHarnessTest {
 
     @Autowired
     private EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    private PlanningTestFixtures planningTestFixtures;
 
     @BeforeEach
     void setUp() {
@@ -163,10 +168,13 @@ class DailyKpiBackfillPerformanceHarnessTest {
             OffsetDateTime startAt = baseStart.plusSeconds((long) index * spacingSeconds);
             OffsetDateTime endAt = startAt.plusMinutes(workMinutes);
 
+            ExecutionUnit executionUnit = planningTestFixtures.saveExecutionUnit(
+                    userId,
+                    "핵심 작업 %s-%d".formatted(metricDate, index)
+            );
             Timebox timebox = timeboxRepository.save(Timebox.create(
                     userId,
-                    "item-%s-%d".formatted(metricDate, index),
-                    "핵심 작업 %s-%d".formatted(metricDate, index),
+                    executionUnit,
                     TimeboxType.WORK,
                     startAt,
                     endAt,

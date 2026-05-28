@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
+// 다중 brandump 내용 (근데 이름이 다른거에 대해서는 좀 수정이 ..)
 public record SaveInboxItemsRequest (
         @NotBlank(message = "userId는 필수입니다.")
         String userId,

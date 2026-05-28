@@ -19,8 +19,10 @@ import com.focuskeeper.reboot.recovery.execution.repository.FailureEventReposito
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import com.focuskeeper.reboot.recovery.support.PlanningTestFixtures;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -58,6 +60,9 @@ class DailyKpiControllerIntegrationTest {
 
     @Autowired
     private RestartEventRepository restartEventRepository;
+
+    @Autowired
+    private PlanningTestFixtures planningTestFixtures;
 
     @Test
     void generateDailyKpiAggregatesRecoveryMetricsAndPersistsMart() throws Exception {
@@ -204,20 +209,20 @@ class DailyKpiControllerIntegrationTest {
         OffsetDateTime secondStart = at(metricDate, 10, 0);
         OffsetDateTime secondEnd = at(metricDate, 10, 30);
 
+        ExecutionUnit firstUnit = planningTestFixtures.saveExecutionUnit(userId, "핵심 작업 1");
         Timebox firstTimebox = timeboxRepository.save(Timebox.create(
                 userId,
-                "item-1",
-                "핵심 작업 1",
+                firstUnit,
                 TimeboxType.WORK,
                 firstStart,
                 firstEnd,
                 true,
                 firstStart.minusMinutes(10)
         ));
+        ExecutionUnit secondUnit = planningTestFixtures.saveExecutionUnit(userId, "핵심 작업 2");
         Timebox secondTimebox = timeboxRepository.save(Timebox.create(
                 userId,
-                "item-2",
-                "핵심 작업 2",
+                secondUnit,
                 TimeboxType.WORK,
                 secondStart,
                 secondEnd,

@@ -43,7 +43,9 @@ public class RecoverySessionService {
     @Transactional
     public RecoverySessionResponse startSession(String userId, String timeboxId) {
         timeboxService.getTimebox(userId, timeboxId);
-
+        // T. Timebox에 대한 세션이 지금 활성상태인지 아닌지에 대해 확인하고, 아닐 경우 복귀? 라고 해야하나
+        // A. 맞다. 다만 현재 로직은 특정 timebox별 활성 여부가 아니라 "사용자에게 진행 중인 복귀 세션이 하나라도 있는지"를 막는 전역 제약이다.
+        //    한 사용자가 동시에 여러 복귀 세션을 열지 못하게 해서 실행 기록과 KPI 집계가 중복되는 것을 방지한다.
         boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus(
                 userId,
                 RecoverySessionStatus.STARTED
@@ -111,8 +113,12 @@ public class RecoverySessionService {
      * 사용자 소유의 세션을 강하게(require) 조회한다.
      *
      * 없으면 null을 반환하지 않고 즉시 예외를 던져, 이후 상태 전이 메소드가 전제조건을 단순하게 유지할 수 있게 한다.
+     * Q. 강하게 조회한다라는 의미가 뭔지 ..?
+     * A. "반드시 존재해야 하는 값"으로 조회한다는 뜻이다. Optional/null로 넘기지 않고 여기서 바로 예외를 던져,
+     *    이후 complete/interrupt 같은 상태 전이 코드는 존재 여부 검사를 반복하지 않고 정상 세션만 다룰 수 있다.
      */
     private RecoverySession requireSession(String userId, String sessionId) {
+
         return recoverySessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,

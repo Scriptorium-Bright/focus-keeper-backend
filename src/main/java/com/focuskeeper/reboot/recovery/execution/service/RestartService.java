@@ -42,8 +42,14 @@ public class RestartService {
      */
     @Transactional
     public RestartRecoveryResult restart(String userId, String failureEventId) {
+        // 특정 Failure event 1건
         FailureEventResponse failureEvent = failureEventService.getFailureEvent(userId, failureEventId);
+
         RestartSuggestionResponse suggestion = restartSuggestionPolicy.suggest(failureEvent.reason());
+
+        // T. FailureEventService의 checkIn과 뭔 차이가 있나 생각을 했었는데, 쟤는 Session을 멈추는 거고 얘는 새로 시작하는거구나 ..
+        // A. 맞다. checkIn은 진행 중인 세션을 실패로 중단하고 failure event를 남기는 흐름이고,
+        //    restart는 그 failure event를 기준으로 다시 시작할 새 세션과 restart event를 남기는 흐름이다.
         RecoverySessionResponse recoverySession = recoverySessionService.startSession(userId, failureEvent.timeboxId());
         RestartEventResponse restartEvent = restartEventRepository.save(
                 RestartEvent.create(
@@ -60,6 +66,9 @@ public class RestartService {
 
     /**
      * 재시작 유스케이스가 만든 결과 묶음이다.
+     * Q. 얘도 Result
+     * A. 맞다. 외부 응답 DTO라기보다 restart 유스케이스 내부 결과 묶음이므로 Result라는 이름이 더 정확하다.
+     *    컨트롤러가 이 Result를 받아 API Response DTO로 변환하면 계층 의미가 더 분명해진다.
      */
     public record RestartRecoveryResult(
             RestartEventResponse restartEvent,

@@ -1,7 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Request;
 import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Response;
@@ -9,7 +8,6 @@ import com.focuskeeper.reboot.recovery.planning.service.Big3Service;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,16 +37,14 @@ public class Big3Controller {
     public ApiResponse<SelectBig3Response> selectBig3(
             @Valid @RequestBody SelectBig3Request request
     ) {
+
         Big3SelectionResponse selection = big3Service.selectTodayBig3(request.userId(), request.itemIds());
-        List<Big3ItemResponse> selectedItems = selection.selectedItems().stream()
-                .map(Big3ItemResponse::from)
-                .toList();
 
         SelectBig3Response response = new SelectBig3Response(
                 selection.selectedDate().toString(),
                 selection.selectedAt().toString(),
-                selectedItems.size(),
-                selectedItems
+                selection.selectedItems().size(),
+                selection.selectedItems()
         );
         return ApiResponse.success(response, "BIG3_SELECTED");
     }

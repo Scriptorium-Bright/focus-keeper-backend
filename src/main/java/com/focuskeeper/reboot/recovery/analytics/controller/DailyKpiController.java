@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController
-@RequestMapping("/api/v1/recovery/analytics")
+@RequestMapping("/api/v1/recovery/analytics/kpis")
 @Tag(name = "Analytics", description = "Recovery analytics and KPI APIs")
 /**
  * recovery analytics 하위 기능을 외부 API로 노출하는 진입점이다.
@@ -63,7 +63,7 @@ public class DailyKpiController {
     /**
      * 지정한 사용자와 날짜에 대해 일간 KPI 배치를 실행하고, 생성된 mart 결과를 즉시 조회해 반환한다.
      */
-    @PostMapping("/kpis/daily")
+    @PostMapping("/daily")
     @Operation(summary = "Generate daily KPI mart", description = "Runs the daily KPI pipeline and upserts the mart row for the given user and date.")
     public ApiResponse<DailyKpiResponse> generateDailyKpi(
             @Valid @RequestBody GenerateDailyKpiRequest request
@@ -77,7 +77,7 @@ public class DailyKpiController {
     /**
      * 이미 생성된 일간 KPI mart 행을 사용자와 날짜 기준으로 조회한다.
      */
-    @GetMapping("/kpis/daily")
+    @GetMapping("/daily")
     @Operation(summary = "Get daily KPI mart", description = "Returns the generated daily KPI mart row for the given user and date.")
     public ApiResponse<DailyKpiResponse> getDailyKpi(
             @RequestParam String userId,
@@ -90,7 +90,7 @@ public class DailyKpiController {
     /**
      * 일간 KPI 계산 결과에 연결된 데이터 품질 리포트를 조회한다.
      */
-    @GetMapping("/kpis/daily/quality")
+    @GetMapping("/daily/quality")
     @Operation(summary = "Get daily KPI data quality report", description = "Returns the latest data quality report for the generated daily KPI mart row.")
     public ApiResponse<DailyKpiQualityResponse> getDailyKpiQuality(
             @RequestParam String userId,
@@ -103,7 +103,7 @@ public class DailyKpiController {
     /**
      * 지정한 기간의 KPI mart를 다시 계산하고, 백필 결과와 최신 lastProcessedDate를 함께 반환한다.
      */
-    @PostMapping("/kpis/daily/backfill")
+    @PostMapping("/daily/backfill")
     @Operation(summary = "Backfill daily KPI mart", description = "Recomputes daily KPI mart rows for the given user and date range, and advances the pipeline lastProcessedDate.")
     public ApiResponse<BackfillDailyKpiResponse> backfillDailyKpi(
             @Valid @RequestBody BackfillDailyKpiRequest request
@@ -119,7 +119,7 @@ public class DailyKpiController {
     /**
      * 일간 KPI 파이프라인이 마지막으로 어디까지 처리했는지 lastProcessedDate를 조회한다.
      */
-    @GetMapping("/kpis/daily/last-processed-date")
+    @GetMapping("/daily/last-processed-date")
     @Operation(summary = "Get daily KPI pipeline last processed date", description = "Returns the latest processed date and update timestamp for the daily KPI pipeline.")
     public ApiResponse<DailyKpiLastProcessedDateResponse> getDailyKpiLastProcessedDate(@RequestParam String userId) {
         DailyKpiLastProcessedDateResponse response = dailyKpiLastProcessedDateService.get(userId);

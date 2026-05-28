@@ -34,10 +34,13 @@ public class InboxController {
     public ApiResponse<SaveInboxItemsResponse> saveInboxItems(
             @Valid @RequestBody SaveInboxItemsRequest request
     ) {
+
         List<String> contents = request.items().stream()
                 .map(InboxItemPayloadRequest::content)
-                .toList();
+                .toList(); // userId / Content 분리
+
         List<InboxItemResponse> savedItems = inboxService.saveItems(request.userId(), contents);
+        // 저장한 아이템들에 대한 list, 이런거에서 좀 혼선이 옴 SavedInboxItemResponse와 뭔 차이인지 .. 해서 통합할 필요가 있어보임 인데 의미를 나눌 수 있는거면 나누면 좋지만
 
         List<SavedInboxItemResponse> responseItems = savedItems.stream()
                 .map(item -> new SavedInboxItemResponse(item.id(), item.content(), item.createdAt()))
@@ -49,4 +52,6 @@ public class InboxController {
         );
         return ApiResponse.success(response, "INBOX_ITEMS_SAVED");
     }
+
+
 }
