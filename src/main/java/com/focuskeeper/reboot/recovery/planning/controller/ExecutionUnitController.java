@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Validated
 @RestController
 @RequestMapping("/api/v1/recovery/execution-units")
@@ -34,10 +36,10 @@ public class ExecutionUnitController {
 
     @PostMapping
     @Operation(summary = "Create execution unit", description = "Creates a concrete unit under a selected Big3 item.")
-    public ApiResponse<ExecutionUnitResponse> createUnit(
+    public ApiResponse<List<ExecutionUnitResponse>> createUnit(
             @Valid @RequestBody CreateExecutionUnitRequest request
     ) {
-        ExecutionUnitResponse response = executionUnitService.createUnit(
+        List<ExecutionUnitResponse> response = executionUnitService.createUnit(
                 request.userId(),
                 request.big3SelectionItemId(),
                 request.title()

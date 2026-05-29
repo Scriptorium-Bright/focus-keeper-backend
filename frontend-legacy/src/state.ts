@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AllocatedTimebox,
   BatchOverview,
@@ -15,7 +14,6 @@ import { todayIsoDate } from "./utils";
 export const storageKey = "rebootfocus-validation-context";
 
 export interface WorkflowState {
-  isLoaded: boolean;
   userId: string;
   metricDate: string;
   activeStage: number;
@@ -33,7 +31,6 @@ export interface WorkflowState {
 }
 
 export type WorkflowAction =
-  | { type: "contextLoaded"; userId: string; metricDate: string }
   | { type: "contextSaved"; userId: string; metricDate: string }
   | { type: "stageChanged"; stage: number }
   | { type: "inboxSaved"; items: SavedInboxItem[] }
@@ -53,10 +50,10 @@ export type WorkflowAction =
   | { type: "alertsLoaded"; alerts: OperationsAlert[] };
 
 export function createInitialWorkflowState(): WorkflowState {
+  const saved = readSavedContext();
   return {
-    isLoaded: false,
-    userId: "",
-    metricDate: "",
+    userId: saved.userId,
+    metricDate: saved.metricDate,
     activeStage: 0,
     alertsActiveOnly: true,
     inboxItems: [],
@@ -74,13 +71,6 @@ export function createInitialWorkflowState(): WorkflowState {
 
 export function workflowReducer(state: WorkflowState, action: WorkflowAction): WorkflowState {
   switch (action.type) {
-    case "contextLoaded":
-      return {
-        ...state,
-        isLoaded: true,
-        userId: action.userId,
-        metricDate: action.metricDate,
-      };
     case "contextSaved":
       return {
         ...state,
@@ -164,18 +154,13 @@ export function workflowReducer(state: WorkflowState, action: WorkflowAction): W
   }
 }
 
-export async function persistContext(userId: string, metricDate: string) {
-  try {
-    await AsyncStorage.setItem(storageKey, JSON.stringify({ userId, metricDate }));
-  } catch (e) {
-    console.error("Failed to save context to AsyncStorage", e);
-  }
+export function persistContext(userId: string, metricDate: string) {
+  window.localStorage.setItem(storageKey, JSON.stringify({ userId, metricDate }));
 }
 
-export async function readSavedContext() {
+function readSavedContext() {
   try {
-    const savedString = await AsyncStorage.getItem(storageKey);
-    const saved = JSON.parse(savedString ?? "{}") as Partial<{
+    const saved = JSON.parse(window.localStorage.getItem(storageKey) ?? "{}") as Partial<{
       userId: string;
       metricDate: string;
     }>;

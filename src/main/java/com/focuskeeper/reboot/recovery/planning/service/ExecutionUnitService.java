@@ -9,9 +9,13 @@ import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3SelectionItemRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import static com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse.toResponse;
 
 @Service
 @Transactional(readOnly = true)
@@ -32,7 +36,7 @@ public class ExecutionUnitService {
     }
 
     @Transactional
-    public ExecutionUnitResponse createUnit(String userId, String big3SelectionItemId, String title) {
+    public List<ExecutionUnitResponse> createUnit(String userId, String big3SelectionItemId, List<String> titles) {
         Big3SelectionItem big3SelectionItem = big3SelectionItemRepository
                 .findByIdAndSelection_UserId(big3SelectionItemId, userId)
                 .orElseThrow(() -> new BusinessException(
@@ -40,11 +44,18 @@ public class ExecutionUnitService {
                         Map.of("big3SelectionItemId", big3SelectionItemId)
                 ));
 
-        ExecutionUnit executionUnit = ExecutionUnit.create(big3SelectionItem, title, OffsetDateTime.now());
-        big3SelectionItem.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
-        big3SelectionItem.updateStatusFromUnits();
-        
-        return toResponse(executionUnit);
+        List<ExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
+        for (String title : titles) {
+            ExecutionUnit executionUnit = ExecutionUnit.create(big3SelectionItem, title, OffsetDateTime.now());
+            big3SelectionItem.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
+            big3SelectionItem.updateStatusFromUnits();
+            ExecutionUnitResponse response = toResponse(executionUnit);
+
+            executionUnitResponses.add(response);
+        }
+
+
+        return executionUnitResponses;
     }
 
     @Transactional
@@ -88,14 +99,5 @@ public class ExecutionUnitService {
                 ));
     }
 
-    private ExecutionUnitResponse toResponse(ExecutionUnit executionUnit) {
-        return new ExecutionUnitResponse(
-                executionUnit.getId(),
-                executionUnit.getBig3SelectionItemId(),
-                executionUnit.getTitle(),
-                executionUnit.getStatus().name(),
-                executionUnit.getCompletedAt() == null ? null : executionUnit.getCompletedAt().toString(),
-                executionUnit.getCreatedAt().toString()
-        );
-    }
+
 }

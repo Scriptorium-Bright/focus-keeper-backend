@@ -1,11 +1,6 @@
-import { useState } from "react";
-import type {
-  AllocatedTimebox,
-  ExecutionUnit,
-  FailureCheckInResponse,
-  FailureReason,
-  RecoverySession
-} from "../types";
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import type { AllocatedTimebox, ExecutionUnit, FailureCheckInResponse, FailureReason, RecoverySession } from '../types';
 
 interface ExecuteStageProps {
   active: boolean;
@@ -25,250 +20,167 @@ interface ExecuteStageProps {
 }
 
 const failureReasons: FailureReason[] = [
-  "TOO_BIG",
-  "INTERRUPTION",
-  "LOW_ENERGY",
-  "UNCLEAR_NEXT_ACTION",
-  "CONTEXT_SWITCHED"
+  "TOO_BIG", "INTERRUPTION", "LOW_ENERGY", "UNCLEAR_NEXT_ACTION", "CONTEXT_SWITCHED"
 ];
 
-export function ExecuteStage({
-  active,
-  timeboxes,
-  executionUnits,
-  activeSession,
-  latestFailure,
-  latestFailureEventId,
-  pendingAction,
-  onStartSession,
-  onCompleteSession,
-  onCompleteExecutionUnit,
-  onInterruptSession,
-  onCheckInFailure,
-  onRestart,
-  onStageChange
-}: ExecuteStageProps) {
+export function ExecuteStage(props: ExecuteStageProps) {
+  const { active, timeboxes, executionUnits, activeSession, latestFailure, latestFailureEventId, pendingAction, onStartSession, onCompleteSession, onCompleteExecutionUnit, onInterruptSession, onCheckInFailure, onRestart, onStageChange } = props;
   const [reason, setReason] = useState<FailureReason>("TOO_BIG");
   const [note, setNote] = useState("");
 
+  if (!active) return null;
+
   return (
-    <section className={`stage-panel ${active ? "is-active" : ""}`}>
-      <section className="stage-intro reveal">
-        <p className="eyebrow">03 EXECUTE</p>
-        <h2>실패를 숨기지 않고 바로 기록한 뒤, 가장 짧은 재시작 경로를 확인합니다.</h2>
-        <p className="section-note">세션 제어와 실패 체크인을 분리해 실제 앱처럼 더 명확하게 보이도록 구성했습니다.</p>
-      </section>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.stageIntro}>
+        <Text style={styles.eyebrow}>03 EXECUTE</Text>
+        <Text style={styles.h2}>실패를 숨기지 않고 바로 기록한 뒤, 가장 짧은 재시작 경로를 확인합니다.</Text>
+      </View>
 
-      <div className="execution-grid">
-        <article className="flow-card reveal">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">SESSION</p>
-              <h2>세션 제어</h2>
-            </div>
-            <p className="section-note">타임박스를 시작하고 완료 또는 중단 상태로 바꿉니다.</p>
-          </div>
-          <div className="console-panel">
-            <SessionState session={activeSession} />
-            <TimeboxActions
-              timeboxes={timeboxes}
-              disabled={pendingAction === "session"}
-              onStartSession={onStartSession}
-            />
-            <div className="action-row">
-              <button
-                className="secondary-button"
-                type="button"
-                disabled={pendingAction === "session"}
-                onClick={() => void onCompleteSession()}
-              >
-                세션 완료
-              </button>
-              <button
-                className="ghost-button"
-                type="button"
-                disabled={pendingAction === "session"}
-                onClick={() => void onInterruptSession()}
-              >
-                세션 중단
-              </button>
-            </div>
-          </div>
-        </article>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>세션 제어</Text>
+        <Text style={styles.note}>타임박스를 시작하고 완료 또는 중단 상태로 바꿉니다.</Text>
+        
+        <View style={styles.sessionStateCard}>
+          {activeSession ? (
+            <View>
+              <Text style={styles.sessionStatus}>{activeSession.status}</Text>
+              <Text style={styles.sessionMeta}>sessionId: {activeSession.sessionId}</Text>
+              <Text style={styles.sessionMeta}>timeboxId: {activeSession.timeboxId}</Text>
+            </View>
+          ) : (
+            <Text style={styles.emptyState}>아직 시작된 세션이 없습니다.</Text>
+          )}
+        </View>
 
-        <article className="flow-card reveal">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">UNIT COMPLETE</p>
-              <h2>실행 단위 완료</h2>
-            </div>
-            <p className="section-note">세션 완료와 별개로 실제 작업 완료를 명시합니다.</p>
-          </div>
-          <ExecutionUnitActions
-            units={executionUnits}
-            disabled={pendingAction === "executionUnitCompletion"}
-            onCompleteExecutionUnit={onCompleteExecutionUnit}
-          />
-        </article>
+        <View style={styles.timeboxList}>
+          {timeboxes.length === 0 ? <Text style={styles.emptyState}>타임박스 할당 후 시작 버튼이 보입니다.</Text> : (
+            timeboxes.map(timebox => (
+              <TouchableOpacity key={timebox.timeboxId} style={styles.ghostButton} disabled={pendingAction === "session"} onPress={() => onStartSession(timebox.timeboxId)}>
+                <Text style={styles.ghostButtonText}>{timebox.content}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
 
-        <article className="flow-card reveal">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">FAILURE &amp; RESTART</p>
-              <h2>실패 기록과 재시작</h2>
-            </div>
-            <p className="section-note">중단 이유를 남기고 바로 10분 재시작을 만들어볼 수 있습니다.</p>
-          </div>
-          <form
-            className="stack-form compact-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              await onCheckInFailure(reason, note);
-            }}
-          >
-            <label>
-              <span>실패 이유</span>
-              <select value={reason} onChange={(event) => setReason(event.target.value as FailureReason)}>
-                {failureReasons.map((failureReason) => (
-                  <option value={failureReason} key={failureReason}>
-                    {failureReason}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>메모</span>
-              <textarea
-                rows={4}
-                placeholder="왜 끊겼는지 간단히 남겨보세요."
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-              />
-            </label>
-            <div className="action-row">
-              <button className="secondary-button" type="submit" disabled={pendingAction === "failure"}>
-                실패 체크인
-              </button>
-              <button
-                className="primary-button"
-                type="button"
-                disabled={!latestFailureEventId || pendingAction === "restart"}
-                onClick={() => void onRestart()}
-              >
-                10분 재시작
-              </button>
-            </div>
-          </form>
-          <FailureResult failure={latestFailure} />
-        </article>
-      </div>
+        <View style={styles.row}>
+          <TouchableOpacity style={[styles.secondaryButton, {flex: 1}]} disabled={pendingAction === "session"} onPress={onCompleteSession}>
+            <Text style={styles.secondaryButtonText}>세션 완료</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.ghostButton, {flex: 1}]} disabled={pendingAction === "session"} onPress={onInterruptSession}>
+            <Text style={styles.ghostButtonText}>세션 중단</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      <div className="stage-footer">
-        <button className="ghost-button" type="button" onClick={() => onStageChange(1)}>
-          이전 단계
-        </button>
-        <button className="primary-button" type="button" onClick={() => onStageChange(3)}>
-          인사이트 보기
-        </button>
-      </div>
-    </section>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>실행 단위 완료</Text>
+        <Text style={styles.note}>실제 작업 완료를 명시합니다.</Text>
+        
+        {executionUnits.length === 0 ? <Text style={styles.emptyState}>실행 단위 생성 후 보입니다.</Text> : (
+          <View style={{ gap: 8 }}>
+            {executionUnits.map(unit => {
+              const completed = unit.status === "COMPLETED";
+              return (
+                <View key={unit.executionUnitId} style={styles.unitRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.unitTitle}>{unit.title}</Text>
+                    <Text style={styles.unitMeta}>{unit.status ?? "PLANNED"}</Text>
+                  </View>
+                  <TouchableOpacity style={completed ? styles.ghostButton : styles.secondaryButton} disabled={pendingAction === "executionUnitCompletion" || completed} onPress={() => onCompleteExecutionUnit(unit.executionUnitId)}>
+                    <Text style={completed ? styles.ghostButtonText : styles.secondaryButtonText}>{completed ? "완료됨" : "Unit 완료"}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>실패 기록과 재시작</Text>
+        
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>실패 이유</Text>
+          <View style={styles.reasonRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {failureReasons.map(r => (
+                <TouchableOpacity key={r} style={[styles.tagBtn, reason === r && styles.tagActive]} onPress={() => setReason(r)}>
+                  <Text style={[styles.tagText, reason === r && styles.textActive]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+          
+          <Text style={styles.label}>메모</Text>
+          <TextInput style={styles.textArea} multiline numberOfLines={3} placeholder="왜 끊겼는지 남겨보세요." value={note} onChangeText={setNote} />
+          
+          <View style={styles.row}>
+            <TouchableOpacity style={[styles.secondaryButton, {flex: 1}]} disabled={pendingAction === "failure"} onPress={() => onCheckInFailure(reason, note)}>
+              <Text style={styles.secondaryButtonText}>실패 체크인</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.primaryButton, {flex: 1, marginVertical: 0}]} disabled={!latestFailureEventId || pendingAction === "restart"} onPress={onRestart}>
+              <Text style={styles.primaryButtonText}>10분 재시작</Text>
+            </TouchableOpacity>
+          </View>
+
+          {latestFailure && (
+            <View style={styles.failureAlert}>
+              <Text style={styles.alertReason}>{latestFailure.reason}</Text>
+              <Text style={styles.alertNote}>{latestFailure.note || "메모 없음"}</Text>
+              <Text style={styles.alertMeta}>id: {latestFailure.failureEventId}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.ghostButton} onPress={() => onStageChange(1)}>
+          <Text style={styles.ghostButtonText}>이전 단계</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => onStageChange(3)}>
+          <Text style={styles.primaryButtonText}>인사이트 보기</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
-function ExecutionUnitActions({
-  units,
-  disabled,
-  onCompleteExecutionUnit
-}: {
-  units: ExecutionUnit[];
-  disabled: boolean;
-  onCompleteExecutionUnit: (executionUnitId: string) => Promise<void>;
-}) {
-  if (units.length === 0) {
-    return <div className="result-list empty-state">실행 단위 생성 후 완료 버튼이 보입니다.</div>;
-  }
-
-  return (
-    <div className="result-list item-list">
-      {units.map((unit) => {
-        const completed = unit.status === "COMPLETED";
-        return (
-          <div className="item-row" key={unit.executionUnitId}>
-            <div>
-              <div>{unit.title}</div>
-              <small className="meta-kicker">{unit.status ?? "PLANNED"}</small>
-            </div>
-            <button
-              className={completed ? "ghost-button" : "secondary-button"}
-              type="button"
-              disabled={disabled || completed}
-              onClick={() => void onCompleteExecutionUnit(unit.executionUnitId)}
-            >
-              {completed ? "완료됨" : "Unit 완료"}
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SessionState({ session }: { session: RecoverySession | null }) {
-  if (!session) {
-    return <div className="status-card empty-state">아직 시작된 세션이 없습니다.</div>;
-  }
-
-  return (
-    <div className="status-card">
-      <strong>{session.status}</strong>
-      <div className="meta-kicker">sessionId: {session.sessionId}</div>
-      <div className="meta-kicker">timeboxId: {session.timeboxId}</div>
-    </div>
-  );
-}
-
-function TimeboxActions({
-  timeboxes,
-  disabled,
-  onStartSession
-}: {
-  timeboxes: AllocatedTimebox[];
-  disabled: boolean;
-  onStartSession: (timeboxId: string) => Promise<void>;
-}) {
-  if (timeboxes.length === 0) {
-    return <div className="chip-list empty-state">타임박스 할당 후 시작 버튼이 보입니다.</div>;
-  }
-
-  return (
-    <div className="chip-list">
-      {timeboxes.map((timebox) => (
-        <button
-          className="ghost-button"
-          type="button"
-          key={timebox.timeboxId}
-          disabled={disabled}
-          onClick={() => void onStartSession(timebox.timeboxId)}
-        >
-          {timebox.content}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FailureResult({ failure }: { failure: FailureCheckInResponse | null }) {
-  if (!failure) {
-    return <div className="result-list empty-state">실패 이벤트와 재시작 결과가 여기에 표시됩니다.</div>;
-  }
-
-  return (
-    <div className="result-list alert-list">
-      <div className="alert-row">
-        <strong>{failure.reason}</strong>
-        <div>{failure.note || "메모 없음"}</div>
-        <small className="meta-kicker">failureEventId: {failure.failureEventId}</small>
-      </div>
-    </div>
-  );
-}
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f9f9f9' },
+  content: { padding: 16, paddingBottom: 40 },
+  stageIntro: { marginBottom: 16 },
+  eyebrow: { fontSize: 12, fontWeight: 'bold', color: '#666', marginBottom: 4 },
+  h2: { fontSize: 18, fontWeight: 'bold', color: '#111' },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+  note: { fontSize: 12, color: '#666', marginBottom: 12 },
+  emptyState: { padding: 20, textAlign: 'center', color: '#999', backgroundColor: '#f9f9f9', borderRadius: 8 },
+  sessionStateCard: { padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, marginBottom: 12 },
+  sessionStatus: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
+  sessionMeta: { fontSize: 12, color: '#666' },
+  timeboxList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  row: { flexDirection: 'row', gap: 8 },
+  primaryButton: { backgroundColor: '#111', padding: 14, borderRadius: 8, alignItems: 'center', marginVertical: 8 },
+  primaryButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  secondaryButton: { backgroundColor: '#eee', padding: 14, borderRadius: 8, alignItems: 'center' },
+  secondaryButtonText: { color: '#111', fontWeight: 'bold', fontSize: 16 },
+  ghostButton: { padding: 14, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#ccc' },
+  ghostButtonText: { color: '#333', fontWeight: 'bold', fontSize: 16 },
+  unitRow: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8 },
+  unitTitle: { fontSize: 14, fontWeight: 'bold' },
+  unitMeta: { fontSize: 12, color: '#666' },
+  formGroup: { gap: 12 },
+  label: { fontSize: 14, fontWeight: 'bold' },
+  reasonRow: { marginBottom: 8 },
+  tagBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#eee' },
+  tagActive: { backgroundColor: '#111' },
+  tagText: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+  textActive: { color: '#fff' },
+  textArea: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
+  failureAlert: { marginTop: 12, padding: 12, backgroundColor: '#ffeaea', borderRadius: 8, borderWidth: 1, borderColor: '#ffcaca' },
+  alertReason: { fontSize: 14, fontWeight: 'bold', color: '#d32f2f' },
+  alertNote: { fontSize: 13, color: '#d32f2f', marginVertical: 4 },
+  alertMeta: { fontSize: 11, color: '#d32f2f', opacity: 0.8 },
+  footer: { marginTop: 16, gap: 8 }
+});

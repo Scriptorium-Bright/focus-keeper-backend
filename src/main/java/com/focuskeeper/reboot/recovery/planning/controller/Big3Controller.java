@@ -44,7 +44,8 @@ public class Big3Controller {
                 selection.selectedDate().toString(),
                 selection.selectedAt().toString(),
                 selection.selectedItems().size(),
-                selection.selectedItems()
+                selection.selectedItems(),
+                selection.status()
         );
         return ApiResponse.success(response, "BIG3_SELECTED");
     }
