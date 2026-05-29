@@ -19,4 +19,9 @@ public interface ExecutionUnitRepository extends JpaRepository<ExecutionUnit, St
     );
 
     Optional<ExecutionUnit> findByIdAndBig3SelectionItem_Selection_UserId(String id, String userId);
+
+    List<ExecutionUnit> findAllByBig3SelectionItem_IdAndBig3SelectionItem_Selection_UserIdOrderByCreatedAtAsc(
+            String big3SelectionItemId,
+            String userId
+    );
 }

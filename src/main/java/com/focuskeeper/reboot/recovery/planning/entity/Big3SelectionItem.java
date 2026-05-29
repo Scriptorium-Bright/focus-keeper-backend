@@ -25,6 +25,7 @@ import java.util.UUID;
 public class Big3SelectionItem {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -50,12 +51,10 @@ public class Big3SelectionItem {
     }
 
     private Big3SelectionItem(
-            String id,
             Big3Selection selection,
             InboxItem inboxItem,
             int sortOrder
     ) {
-        this.id = id;
         this.selection = selection;
         this.inboxItem = inboxItem;
         this.sortOrder = sortOrder;
@@ -70,7 +69,7 @@ public class Big3SelectionItem {
             InboxItem inboxItem,
             int sortOrder
     ) {
-        return new Big3SelectionItem(UUID.randomUUID().toString(), selection, inboxItem, sortOrder);
+        return new Big3SelectionItem(selection, inboxItem, sortOrder);
     }
 
     /**

@@ -4,10 +4,8 @@ import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
 import java.time.OffsetDateTime;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,15 +29,18 @@ public class InboxService {
 
     @Transactional
     public List<InboxItemResponse> saveItems(String userId, List<String> contents) {
-        return contents.stream()
+
+        List<InboxItem> inboxItemList = contents.stream()
                 .map(content -> InboxItem.create(userId, content, OffsetDateTime.now()))
-                .map(inboxItemRepository::save)
-                .map(InboxItem::toResponse)
-                .toList();
+                .collect(Collectors.toList());
+
+        List<InboxItem> saveList = inboxItemRepository.saveAll(inboxItemList);
+
+        return InboxItemResponse.from(saveList);
     }
 
 
-    public List<InboxItemResponse> findItemsByIds(String userId, List<String> itemIds) {
+/*    public List<InboxItemResponse> findItemsByIds(String userId, List<String> itemIds) {
         Map<String, InboxItemResponse> indexedItems = new LinkedHashMap<>();
         inboxItemRepository.findAllByUserIdAndIdIn(userId, itemIds).stream()
                 .map(InboxItem::toResponse)
@@ -49,5 +50,5 @@ public class InboxService {
                 .map(indexedItems::get)
                 .filter(Objects::nonNull)
                 .toList();
-    }
+    }*/
 }

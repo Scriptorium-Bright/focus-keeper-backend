@@ -2,16 +2,9 @@ package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Getter;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -23,12 +16,14 @@ import java.util.UUID;
                 @Index(name = "idx_recovery_timeboxes_execution_unit", columnList = "execution_unit_id")
         }
 )
+@Getter
 /**
  * Big3 항목을 실제 수행 시간 구간으로 옮긴 recovery timebox 엔티티다.
  */
 public class Timebox {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -62,7 +57,6 @@ public class Timebox {
     }
 
     private Timebox(
-            String id,
             String userId,
             ExecutionUnit executionUnit,
             String itemContent,
@@ -72,7 +66,6 @@ public class Timebox {
             boolean firstRecoveryBlock,
             OffsetDateTime createdAt
     ) {
-        this.id = id;
         this.userId = userId;
         this.executionUnit = executionUnit;
         this.itemContent = itemContent;
@@ -96,7 +89,6 @@ public class Timebox {
             OffsetDateTime createdAt
     ) {
         return new Timebox(
-                UUID.randomUUID().toString(),
                 userId,
                 executionUnit,
                 executionUnit.getTitle(),
@@ -124,31 +116,4 @@ public class Timebox {
         );
     }
 
-    /**
-     * timebox 식별자를 반환한다.
-     */
-    public String getId() {
-        return id;
-    }
-
-    /**
-     * timebox 시작 시각을 반환한다.
-     */
-    public OffsetDateTime getStartAt() {
-        return startAt;
-    }
-
-    /**
-     * timebox 종료 시각을 반환한다.
-     */
-    public OffsetDateTime getEndAt() {
-        return endAt;
-    }
-
-    /**
-     * timebox 유형(WORK/BREAK)을 반환한다.
-     */
-    public TimeboxType getType() {
-        return type;
-    }
 }

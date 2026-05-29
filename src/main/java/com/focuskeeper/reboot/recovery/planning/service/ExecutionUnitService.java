@@ -81,6 +81,12 @@ public class ExecutionUnitService {
         return toResponse(executionUnitRepository.save(executionUnit));
     }
 
+    public List<ExecutionUnitResponse> getExecutionUnits(String userId, String big3SelectionItemId) {
+        return executionUnitRepository.findAllByBig3SelectionItem_IdAndBig3SelectionItem_Selection_UserIdOrderByCreatedAtAsc(
+                big3SelectionItemId, userId
+        ).stream().map(ExecutionUnitResponse::toResponse).toList();
+    }
+
     @Transactional
     public ExecutionUnitResponse completeUnit(String userId, String executionUnitId) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);

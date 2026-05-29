@@ -26,6 +26,7 @@ import java.util.UUID;
 public class Big3Selection {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -45,8 +46,7 @@ public class Big3Selection {
 
     }
 
-    private Big3Selection(String id, String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
-        this.id = id;
+    private Big3Selection(String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
         this.userId = userId;
         this.selectedDate = selectedDate;
         this.selectedAt = selectedAt;
@@ -56,7 +56,7 @@ public class Big3Selection {
      * 오늘의 Big3 선택 헤더를 새로 만든다.
      */
     public static Big3Selection create(String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
-        return new Big3Selection(UUID.randomUUID().toString(), userId, selectedDate, selectedAt);
+        return new Big3Selection(userId, selectedDate, selectedAt);
     }
 
     /**
