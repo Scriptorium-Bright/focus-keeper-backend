@@ -44,7 +44,22 @@ public class ExecutionUnitService {
                         Map.of("big3SelectionItemId", big3SelectionItemId)
                 ));
 
+        int currentCount = big3SelectionItem.getUnits().size();
+        int newCount = titles.size();
+
+        if (currentCount + newCount > 3) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of("titles", "ExecutionUnit 아이템은 총 3개까지만 생성할 수 있습니다. (현재 " + currentCount + "개 존재)")
+            );
+        }
+
+        return insertExecutionUnit(titles, big3SelectionItem);
+    }
+
+    private List<ExecutionUnitResponse> insertExecutionUnit(List<String> titles, Big3SelectionItem big3SelectionItem) {
         List<ExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
+
         for (String title : titles) {
             ExecutionUnit executionUnit = ExecutionUnit.create(big3SelectionItem, title, OffsetDateTime.now());
             big3SelectionItem.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
@@ -53,7 +68,6 @@ public class ExecutionUnitService {
 
             executionUnitResponses.add(response);
         }
-
 
         return executionUnitResponses;
     }
