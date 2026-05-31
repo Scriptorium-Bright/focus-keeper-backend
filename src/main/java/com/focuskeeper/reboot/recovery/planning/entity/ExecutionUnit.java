@@ -1,15 +1,9 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Getter;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -20,14 +14,18 @@ import java.util.UUID;
  */
 public class ExecutionUnit {
 
+    @Getter
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
+    @Getter
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "big3_selection_item_id", nullable = false)
     private Big3SelectionItem big3SelectionItem;
 
+    @Getter
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
@@ -35,9 +33,11 @@ public class ExecutionUnit {
     @Column(name = "status", nullable = false, length = 20)
     private ExecutionUnitStatus status;
 
+    @Getter
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
 
+    @Getter
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -45,14 +45,12 @@ public class ExecutionUnit {
     }
 
     private ExecutionUnit(
-            String id,
             Big3SelectionItem big3SelectionItem,
             String title,
             ExecutionUnitStatus status,
             OffsetDateTime completedAt,
             OffsetDateTime createdAt
     ) {
-        this.id = id;
         this.big3SelectionItem = big3SelectionItem;
         this.title = title;
         this.status = status;
@@ -62,7 +60,6 @@ public class ExecutionUnit {
 
     public static ExecutionUnit create(Big3SelectionItem big3SelectionItem, String title, OffsetDateTime createdAt) {
         return new ExecutionUnit(
-                UUID.randomUUID().toString(),
                 big3SelectionItem,
                 title,
                 ExecutionUnitStatus.PLANNED,
@@ -80,31 +77,12 @@ public class ExecutionUnit {
         this.completedAt = completedAt;
     }
 
-    public String getId() {
-        return id;
-    }
-
     public String getBig3SelectionItemId() {
         return big3SelectionItem.getId();
-    }
-
-    public Big3SelectionItem getBig3SelectionItem() {
-        return big3SelectionItem;
-    }
-
-    public String getTitle() {
-        return title;
     }
 
     public ExecutionUnitStatus getStatus() {
         return status == null ? ExecutionUnitStatus.PLANNED : status;
     }
 
-    public OffsetDateTime getCompletedAt() {
-        return completedAt;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
 }

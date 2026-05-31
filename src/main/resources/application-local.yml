@@ -4,14 +4,23 @@ spring:
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:rebootfocus}
     password: ${DB_PASSWORD:rebootfocus}
-  jpa:
-    hibernate:
-      ddl-auto: update
+    hikari:
+      maximum-pool-size: 15
+
   batch:
     job:
       enabled: false
-    jdbc:
-      initialize-schema: always
+
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 15
+        order_inserts: true
+        order_updates: true
+
 
 logging:
   level:

@@ -4,18 +4,13 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
-import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
-import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
-import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Selection;
-import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3SelectionRepository;
-import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
+
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,8 +77,8 @@ public class Big3Service {
                 .orElseGet(() -> Big3Selection.create(userId, selectedDate, selectedAt));
 
         selection.replaceItems(selectedItems, selectedAt); // 이 부분은 조금 이해가 안 감 -> › big3를 이미 고른 상태여도 다시 선택할 수 있으니까 replace
-
-        return big3SelectionRepository.save(selection).toResponse();
+        Big3Selection saveSelection = big3SelectionRepository.save(selection);
+        return Big3SelectionResponse.from(saveSelection);
     }
 
     /**
@@ -91,7 +86,7 @@ public class Big3Service {
      */
     public Big3SelectionResponse getTodayBig3(String userId) {
         return big3SelectionRepository.findByUserIdAndSelectedDate(userId, LocalDate.now())
-                .map(Big3Selection::toResponse)
+                .map(Big3SelectionResponse::from)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of(

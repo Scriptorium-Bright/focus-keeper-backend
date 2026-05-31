@@ -10,4 +10,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface Big3SelectionItemRepository extends JpaRepository<Big3SelectionItem, String> {
 
     Optional<Big3SelectionItem> findByIdAndSelection_UserId(String id, String userId);
+
+    Long countBig3SelectionItemById(String id);
+
+
 }

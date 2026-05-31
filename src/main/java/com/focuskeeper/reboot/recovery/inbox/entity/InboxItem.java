@@ -1,19 +1,19 @@
 package com.focuskeeper.reboot.recovery.inbox.entity;
 
 import com.focuskeeper.reboot.recovery.inbox.dto.InboxItemResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Getter;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+@Getter
 @Entity
 @Table(name = "inbox_items")
 public class InboxItem {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -29,34 +29,18 @@ public class InboxItem {
     protected InboxItem() {
     }
 
-    private InboxItem(String id, String userId, String content, OffsetDateTime createdAt) {
-        this.id = id;
+    private InboxItem(String userId, String content, OffsetDateTime createdAt) {
         this.userId = userId;
         this.content = content;
         this.createdAt = createdAt;
     }
 
     public static InboxItem create(String userId, String content, OffsetDateTime createdAt) {
-        return new InboxItem(UUID.randomUUID().toString(), userId, content, createdAt);
+        return new InboxItem(userId, content, createdAt);
     }
 
-    public InboxItemResponse toResponse() {
+/*    public InboxItemResponse toResponse() {
         return new InboxItemResponse(id, content, createdAt.toString());
-    }
+    }*/
 
-    public String getId() {
-        return id;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
 }

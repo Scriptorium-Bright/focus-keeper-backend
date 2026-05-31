@@ -5,6 +5,7 @@ import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,12 +18,14 @@ import java.util.UUID;
                 @UniqueConstraint(name = "uk_big3_selection_items_order", columnNames = {"selection_id", "sort_order"})
         }
 )
+@Getter
 /**
  * Big3Selection의 개별 선택 항목을 나타내는 자식 엔티티다.
  */
 public class Big3SelectionItem {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -48,12 +51,10 @@ public class Big3SelectionItem {
     }
 
     private Big3SelectionItem(
-            String id,
             Big3Selection selection,
             InboxItem inboxItem,
             int sortOrder
     ) {
-        this.id = id;
         this.selection = selection;
         this.inboxItem = inboxItem;
         this.sortOrder = sortOrder;
@@ -68,7 +69,7 @@ public class Big3SelectionItem {
             InboxItem inboxItem,
             int sortOrder
     ) {
-        return new Big3SelectionItem(UUID.randomUUID().toString(), selection, inboxItem, sortOrder);
+        return new Big3SelectionItem(selection, inboxItem, sortOrder);
     }
 
     /**
@@ -96,24 +97,7 @@ public class Big3SelectionItem {
                 .allMatch(unit -> unit.getStatus() == ExecutionUnitStatus.COMPLETED);
 
         this.status = allCompleted ? Big3ItemCompletionStatus.COMPLETED : Big3ItemCompletionStatus.IN_PROGRESS;
+
     }
 
-
-    /**
-     * Big3 선택 항목 식별자를 반환한다.
-     */
-    public String getId() {
-        return id;
-    }
-
-    /**
-     * Big3 안에서의 정렬 순서를 반환한다.
-     */
-    public int getSortOrder() {
-        return sortOrder;
-    }
-
-    public List<ExecutionUnit> getUnits() {
-        return units;
-    }
 }

@@ -1,13 +1,7 @@
-import { useEffect, useState } from "react";
-import type {
-  AllocateTimeboxPayload,
-  Big3Item,
-  CreateExecutionUnitPayload,
-  ExecutionUnit,
-  SavedInboxItem,
-  TimeboxType
-} from "../types";
-import { defaultLocalSlot, formatTimeRange, toIso } from "../utils";
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import type { AllocateTimeboxPayload, Big3Item, CreateExecutionUnitPayload, ExecutionUnit, SavedInboxItem, TimeboxType } from '../types';
+import { defaultLocalSlot, formatTimeRange, toIso } from '../utils';
 
 interface PlanStageProps {
   active: boolean;
@@ -15,34 +9,13 @@ interface PlanStageProps {
   inboxItems: SavedInboxItem[];
   big3Items: Big3Item[];
   executionUnits: ExecutionUnit[];
-  timeboxes: Array<{
-    timeboxId: string;
-    executionUnitId: string;
-    content: string;
-    startAt: string;
-    endAt: string;
-    firstRecoveryBlock: boolean;
-    type: TimeboxType;
-  }>;
+  timeboxes: Array<{ timeboxId: string; executionUnitId: string; content: string; startAt: string; endAt: string; firstRecoveryBlock: boolean; type: TimeboxType; }>;
   pendingAction: string | null;
   onSaveInbox: (contents: string[]) => Promise<boolean>;
   onSelectBig3: (itemIds: string[]) => Promise<boolean>;
   onCreateExecutionUnits: (payload: CreateExecutionUnitPayload[]) => Promise<boolean>;
   onAllocateTimeboxes: (payload: AllocateTimeboxPayload[]) => Promise<boolean>;
   onStageChange: (stage: number) => void;
-}
-
-interface ExecutionUnitDraft {
-  big3SelectionItemId: string;
-  title: string;
-}
-
-interface TimeboxDraft {
-  executionUnitId: string;
-  startAt: string;
-  endAt: string;
-  firstRecoveryBlock: boolean;
-  type: TimeboxType;
 }
 
 type PlanStep = "inbox" | "big3" | "unit" | "timebox";
@@ -54,565 +27,237 @@ const planSteps: Array<{ id: PlanStep; title: string; description: string }> = [
   { id: "timebox", title: "Timebox", description: "실행 블록 배정" }
 ];
 
-export function PlanStage({
-  active,
-  metricDate,
-  inboxItems,
-  big3Items,
-  executionUnits,
-  timeboxes,
-  pendingAction,
-  onSaveInbox,
-  onSelectBig3,
-  onCreateExecutionUnits,
-  onAllocateTimeboxes,
-  onStageChange
-}: PlanStageProps) {
+export function PlanStage(props: PlanStageProps) {
+  const { active, metricDate, inboxItems, big3Items, executionUnits, timeboxes, pendingAction, onSaveInbox, onSelectBig3, onCreateExecutionUnits, onAllocateTimeboxes, onStageChange } = props;
   const [inboxText, setInboxText] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [unitDrafts, setUnitDrafts] = useState<ExecutionUnitDraft[]>([]);
-  const [timeboxDrafts, setTimeboxDrafts] = useState<TimeboxDraft[]>([]);
+  const [unitDrafts, setUnitDrafts] = useState<any[]>([]);
+  const [timeboxDrafts, setTimeboxDrafts] = useState<any[]>([]);
   const [activePlanStep, setActivePlanStep] = useState<PlanStep>("inbox");
 
   useEffect(() => {
-    setSelectedIds((current) =>
-      current.filter((itemId) => inboxItems.some((item) => item.id === itemId)).slice(0, 3)
-    );
+    setSelectedIds(current => current.filter(itemId => inboxItems.some(item => item.id === itemId)).slice(0, 3));
   }, [inboxItems]);
 
   useEffect(() => {
-    setUnitDrafts((current) =>
-      big3Items.map((item) => {
-        const existing = current.find(
-          (draft) => draft.big3SelectionItemId === item.big3SelectionItemId
-        );
-        return (
-          existing ?? {
-            big3SelectionItemId: item.big3SelectionItemId,
-            title: item.content
-          }
-        );
-      })
-    );
+    setUnitDrafts(current => big3Items.map(item => {
+      const existing = current.find(d => d.big3SelectionItemId === item.big3SelectionItemId);
+      return existing ?? { big3SelectionItemId: item.big3SelectionItemId, title: item.content };
+    }));
   }, [big3Items]);
 
   useEffect(() => {
-    setTimeboxDrafts((current) =>
-      executionUnits.map((unit, index) => {
-        const existing = current.find((draft) => draft.executionUnitId === unit.executionUnitId);
-        const defaults = defaultLocalSlot(metricDate, index);
-        return (
-          existing ?? {
-            executionUnitId: unit.executionUnitId,
-            startAt: defaults.start,
-            endAt: defaults.end,
-            firstRecoveryBlock: index === 0,
-            type: "WORK"
-          }
-        );
-      })
-    );
+    setTimeboxDrafts(current => executionUnits.map((unit, index) => {
+      const existing = current.find(d => d.executionUnitId === unit.executionUnitId);
+      const defaults = defaultLocalSlot(metricDate, index);
+      return existing ?? { executionUnitId: unit.executionUnitId, startAt: defaults.start, endAt: defaults.end, firstRecoveryBlock: index === 0, type: "WORK" };
+    }));
   }, [executionUnits, metricDate]);
 
-  const inboxContents = inboxText
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 20);
+  if (!active) return null;
+
+  const inboxContents = inboxText.split("\n").map(i => i.trim()).filter(Boolean).slice(0, 20);
 
   return (
-    <section className={`stage-panel ${active ? "is-active" : ""}`}>
-      <section className="stage-intro reveal">
-        <p className="eyebrow">02 PLAN</p>
-        <h2>복귀를 위한 최소 계획만 남기고 바로 실행 가능한 상태로 만듭니다.</h2>
-        <p className="section-note">
-          긴 계획표 대신 Inbox, Big 3, 실행 단위, 타임박스 흐름만 유지합니다.
-        </p>
-      </section>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.stageIntro}>
+        <Text style={styles.eyebrow}>02 PLAN</Text>
+        <Text style={styles.h2}>복귀를 위한 최소 계획만 남기고 바로 실행 가능한 상태로 만듭니다.</Text>
+      </View>
 
-      <div className="step-tabs" aria-label="계획 세부 단계">
-        {planSteps.map((step, index) => (
-          <button
-            className={`step-tab ${activePlanStep === step.id ? "is-active" : ""}`}
-            type="button"
-            key={step.id}
-            onClick={() => setActivePlanStep(step.id)}
-          >
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            <strong>{step.title}</strong>
-            <small>{step.description}</small>
-          </button>
-        ))}
-      </div>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stepTabs}>
+        {planSteps.map((step, index) => {
+          const isActive = activePlanStep === step.id;
+          return (
+            <TouchableOpacity key={step.id} style={[styles.stepTab, isActive && styles.stepTabActive]} onPress={() => setActivePlanStep(step.id)}>
+              <Text style={[styles.stepTabIndex, isActive && styles.textActive]}>{String(index + 1).padStart(2, "0")}</Text>
+              <View>
+                <Text style={[styles.stepTabTitle, isActive && styles.textActive]}>{step.title}</Text>
+                <Text style={[styles.stepTabDesc, isActive && styles.textActive]}>{step.description}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
-      <div className="plan-step-layout">
-        {activePlanStep === "inbox" && (
-          <article className="flow-card reveal">
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">BRAIN DUMP</p>
-                <h2>브레인 덤프</h2>
-              </div>
-              <p className="section-note">한 줄에 하나씩 입력하면 Inbox Item으로 저장됩니다.</p>
-            </div>
-            <form
-              className="stack-form"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const saved = await onSaveInbox(inboxContents);
-                if (saved) {
-                  setInboxText("");
-                  setActivePlanStep("big3");
-                }
-              }}
-            >
-              <label>
-                <span>오늘 머릿속에 쌓인 일</span>
-                <textarea
-                  rows={6}
-                  placeholder={"회의 정리\n보고서 초안\n운동 20분"}
-                  value={inboxText}
-                  onChange={(event) => setInboxText(event.target.value)}
-                />
-              </label>
-              <button className="primary-button" type="submit" disabled={pendingAction === "inbox"}>
-                Inbox 저장
-              </button>
-            </form>
-            <InboxResult items={inboxItems} />
-          </article>
-        )}
-
-        {activePlanStep === "big3" && (
-          <article className="flow-card reveal">
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">TODAY'S FOCUS</p>
-                <h2>오늘의 Big 3</h2>
-              </div>
-              <p className="section-note">저장된 항목 중 최대 3개를 선택합니다.</p>
-            </div>
-            <form
-              className="stack-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void onSelectBig3(selectedIds.slice(0, 3)).then((selected) => {
-                  if (selected) {
-                    setActivePlanStep("unit");
-                  }
-                });
-              }}
-            >
-              <Big3Candidates
-                inboxItems={inboxItems}
-                selectedIds={selectedIds}
-                onToggle={(itemId) => {
-                  setSelectedIds((current) => {
-                    if (current.includes(itemId)) {
-                      return current.filter((id) => id !== itemId);
-                    }
-                    return [...current, itemId].slice(0, 3);
-                  });
-                }}
-              />
-              <button className="primary-button" type="submit" disabled={pendingAction === "big3"}>
-                Big 3 확정
-              </button>
-            </form>
-            <Big3Result items={big3Items} />
-          </article>
-        )}
-
-        {activePlanStep === "unit" && (
-          <article className="flow-card reveal">
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">EXECUTION GRAIN</p>
-                <h2>실행 단위 입력</h2>
-              </div>
-              <p className="section-note">Big 3를 바로 시간에 넣지 않고 완료 가능한 단위로 쪼갭니다.</p>
-            </div>
-            <form
-              className="stack-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void onCreateExecutionUnits(
-                  unitDrafts.map((draft) => ({
-                    big3SelectionItemId: draft.big3SelectionItemId,
-                    title: draft.title.trim()
-                  }))
-                ).then((created) => {
-                  if (created) {
-                    setActivePlanStep("timebox");
-                  }
-                });
-              }}
-            >
-              <ExecutionUnitBuilder
-                items={big3Items}
-                drafts={unitDrafts}
-                onChange={(next) => setUnitDrafts(next)}
-              />
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={pendingAction === "executionUnits"}
-              >
-                실행 단위 생성
-              </button>
-            </form>
-            <ExecutionUnitResult units={executionUnits} />
-          </article>
-        )}
-
-        {activePlanStep === "timebox" && (
-          <article className="flow-card reveal">
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">TIME DESIGN</p>
-                <h2>타임박스 설계</h2>
-              </div>
-              <p className="section-note">첫 복귀 블록은 정확히 1개여야 합니다.</p>
-            </div>
-            <form
-              className="stack-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void onAllocateTimeboxes(
-                  timeboxDrafts.map((draft) => ({
-                    ...draft,
-                    startAt: toIso(draft.startAt),
-                    endAt: toIso(draft.endAt)
-                  }))
-                );
-              }}
-            >
-              <TimeboxBuilder
-                units={executionUnits}
-                drafts={timeboxDrafts}
-                onChange={(next) => setTimeboxDrafts(next)}
-                metricDate={metricDate}
-              />
-              <button
-                className="primary-button"
-                type="submit"
-                disabled={pendingAction === "timeboxes"}
-              >
-                타임박스 할당
-              </button>
-            </form>
-            <TimeboxResult timeboxes={timeboxes} />
-          </article>
-        )}
-
-        <aside className="plan-summary-panel">
-          <div className="summary-stack">
-            <div className="mini-summary">
-              <span>Inbox</span>
-              <strong>{inboxItems.length}</strong>
-            </div>
-            <div className="mini-summary">
-              <span>Big 3</span>
-              <strong>{big3Items.length}</strong>
-            </div>
-            <div className="mini-summary">
-              <span>Unit</span>
-              <strong>{executionUnits.length}</strong>
-            </div>
-            <div className="mini-summary">
-              <span>Timebox</span>
-              <strong>{timeboxes.length}</strong>
-            </div>
-          </div>
-          <div className="next-step-note">
-            <strong>{planSteps.find((step) => step.id === activePlanStep)?.title}</strong>
-            <p>
-              {activePlanStep === "inbox" &&
-                "먼저 할 일을 저장하면 Big 3 선택 화면으로 넘어갑니다."}
-              {activePlanStep === "big3" &&
-                "저장된 항목 중 오늘 다시 붙잡을 항목을 최대 3개 고릅니다."}
-              {activePlanStep === "unit" &&
-                "선택한 Big 3마다 실제로 끝낼 수 있는 실행 단위를 먼저 만듭니다."}
-              {activePlanStep === "timebox" &&
-                "실행 단위를 실제 실행 시간으로 배정하면 실행 단계로 넘어갑니다."}
-            </p>
-          </div>
-        </aside>
-      </div>
-
-      <div className="stage-footer">
-        <button className="ghost-button" type="button" onClick={() => onStageChange(0)}>
-          이전 단계
-        </button>
-        <button className="primary-button" type="button" onClick={() => onStageChange(2)}>
-          실행 단계로 이동
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function InboxResult({ items }: { items: SavedInboxItem[] }) {
-  if (items.length === 0) {
-    return <div className="result-list empty-state">아직 저장된 항목이 없습니다.</div>;
-  }
-
-  return (
-    <div className="result-list item-list">
-      {items.map((item) => (
-        <div className="item-row" key={item.id}>
-          <div>
-            <div>{item.content}</div>
-            <small className="meta-kicker">{item.id}</small>
-          </div>
-          <span className="chip">INBOX</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Big3Candidates({
-  inboxItems,
-  selectedIds,
-  onToggle
-}: {
-  inboxItems: SavedInboxItem[];
-  selectedIds: string[];
-  onToggle: (itemId: string) => void;
-}) {
-  if (inboxItems.length === 0) {
-    return <div className="check-list empty-state">Inbox 저장 후 선택할 수 있습니다.</div>;
-  }
-
-  return (
-    <div className="check-list selection-list">
-      {inboxItems.map((item) => (
-        <label className="selection-row" key={item.id}>
-          <input
-            type="checkbox"
-            name="big3-item"
-            value={item.id}
-            checked={selectedIds.includes(item.id)}
-            onChange={() => onToggle(item.id)}
+      {activePlanStep === "inbox" && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>브레인 덤프</Text>
+          <Text style={styles.note}>한 줄에 하나씩 입력하면 Inbox Item으로 저장됩니다.</Text>
+          <TextInput
+            style={styles.textArea}
+            multiline
+            numberOfLines={6}
+            placeholder="회의 정리\n보고서 초안\n운동 20분"
+            value={inboxText}
+            onChangeText={setInboxText}
           />
-          <span>{item.content}</span>
-        </label>
-      ))}
-    </div>
+          <TouchableOpacity style={styles.primaryButton} disabled={pendingAction === "inbox"} onPress={async () => {
+            if (await onSaveInbox(inboxContents)) {
+              setInboxText("");
+              setActivePlanStep("big3");
+            }
+          }}>
+            <Text style={styles.primaryButtonText}>Inbox 저장</Text>
+          </TouchableOpacity>
+          {inboxItems.length > 0 && (
+            <View style={styles.resultList}>
+              {inboxItems.map(item => (
+                <View key={item.id} style={styles.itemRow}>
+                  <Text style={styles.itemText}>{item.content}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {activePlanStep === "big3" && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>오늘의 Big 3</Text>
+          <Text style={styles.note}>저장된 항목 중 최대 3개를 선택합니다.</Text>
+          {inboxItems.length === 0 ? (
+            <Text style={styles.emptyState}>Inbox 저장 후 선택할 수 있습니다.</Text>
+          ) : (
+            <View style={styles.checkList}>
+              {inboxItems.map(item => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <TouchableOpacity key={item.id} style={styles.checkRow} onPress={() => {
+                    setSelectedIds(curr => curr.includes(item.id) ? curr.filter(id => id !== item.id) : [...curr, item.id].slice(0, 3));
+                  }}>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxActive]} />
+                    <Text style={styles.checkText}>{item.content}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+          <TouchableOpacity style={styles.primaryButton} onPress={() => {
+            onSelectBig3(selectedIds.slice(0, 3)).then(ok => { if (ok) setActivePlanStep("unit"); });
+          }}>
+            <Text style={styles.primaryButtonText}>Big 3 확정</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activePlanStep === "unit" && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>실행 단위 입력</Text>
+          <Text style={styles.note}>Big 3를 쪼갭니다.</Text>
+          {big3Items.length === 0 ? <Text style={styles.emptyState}>Big 3를 고르면 입력할 수 있습니다.</Text> : (
+            <View style={styles.builderList}>
+              {big3Items.map((item, index) => {
+                const draft = unitDrafts.find(d => d.big3SelectionItemId === item.big3SelectionItemId) || { title: '' };
+                return (
+                  <View key={item.big3SelectionItemId} style={styles.builderRow}>
+                    <Text style={styles.builderLabel}>BIG 3 {index + 1}: {item.content}</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={draft.title}
+                      onChangeText={val => setUnitDrafts(curr => curr.map(d => d.big3SelectionItemId === item.big3SelectionItemId ? { ...d, title: val } : d))}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          <TouchableOpacity style={styles.primaryButton} onPress={() => {
+            onCreateExecutionUnits(unitDrafts.map(d => ({ big3SelectionItemId: d.big3SelectionItemId, title: d.title.trim() })))
+              .then(ok => { if (ok) setActivePlanStep("timebox"); });
+          }}>
+            <Text style={styles.primaryButtonText}>실행 단위 생성</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {activePlanStep === "timebox" && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>타임박스 설계</Text>
+          {executionUnits.length === 0 ? <Text style={styles.emptyState}>실행 단위를 만드세요.</Text> : (
+            <View style={styles.builderList}>
+              {executionUnits.map((unit, index) => {
+                const draft = timeboxDrafts.find(d => d.executionUnitId === unit.executionUnitId) || {};
+                return (
+                  <View key={unit.executionUnitId} style={styles.builderRow}>
+                    <Text style={styles.builderLabel}>UNIT {index + 1}: {unit.title}</Text>
+                    <TextInput style={styles.input} placeholder="시작 (YYYY-MM-DDTHH:mm)" value={draft.startAt} onChangeText={val => setTimeboxDrafts(curr => curr.map(d => d.executionUnitId === unit.executionUnitId ? { ...d, startAt: val } : d))} />
+                    <TextInput style={styles.input} placeholder="종료 (YYYY-MM-DDTHH:mm)" value={draft.endAt} onChangeText={val => setTimeboxDrafts(curr => curr.map(d => d.executionUnitId === unit.executionUnitId ? { ...d, endAt: val } : d))} />
+                    
+                    <View style={styles.row}>
+                      <TouchableOpacity style={[styles.tagBtn, draft.type === "WORK" && styles.tagActive]} onPress={() => setTimeboxDrafts(curr => curr.map(d => d.executionUnitId === unit.executionUnitId ? { ...d, type: "WORK" } : d))}>
+                        <Text style={[styles.tagText, draft.type === "WORK" && styles.textActive]}>WORK</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.tagBtn, draft.type === "BREAK" && styles.tagActive]} onPress={() => setTimeboxDrafts(curr => curr.map(d => d.executionUnitId === unit.executionUnitId ? { ...d, type: "BREAK" } : d))}>
+                        <Text style={[styles.tagText, draft.type === "BREAK" && styles.textActive]}>BREAK</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity style={[styles.tagBtn, draft.firstRecoveryBlock && styles.tagActive]} onPress={() => setTimeboxDrafts(curr => curr.map(d => ({ ...d, firstRecoveryBlock: d.executionUnitId === unit.executionUnitId })))}>
+                        <Text style={[styles.tagText, draft.firstRecoveryBlock && styles.textActive]}>첫 블록</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          <TouchableOpacity style={styles.primaryButton} onPress={() => {
+            onAllocateTimeboxes(timeboxDrafts.map(d => ({ ...d, startAt: toIso(d.startAt), endAt: toIso(d.endAt) })));
+          }}>
+            <Text style={styles.primaryButtonText}>타임박스 할당</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.ghostButton} onPress={() => onStageChange(0)}>
+          <Text style={styles.ghostButtonText}>이전 단계</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => onStageChange(2)}>
+          <Text style={styles.primaryButtonText}>실행 단계로 이동</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
-function Big3Result({ items }: { items: Big3Item[] }) {
-  if (items.length === 0) {
-    return <div className="result-list empty-state">아직 선택된 Big 3가 없습니다.</div>;
-  }
-
-  return (
-    <div className="result-list item-list">
-      {items.map((item, index) => (
-        <div className="item-row" key={item.big3SelectionItemId}>
-          <div>
-            <div>
-              {index + 1}. {item.content}
-            </div>
-            <small className="meta-kicker">{item.big3SelectionItemId}</small>
-          </div>
-          <span className="chip">BIG 3</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ExecutionUnitBuilder({
-  items,
-  drafts,
-  onChange
-}: {
-  items: Big3Item[];
-  drafts: ExecutionUnitDraft[];
-  onChange: (drafts: ExecutionUnitDraft[]) => void;
-}) {
-  if (items.length === 0) {
-    return <div className="builder-list empty-state">Big 3를 고르면 실행 단위를 입력할 수 있습니다.</div>;
-  }
-
-  const updateDraft = (big3SelectionItemId: string, title: string) => {
-    onChange(
-      drafts.map((draft) =>
-        draft.big3SelectionItemId === big3SelectionItemId ? { ...draft, title } : draft
-      )
-    );
-  };
-
-  return (
-    <div className="builder-list timebox-list">
-      {items.map((item, index) => {
-        const draft =
-          drafts.find((candidate) => candidate.big3SelectionItemId === item.big3SelectionItemId) ?? {
-            big3SelectionItemId: item.big3SelectionItemId,
-            title: item.content
-          };
-
-        return (
-          <div className="timebox-row" key={item.big3SelectionItemId}>
-            <div className="timebox-meta">
-              <span className="meta-kicker">BIG 3 {index + 1}</span>
-              <strong>{item.content}</strong>
-            </div>
-            <label>
-              <span>실행 단위</span>
-              <input
-                name="executionUnitTitle"
-                type="text"
-                value={draft.title}
-                onChange={(event) => updateDraft(item.big3SelectionItemId, event.target.value)}
-              />
-            </label>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function ExecutionUnitResult({ units }: { units: ExecutionUnit[] }) {
-  if (units.length === 0) {
-    return <div className="result-list empty-state">아직 생성된 실행 단위가 없습니다.</div>;
-  }
-
-  return (
-    <div className="result-list item-list">
-      {units.map((unit) => (
-        <div className="item-row" key={unit.executionUnitId}>
-          <div>
-            <div>{unit.title}</div>
-            <small className="meta-kicker">{unit.executionUnitId}</small>
-          </div>
-          <span className="chip">{unit.status ?? "UNIT"}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TimeboxBuilder({
-  units,
-  drafts,
-  onChange,
-  metricDate
-}: {
-  units: ExecutionUnit[];
-  drafts: TimeboxDraft[];
-  onChange: (drafts: TimeboxDraft[]) => void;
-  metricDate: string;
-}) {
-  if (units.length === 0) {
-    return <div className="builder-list empty-state">실행 단위를 만들면 자동으로 입력 폼이 생성됩니다.</div>;
-  }
-
-  const updateDraft = (executionUnitId: string, patch: Partial<TimeboxDraft>) => {
-    onChange(
-      drafts.map((draft) =>
-        draft.executionUnitId === executionUnitId ? { ...draft, ...patch } : draft
-      )
-    );
-  };
-
-  return (
-    <div className="builder-list timebox-list">
-      {units.map((unit, index) => {
-        const defaults = defaultLocalSlot(metricDate, index);
-        const draft =
-          drafts.find((candidate) => candidate.executionUnitId === unit.executionUnitId) ?? {
-            executionUnitId: unit.executionUnitId,
-            startAt: defaults.start,
-            endAt: defaults.end,
-            firstRecoveryBlock: index === 0,
-            type: "WORK" as const
-          };
-
-        return (
-          <div className="timebox-row" key={unit.executionUnitId}>
-            <div className="timebox-meta">
-              <span className="meta-kicker">UNIT {index + 1}</span>
-              <strong>{unit.title}</strong>
-            </div>
-            <label>
-              <span>시작</span>
-              <input
-                name="startAt"
-                type="datetime-local"
-                value={draft.startAt}
-                onChange={(event) => updateDraft(unit.executionUnitId, { startAt: event.target.value })}
-              />
-            </label>
-            <label>
-              <span>종료</span>
-              <input
-                name="endAt"
-                type="datetime-local"
-                value={draft.endAt}
-                onChange={(event) => updateDraft(unit.executionUnitId, { endAt: event.target.value })}
-              />
-            </label>
-            <div>
-              <span>타입 / 첫 복귀</span>
-              <div className="action-row">
-                <select
-                  name="type"
-                  value={draft.type}
-                  onChange={(event) =>
-                    updateDraft(unit.executionUnitId, { type: event.target.value as TimeboxType })
-                  }
-                >
-                  <option value="WORK">WORK</option>
-                  <option value="BREAK">BREAK</option>
-                </select>
-                <label className="chip">
-                  <input
-                    name="firstRecoveryBlock"
-                    type="radio"
-                    checked={draft.firstRecoveryBlock}
-                    onChange={() =>
-                      onChange(
-                        drafts.map((candidate) => ({
-                          ...candidate,
-                          firstRecoveryBlock: candidate.executionUnitId === unit.executionUnitId
-                        }))
-                      )
-                    }
-                  />
-                  <span>첫 블록</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function TimeboxResult({ timeboxes }: { timeboxes: PlanStageProps["timeboxes"] }) {
-  if (timeboxes.length === 0) {
-    return <div className="result-list empty-state">아직 생성된 타임박스가 없습니다.</div>;
-  }
-
-  return (
-    <div className="result-list timebox-list">
-      {timeboxes.map((timebox) => (
-        <div className="item-row" key={timebox.timeboxId}>
-          <div>
-            <div>{timebox.content}</div>
-            <small className="meta-kicker">
-              {formatTimeRange(timebox.startAt, timebox.endAt)} / {timebox.type}
-            </small>
-          </div>
-          <span className="chip">{timebox.firstRecoveryBlock ? "FIRST" : "FLOW"}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f9f9f9' },
+  content: { padding: 16, paddingBottom: 40 },
+  stageIntro: { marginBottom: 16 },
+  eyebrow: { fontSize: 12, fontWeight: 'bold', color: '#666', marginBottom: 4 },
+  h2: { fontSize: 18, fontWeight: 'bold', color: '#111' },
+  stepTabs: { flexDirection: 'row', marginBottom: 16 },
+  stepTab: { backgroundColor: '#eee', padding: 12, borderRadius: 8, marginRight: 8, flexDirection: 'row', alignItems: 'center' },
+  stepTabActive: { backgroundColor: '#111' },
+  stepTabIndex: { fontSize: 16, fontWeight: 'bold', color: '#666', marginRight: 8 },
+  stepTabTitle: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+  stepTabDesc: { fontSize: 10, color: '#666' },
+  textActive: { color: '#fff' },
+  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+  note: { fontSize: 12, color: '#666', marginBottom: 12 },
+  textArea: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, fontSize: 14, minHeight: 100, textAlignVertical: 'top', marginBottom: 12 },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 14, marginBottom: 8 },
+  primaryButton: { backgroundColor: '#111', padding: 14, borderRadius: 8, alignItems: 'center', marginVertical: 8 },
+  primaryButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  ghostButton: { padding: 14, borderRadius: 8, alignItems: 'center', marginVertical: 8, borderWidth: 1, borderColor: '#ccc' },
+  ghostButtonText: { color: '#333', fontWeight: 'bold', fontSize: 16 },
+  resultList: { marginTop: 12, gap: 8 },
+  itemRow: { padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8 },
+  itemText: { fontSize: 14, color: '#111' },
+  emptyState: { padding: 20, textAlign: 'center', color: '#999', backgroundColor: '#f9f9f9', borderRadius: 8, marginBottom: 12 },
+  checkList: { gap: 8, marginBottom: 12 },
+  checkRow: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8 },
+  checkbox: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#ccc', marginRight: 12 },
+  checkboxActive: { backgroundColor: '#111', borderColor: '#111' },
+  checkText: { fontSize: 14 },
+  builderList: { gap: 16, marginBottom: 12 },
+  builderRow: { padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8 },
+  builderLabel: { fontSize: 12, fontWeight: 'bold', color: '#666', marginBottom: 8 },
+  row: { flexDirection: 'row', gap: 8 },
+  tagBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#ddd' },
+  tagActive: { backgroundColor: '#111' },
+  tagText: { fontSize: 12, fontWeight: 'bold', color: '#333' },
+  footer: { marginTop: 16, gap: 8 }
+});
