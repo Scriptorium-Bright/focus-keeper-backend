@@ -28,3 +28,6 @@ local.properties
 
 ### Local Docs ###
 /docs/
+
+### K6 Load Test ###
+load-test.js
