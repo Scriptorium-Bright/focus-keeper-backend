@@ -182,7 +182,6 @@ public class Big3Service {
      * DB 조회 결과를 요청 순서대로 다시 정렬해 반환한다.
      */
     private List<InboxItem> findInboxItemsInRequestOrder(String userId, List<String> itemIds) {
-        // 순서가 중요할 때 LinkedHashMap을 사용 (HashMap은 순서 보장 X / LinkedHashMap은 Insertion-order (데이터를 넣은 순서대로)) (엄밀한 정의에서의 descend / ascend sort가 아님, order임)
         Map<String, InboxItem> indexedItems = new LinkedHashMap<>();
         inboxItemRepository.findAllByUserIdAndIdIn(userId, itemIds)
                 .forEach(item -> indexedItems.put(item.getId(), item));

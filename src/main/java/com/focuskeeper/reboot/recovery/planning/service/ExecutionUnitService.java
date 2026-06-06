@@ -37,27 +37,35 @@ public class ExecutionUnitService {
 
     @Transactional
     public List<ExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
-        Big3Item big3Item = big3ItemRepository
+        Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
+
+        unitExceedException(titles.size(), big3Item.getUnits().size());
+
+        return bulkExecutionUnit(titles, big3Item);
+    }
+
+
+
+    public ExecutionUnitResponse singleInsertUnit(String userId, String big3ItemId, String title) {
+
+        Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
+        unitExceedException(1, big3Item.getUnits().size());
+
+        ExecutionUnit executionUnit = ExecutionUnit.create(big3Item, title, OffsetDateTime.now());
+
+        return toResponse(executionUnit);
+    }
+
+    private Big3Item getBig3ItemId(String userId, String big3ItemId) {
+        return big3ItemRepository
                 .findByIdAndUserId(big3ItemId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("big3ItemId", big3ItemId)
                 ));
-
-        int currentCount = big3Item.getUnits().size();
-        int newCount = titles.size();
-
-        if (currentCount + newCount > 3) {
-            throw new BusinessException(
-                    ErrorCode.COMMON_BAD_REQUEST,
-                    Map.of("titles", "ExecutionUnit 아이템은 총 3개까지만 생성할 수 있습니다. (현재 " + currentCount + "개 존재)")
-            );
-        }
-
-        return insertExecutionUnit(titles, big3Item);
     }
 
-    private List<ExecutionUnitResponse> insertExecutionUnit(List<String> titles, Big3Item big3Item) {
+    private List<ExecutionUnitResponse> bulkExecutionUnit(List<String> titles, Big3Item big3Item) {
         List<ExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
 
         for (String title : titles) {
@@ -117,6 +125,16 @@ public class ExecutionUnitService {
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("executionUnitId", executionUnitId)
                 ));
+    }
+
+    // 추후 exception으로 이관예정
+    private static void unitExceedException(int newCount, int currentCount) {
+        if (currentCount + newCount > 5) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of("titles", "ExecutionUnit 아이템은 총 3개까지만 생성할 수 있습니다. (현재 " + currentCount + "개 존재)")
+            );
+        }
     }
 
 

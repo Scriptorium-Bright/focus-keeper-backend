@@ -1,10 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.CompleteExecutionUnitRequest;
-import com.focuskeeper.reboot.recovery.planning.dto.CreateExecutionUnitRequest;
-import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.UpdateExecutionUnitRequest;
+import com.focuskeeper.reboot.recovery.planning.dto.*;
 import com.focuskeeper.reboot.recovery.planning.service.ExecutionUnitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,7 +33,9 @@ public class ExecutionUnitController {
         this.executionUnitService = executionUnitService;
     }
 
-    @PostMapping
+    /*
+     */
+    @PostMapping("/multiple")
     @Operation(summary = "Create execution unit", description = "Creates a concrete unit under a selected Big3 item.")
     public ApiResponse<List<ExecutionUnitResponse>> createUnit(
             @Valid @RequestBody CreateExecutionUnitRequest request
@@ -46,10 +45,11 @@ public class ExecutionUnitController {
                 request.big3ItemId(),
                 request.title()
         );
+
         return ApiResponse.success(response, "EXECUTION_UNIT_CREATED");
     }
 
-    @GetMapping
+    @GetMapping("/multiple")
     @Operation(summary = "Get execution units", description = "Retrieves all execution units for a specific Big3 item.")
     public ApiResponse<List<ExecutionUnitResponse>> getExecutionUnits(
             @RequestParam String userId,
@@ -58,6 +58,21 @@ public class ExecutionUnitController {
         List<ExecutionUnitResponse> response = executionUnitService.getExecutionUnits(userId, big3ItemId);
         return ApiResponse.success(response, "EXECUTION_UNITS_FETCHED");
     }
+
+    @PostMapping("/single")
+    @Operation(summary = "insert execution Unit", description = "insert execution Unit")
+    public ApiResponse<ExecutionUnitResponse> insertUnit(
+            @Valid @RequestBody InsertExecutionUnitRequest request
+    ) {
+        ExecutionUnitResponse executionUnitResponse = executionUnitService.singleInsertUnit(
+                request.userId(),
+                request.big3ItemId(),
+                request.title()
+        );
+
+        return ApiResponse.success(executionUnitResponse, "EXECUTION_UNIT_INSERTED");
+    }
+
 
     @PatchMapping("/{executionUnitId}")
     @Operation(summary = "Update execution unit", description = "Renames a concrete execution unit.")
