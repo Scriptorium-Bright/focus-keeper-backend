@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.entity;
 
+import com.focuskeeper.reboot.recovery.execution.RecoveryEndReason;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import jakarta.persistence.Column;
@@ -39,14 +40,13 @@ public class RecoverySession {
     private String timeboxId;
     // RecoverySession은 Timebox를 소유하거나 탐색하는 객체가 아니라 “어떤 timebox를 실행했는지”만 기록하면 되므로, JPA 연관관계 대신 timeboxId 참조로 느슨하게 연결했다.
 
-    /**
-     * -- GETTER --
-     *  현재 세션 상태를 반환한다.
-     */
-    @Getter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private RecoverySessionStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "recovery_end_reason", nullable = false, length = 30)
+    private RecoveryEndReason recoveryEndReason;
 
     @Column(name = "started_at", nullable = false)
     private OffsetDateTime startedAt;
@@ -98,6 +98,7 @@ public class RecoverySession {
      */
     public void complete(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.COMPLETED;
+        this.recoveryEndReason = RecoveryEndReason.TASK_COMPLETED;
         this.endedAt = endedAt;
     }
 
@@ -106,6 +107,7 @@ public class RecoverySession {
      */
     public void interrupt(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.INTERRUPTED;
+        this.recoveryEndReason = RecoveryEndReason.FAILURE_CHECKED_IN;
         this.endedAt = endedAt;
     }
 

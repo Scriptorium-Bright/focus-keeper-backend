@@ -17,7 +17,7 @@ public record Big3ItemResponse(
                 big3Item.getId(),
                 big3Item.getOriginInboxItem().getId(),
                 big3Item.getTitleSnapshot(),
-                big3Item.getStatus().name()
+                big3Item.getCompletionStatus().name()
         );
     }
 }

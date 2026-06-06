@@ -39,11 +39,11 @@ public record DailyBig3BoardResponse(
             return Big3ItemCompletionStatus.NOT_STARTED;
         }
         if (activeEntries.stream()
-                .allMatch(entry -> entry.getBig3Item().getStatus() == Big3ItemCompletionStatus.COMPLETED)) {
+                .allMatch(entry -> entry.getBig3Item().getCompletionStatus() == Big3ItemCompletionStatus.COMPLETED)) {
             return Big3ItemCompletionStatus.COMPLETED;
         }
         if (activeEntries.stream()
-                .allMatch(entry -> entry.getBig3Item().getStatus() == Big3ItemCompletionStatus.NOT_STARTED)) {
+                .allMatch(entry -> entry.getBig3Item().getCompletionStatus() == Big3ItemCompletionStatus.NOT_STARTED)) {
             return Big3ItemCompletionStatus.NOT_STARTED;
         }
         return Big3ItemCompletionStatus.IN_PROGRESS;

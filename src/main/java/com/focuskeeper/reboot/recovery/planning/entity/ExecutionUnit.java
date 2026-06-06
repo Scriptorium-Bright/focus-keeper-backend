@@ -1,20 +1,13 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.focuskeeper.reboot.recovery.planning.TimeboxStatus;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "execution_units")
@@ -42,6 +35,9 @@ public class ExecutionUnit extends BaseTimeEntity {
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
+
+    @OneToMany(mappedBy = "executionUnit", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Timebox> timeboxes = new ArrayList<>();
 
     protected ExecutionUnit() {
     }

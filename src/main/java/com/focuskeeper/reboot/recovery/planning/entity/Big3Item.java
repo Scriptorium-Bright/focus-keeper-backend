@@ -2,6 +2,7 @@ package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
+import com.focuskeeper.reboot.recovery.planning.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import jakarta.persistence.CascadeType;
@@ -59,9 +60,15 @@ public class Big3Item extends BaseTimeEntity {
     @Column(name = "title_snapshot", nullable = false, length = 200)
     private String titleSnapshot;
 
+    /**
+     * DB에 저장되는 lifecycle 상태다. OPEN, COMPLETED, ABANDONED, EXPIRED.
+     *
+     * <p>화면에 표시하는 진행 상태(NOT_STARTED, IN_PROGRESS, COMPLETED)는
+     * {@link #getCompletionStatus()}로 매번 계산하며 DB에 저장하지 않는다.</p>
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private Big3ItemCompletionStatus status;
+    private Big3ItemStatus status;
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt; // 완료시각
@@ -94,7 +101,7 @@ public class Big3Item extends BaseTimeEntity {
         this.weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         this.originInboxItem = inboxItem;
         this.titleSnapshot = inboxItem.getContent();
-        this.status = Big3ItemCompletionStatus.NOT_STARTED;
+        this.status = Big3ItemStatus.OPEN;
         initializeCreatedAt(createdAt);
     }
 
@@ -111,23 +118,40 @@ public class Big3Item extends BaseTimeEntity {
     }
 
     /**
-     * 선택 항목을 Big3 응답 형태로 변환한다.
+     * 하위 ExecutionUnit 상태로부터 화면 표시용 진행 상태를 계산한다.
+     * DB에 저장하지 않는 파생값이다.
      */
-    public Big3ItemResponse toResponse() {
-        return new Big3ItemResponse(id, originInboxItem.getId(), titleSnapshot, status.name());
-    }
-
-    public void updateStatusFromUnits() {
+    public Big3ItemCompletionStatus getCompletionStatus() {
         if (this.units.isEmpty()) {
-            this.status = Big3ItemCompletionStatus.NOT_STARTED;
-            return;
+            return Big3ItemCompletionStatus.NOT_STARTED;
         }
 
         boolean allCompleted = this.units.stream()
                 .allMatch(unit -> unit.getStatus() == ExecutionUnitStatus.COMPLETED);
 
-        this.status = allCompleted ? Big3ItemCompletionStatus.COMPLETED : Big3ItemCompletionStatus.IN_PROGRESS;
+        return allCompleted ? Big3ItemCompletionStatus.COMPLETED : Big3ItemCompletionStatus.IN_PROGRESS;
+    }
 
+    /**
+     * 하위 unit roll-up 결과가 COMPLETED이면 lifecycle을 OPEN → COMPLETED로 전이한다.
+     * 이미 COMPLETED/ABANDONED/EXPIRED인 item에는 아무 일도 하지 않는다.
+     */
+    public void updateStatusFromUnits() {
+        if (this.status != Big3ItemStatus.OPEN) {
+            return;
+        }
+
+        if (getCompletionStatus() == Big3ItemCompletionStatus.COMPLETED) {
+            this.status = Big3ItemStatus.COMPLETED;
+            this.completedAt = OffsetDateTime.now();
+        }
+    }
+
+    /**
+     * 선택 항목을 Big3 응답 형태로 변환한다.
+     */
+    public Big3ItemResponse toResponse() {
+        return new Big3ItemResponse(id, originInboxItem.getId(), titleSnapshot, getCompletionStatus().name());
     }
 
 }

@@ -1,5 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
+import com.focuskeeper.reboot.recovery.planning.TimeboxStatus;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import jakarta.persistence.Column;
@@ -16,6 +17,10 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 
 import java.time.OffsetDateTime;
+
+import static com.focuskeeper.reboot.recovery.planning.TimeboxStatus.CANCELLED_BY_TASK_COMPLETION;
+import static com.focuskeeper.reboot.recovery.planning.TimeboxStatus.PLANNED;
+import static com.focuskeeper.reboot.recovery.planning.TimeboxType.WORK;
 
 @Entity
 @Table(name = "recovery_timeboxes")
@@ -52,6 +57,13 @@ public class Timebox extends BaseTimeEntity {
 
     @Column(name = "first_recovery_block", nullable = false)
     private boolean firstRecoveryBlock;
+
+    @Column(name = "session_id", nullable = false)
+    private String sessionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "timebox_status", nullable = false, length = 20)
+    private TimeboxStatus status;
 
     protected Timebox() {
     }
@@ -98,6 +110,14 @@ public class Timebox extends BaseTimeEntity {
                 firstRecoveryBlock,
                 createdAt
         );
+    }
+
+    public void cancelledTimebox(OffsetDateTime now) {
+
+        if(this.status == PLANNED && this.startAt.isAfter(now) && this.type == WORK) {
+            this.status = CANCELLED_BY_TASK_COMPLETION;
+        }
+
     }
 
     /**

@@ -2,16 +2,20 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
+import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
+import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3ItemRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,13 +30,15 @@ public class ExecutionUnitService {
 
     private final Big3ItemRepository big3ItemRepository;
     private final ExecutionUnitRepository executionUnitRepository;
+    private final TimeboxService timeboxService;
 
     public ExecutionUnitService(
             Big3ItemRepository big3ItemRepository,
-            ExecutionUnitRepository executionUnitRepository
+            ExecutionUnitRepository executionUnitRepository, TimeboxService timeboxService
     ) {
         this.big3ItemRepository = big3ItemRepository;
         this.executionUnitRepository = executionUnitRepository;
+        this.timeboxService = timeboxService;
     }
 
     @Transactional
@@ -110,7 +116,17 @@ public class ExecutionUnitService {
             );
         }
 
+        for (Timebox t : executionUnit.getTimeboxes()) {
+            RecoverySession startedSession = timeboxService.getStartedSession(t.getId(), t.getUserId());
+            startedSession.complete(OffsetDateTime.now());
+        }
+
         executionUnit.complete(OffsetDateTime.now());
+
+
+        for (Timebox t : executionUnit.getTimeboxes()) {
+            t.cancelledTimebox(OffsetDateTime.now());
+        }
 
         Big3Item parent = executionUnit.getBig3Item();
         parent.updateStatusFromUnits();
