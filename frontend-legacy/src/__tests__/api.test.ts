@@ -53,14 +53,14 @@ describe("api client", () => {
     await expect(getAlerts("demo-user", true)).rejects.toThrow("metricDate가 올바르지 않습니다.");
   });
 
-  it("creates execution units under Big3 selection items", async () => {
+  it("creates execution units under Big3 Big3 items", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         success: true,
         data: {
           executionUnitId: "unit-1",
-          big3SelectionItemId: "selection-1",
+          big3ItemId: "big3-item-1",
           title: "보고서 목차 잡기",
           createdAt: "2026-05-13T00:00:00Z"
         },
@@ -71,12 +71,12 @@ describe("api client", () => {
 
     await expect(
       createExecutionUnit("demo-user", {
-        big3SelectionItemId: "selection-1",
+        big3ItemId: "big3-item-1",
         title: "보고서 목차 잡기"
       })
     ).resolves.toMatchObject({
       executionUnitId: "unit-1",
-      big3SelectionItemId: "selection-1"
+      big3ItemId: "big3-item-1"
     });
 
     expect(fetch).toHaveBeenCalledWith(
@@ -85,7 +85,7 @@ describe("api client", () => {
         method: "POST",
         body: JSON.stringify({
           userId: "demo-user",
-          big3SelectionItemId: "selection-1",
+          big3ItemId: "big3-item-1",
           title: "보고서 목차 잡기"
         })
       })
@@ -155,7 +155,7 @@ describe("api client", () => {
         success: true,
         data: {
           executionUnitId: "unit-1",
-          big3SelectionItemId: "selection-1",
+          big3ItemId: "big3-item-1",
           title: "보고서 목차 잡기",
           status: "COMPLETED",
           completedAt: "2026-05-13T01:00:00Z",

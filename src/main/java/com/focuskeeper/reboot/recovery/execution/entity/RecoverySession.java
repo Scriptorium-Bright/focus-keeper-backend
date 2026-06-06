@@ -9,6 +9,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import lombok.Getter;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -37,6 +39,11 @@ public class RecoverySession {
     private String timeboxId;
     // RecoverySession은 Timebox를 소유하거나 탐색하는 객체가 아니라 “어떤 timebox를 실행했는지”만 기록하면 되므로, JPA 연관관계 대신 timeboxId 참조로 느슨하게 연결했다.
 
+    /**
+     * -- GETTER --
+     *  현재 세션 상태를 반환한다.
+     */
+    @Getter
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private RecoverySessionStatus status;
@@ -116,10 +123,4 @@ public class RecoverySession {
         );
     }
 
-    /**
-     * 현재 세션 상태를 반환한다.
-     */
-    public RecoverySessionStatus getStatus() {
-        return status;
-    }
 }

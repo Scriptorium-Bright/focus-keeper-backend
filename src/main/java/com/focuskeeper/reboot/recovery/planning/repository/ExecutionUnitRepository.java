@@ -11,17 +11,17 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface ExecutionUnitRepository extends JpaRepository<ExecutionUnit, String> {
 
-    List<ExecutionUnit> findAllByBig3SelectionItem_IdInOrderByCreatedAtAsc(Collection<String> big3SelectionItemIds);
+    List<ExecutionUnit> findAllByBig3Item_IdInOrderByCreatedAtAsc(Collection<String> big3ItemIds);
 
-    List<ExecutionUnit> findAllByIdInAndBig3SelectionItem_Selection_UserId(
+    List<ExecutionUnit> findAllByIdInAndBig3Item_UserId(
             Collection<String> ids,
             String userId
     );
 
-    Optional<ExecutionUnit> findByIdAndBig3SelectionItem_Selection_UserId(String id, String userId);
+    Optional<ExecutionUnit> findByIdAndBig3Item_UserId(String id, String userId);
 
-    List<ExecutionUnit> findAllByBig3SelectionItem_IdAndBig3SelectionItem_Selection_UserIdOrderByCreatedAtAsc(
-            String big3SelectionItemId,
+    List<ExecutionUnit> findAllByBig3Item_IdAndBig3Item_UserIdOrderByCreatedAtAsc(
+            String big3ItemId,
             String userId
     );
 }

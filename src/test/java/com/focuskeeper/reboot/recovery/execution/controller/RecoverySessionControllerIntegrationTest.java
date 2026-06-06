@@ -230,26 +230,26 @@ class RecoverySessionControllerIntegrationTest {
         JsonNode selectedItems = objectMapper.readTree(result.getResponse().getContentAsString())
                 .path("data")
                 .path("selectedItems");
-        List<String> selectionItemIds = new ArrayList<>();
+        List<String> big3ItemIds = new ArrayList<>();
         for (JsonNode selectedItem : selectedItems) {
-            selectionItemIds.add(selectedItem.path("big3SelectionItemId").asText());
+            big3ItemIds.add(selectedItem.path("big3ItemId").asText());
         }
-        return selectionItemIds;
+        return big3ItemIds;
     }
 
-    private List<String> createExecutionUnits(String userId, List<String> selectionItemIds) throws Exception {
+    private List<String> createExecutionUnits(String userId, List<String> big3ItemIds) throws Exception {
         List<String> executionUnitIds = new ArrayList<>();
-        for (int index = 0; index < selectionItemIds.size(); index++) {
+        for (int index = 0; index < big3ItemIds.size(); index++) {
             MvcResult result = mockMvc.perform(
                             post("/api/v1/recovery/execution-units")
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content("""
                                             {
                                               "userId": "%s",
-                                              "big3SelectionItemId": "%s",
+                                              "big3ItemId": "%s",
                                               "title": "세션 실행 단위 %d"
                                             }
-                                            """.formatted(userId, selectionItemIds.get(index), index + 1))
+                                            """.formatted(userId, big3ItemIds.get(index), index + 1))
                     )
                     .andExpect(status().isOk())
                     .andReturn();

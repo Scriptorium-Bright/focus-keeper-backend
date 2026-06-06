@@ -4,9 +4,9 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
-import com.focuskeeper.reboot.recovery.planning.entity.Big3SelectionItem;
+import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
-import com.focuskeeper.reboot.recovery.planning.repository.Big3SelectionItemRepository;
+import com.focuskeeper.reboot.recovery.planning.repository.Big3ItemRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -24,27 +24,27 @@ import static com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse
  */
 public class ExecutionUnitService {
 
-    private final Big3SelectionItemRepository big3SelectionItemRepository;
+    private final Big3ItemRepository big3ItemRepository;
     private final ExecutionUnitRepository executionUnitRepository;
 
     public ExecutionUnitService(
-            Big3SelectionItemRepository big3SelectionItemRepository,
+            Big3ItemRepository big3ItemRepository,
             ExecutionUnitRepository executionUnitRepository
     ) {
-        this.big3SelectionItemRepository = big3SelectionItemRepository;
+        this.big3ItemRepository = big3ItemRepository;
         this.executionUnitRepository = executionUnitRepository;
     }
 
     @Transactional
-    public List<ExecutionUnitResponse> createUnit(String userId, String big3SelectionItemId, List<String> titles) {
-        Big3SelectionItem big3SelectionItem = big3SelectionItemRepository
-                .findByIdAndSelection_UserId(big3SelectionItemId, userId)
+    public List<ExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
+        Big3Item big3Item = big3ItemRepository
+                .findByIdAndUserId(big3ItemId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
-                        Map.of("big3SelectionItemId", big3SelectionItemId)
+                        Map.of("big3ItemId", big3ItemId)
                 ));
 
-        int currentCount = big3SelectionItem.getUnits().size();
+        int currentCount = big3Item.getUnits().size();
         int newCount = titles.size();
 
         if (currentCount + newCount > 3) {
@@ -54,16 +54,16 @@ public class ExecutionUnitService {
             );
         }
 
-        return insertExecutionUnit(titles, big3SelectionItem);
+        return insertExecutionUnit(titles, big3Item);
     }
 
-    private List<ExecutionUnitResponse> insertExecutionUnit(List<String> titles, Big3SelectionItem big3SelectionItem) {
+    private List<ExecutionUnitResponse> insertExecutionUnit(List<String> titles, Big3Item big3Item) {
         List<ExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
 
         for (String title : titles) {
-            ExecutionUnit executionUnit = ExecutionUnit.create(big3SelectionItem, title, OffsetDateTime.now());
-            big3SelectionItem.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
-            big3SelectionItem.updateStatusFromUnits();
+            ExecutionUnit executionUnit = ExecutionUnit.create(big3Item, title, OffsetDateTime.now());
+            big3Item.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
+            big3Item.updateStatusFromUnits();
             ExecutionUnitResponse response = toResponse(executionUnit);
 
             executionUnitResponses.add(response);
@@ -76,14 +76,14 @@ public class ExecutionUnitService {
     public ExecutionUnitResponse updateUnit(String userId, String executionUnitId, String title) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
         executionUnit.rename(title);
-        executionUnit.getBig3SelectionItem().updateStatusFromUnits();
+        executionUnit.getBig3Item().updateStatusFromUnits();
         
         return toResponse(executionUnitRepository.save(executionUnit));
     }
 
-    public List<ExecutionUnitResponse> getExecutionUnits(String userId, String big3SelectionItemId) {
-        return executionUnitRepository.findAllByBig3SelectionItem_IdAndBig3SelectionItem_Selection_UserIdOrderByCreatedAtAsc(
-                big3SelectionItemId, userId
+    public List<ExecutionUnitResponse> getExecutionUnits(String userId, String big3ItemId) {
+        return executionUnitRepository.findAllByBig3Item_IdAndBig3Item_UserIdOrderByCreatedAtAsc(
+                big3ItemId, userId
         ).stream().map(ExecutionUnitResponse::toResponse).toList();
     }
 
@@ -104,7 +104,7 @@ public class ExecutionUnitService {
 
         executionUnit.complete(OffsetDateTime.now());
 
-        Big3SelectionItem parent = executionUnit.getBig3SelectionItem();
+        Big3Item parent = executionUnit.getBig3Item();
         parent.updateStatusFromUnits();
 
         return toResponse(executionUnitRepository.save(executionUnit));
@@ -112,7 +112,7 @@ public class ExecutionUnitService {
 
     private ExecutionUnit requireUnit(String userId, String executionUnitId) {
         return executionUnitRepository
-                .findByIdAndBig3SelectionItem_Selection_UserId(executionUnitId, userId)
+                .findByIdAndBig3Item_UserId(executionUnitId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("executionUnitId", executionUnitId)

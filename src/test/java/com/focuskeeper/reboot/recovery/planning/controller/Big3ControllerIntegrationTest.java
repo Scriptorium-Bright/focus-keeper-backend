@@ -50,7 +50,7 @@ class Big3ControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.selectedCount").value(3))
                 .andExpect(jsonPath("$.data.selectedDate").isString())
                 .andExpect(jsonPath("$.data.selectedAt").isString())
-                .andExpect(jsonPath("$.data.selectedItems[0].big3SelectionItemId").isString())
+                .andExpect(jsonPath("$.data.selectedItems[0].big3ItemId").isString())
                 .andExpect(jsonPath("$.data.selectedItems[0].itemId").value(savedItemIds.get(0)))
                 .andExpect(jsonPath("$.data.selectedItems[0].completionStatus").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.traceId").isString())
@@ -81,13 +81,13 @@ class Big3ControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.selectedItems[0].completionStatus").value("NOT_STARTED"))
                 .andReturn();
 
-        String big3SelectionItemId = objectMapper.readTree(firstSelection.getResponse().getContentAsString())
+        String big3ItemId = objectMapper.readTree(firstSelection.getResponse().getContentAsString())
                 .path("data")
                 .path("selectedItems")
                 .get(0)
-                .path("big3SelectionItemId")
+                .path("big3ItemId")
                 .asText();
-        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "roll-up 확인 단위");
+        String executionUnitId = createExecutionUnit(userId, big3ItemId, "roll-up 확인 단위");
 
         mockMvc.perform(
                         post("/api/v1/recovery/big3")
@@ -239,17 +239,17 @@ class Big3ControllerIntegrationTest {
         return itemIds;
     }
 
-    private String createExecutionUnit(String userId, String big3SelectionItemId, String title) throws Exception {
+    private String createExecutionUnit(String userId, String big3ItemId, String title) throws Exception {
         MvcResult result = mockMvc.perform(
                         post("/api/v1/recovery/execution-units")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
                                           "userId": "%s",
-                                          "big3SelectionItemId": "%s",
+                                          "big3ItemId": "%s",
                                           "title": "%s"
                                         }
-                                        """.formatted(userId, big3SelectionItemId, title))
+                                        """.formatted(userId, big3ItemId, title))
                 )
                 .andExpect(status().isOk())
                 .andReturn();

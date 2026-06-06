@@ -33,7 +33,7 @@ export interface SaveInboxItemsResponse {
 }
 
 export interface Big3Item {
-  big3SelectionItemId: string;
+  big3ItemId: string;
   itemId: string;
   content: string;
   completionStatus?: string;
@@ -49,7 +49,7 @@ export interface SelectBig3Response {
 export type TimeboxType = "WORK" | "BREAK";
 
 export interface CreateExecutionUnitPayload {
-  big3SelectionItemId: string;
+  big3ItemId: string;
   title: string;
 }
 
@@ -59,7 +59,7 @@ export interface UpdateExecutionUnitPayload {
 
 export interface ExecutionUnit {
   executionUnitId: string;
-  big3SelectionItemId: string;
+  big3ItemId: string;
   title: string;
   status?: string;
   completedAt?: IsoDateTime | null;

@@ -1,14 +1,28 @@
-# RebootFocus
+# FocusLoop
 
-실패 직후 재시작과 24/48시간 내 복귀 여부를 기록하고 분석하는 Spring Boot 백엔드 포트폴리오입니다.
+Daily Big3 실행 과정의 계획, 실행, 실패, 복귀, 완료 데이터를 수집하고 분석하는 Spring Boot 프로젝트입니다.
 
-RebootFocus는 단순한 할 일 앱이 아니라, `실패 기록 -> 재시작 -> 일간 KPI -> 운영 관측` 흐름을 하나의 백엔드 시스템으로 연결하는 데 초점을 둔 프로젝트입니다. CRUD를 넘어서 상태 전이, 일정 검증, 배치 집계, 데이터 품질, 운영 API까지 한 저장소 안에서 설계하고 구현했습니다.
+현재 코드는 legacy 명칭인 `Big3Selection`, `Big3SelectionItem`을 사용하고 있습니다. 목표 모델에서는 이를 각각 `DailyBig3Board`, `Big3Item`으로 바꾸고 날짜별 선택 관계인 `DailyBig3Entry`를 분리합니다. 같은 주의 `Big3Item`은 실제 작업 identity를 유지하며 category별 주간 분석의 기준이 됩니다.
+
+설계 기준:
+
+```text
+DailyBig3Board
+-> DailyBig3Entry
+   -> Big3Item
+      -> ExecutionUnit
+         -> Timebox
+            -> RecoverySession
+```
+
+별도 `Big3Task` 엔티티는 추가하지 않습니다. 상세 기준은 `docs/README.md`와 `docs/spec/`을 따릅니다.
 
 ## Portfolio Positioning
 
 - 복귀 세션 시작, 완료, 중단과 실패 체크인, 재시작 이벤트를 별도 도메인 모델로 추적합니다.
-- Inbox, Big3, Timebox를 통해 계획 데이터를 받고 시간 겹침과 배분 규칙을 검증합니다.
-- Spring Batch 기반 일간 KPI mart, quality report, backfill 흐름을 제공합니다.
+- Inbox, Daily Big3, ExecutionUnit, Timebox를 서로 다른 grain으로 관리합니다.
+- 기존 일간 KPI mart, quality report, backfill 자산을 보유하고 있습니다.
+- 목표 모델에서는 FailureEvent별 복귀 latency, 미복귀, 우측 절단을 category별 주간 fact/mart로 변환합니다.
 - PostgreSQL `ON CONFLICT` upsert와 `lastProcessedDate` 추적으로 재실행 안전성을 확보합니다.
 - 운영 개요, 알림, 런북, Prometheus 지표까지 포함해 관측 가능한 시스템을 지향합니다.
 

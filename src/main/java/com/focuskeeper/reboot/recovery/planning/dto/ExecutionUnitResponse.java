@@ -4,7 +4,7 @@ import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 
 public record ExecutionUnitResponse(
         String executionUnitId,
-        String big3SelectionItemId,
+        String big3ItemId,
         String title,
         String status,
         String completedAt,
@@ -13,7 +13,7 @@ public record ExecutionUnitResponse(
     public static ExecutionUnitResponse toResponse(ExecutionUnit executionUnit) {
         return new ExecutionUnitResponse(
                 executionUnit.getId(),
-                executionUnit.getBig3SelectionItemId(),
+                executionUnit.getBig3ItemId(),
                 executionUnit.getTitle(),
                 executionUnit.getStatus().name(),
                 executionUnit.getCompletedAt() == null ? null : executionUnit.getCompletedAt().toString(),

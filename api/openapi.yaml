@@ -898,7 +898,7 @@ components:
     Big3Item:
       type: object
       properties:
-        big3SelectionItemId:
+        big3ItemId:
           type: string
         itemId:
           type: string
@@ -909,11 +909,11 @@ components:
           enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
     CreateExecutionUnitRequest:
       type: object
-      required: [userId, big3SelectionItemId, title]
+      required: [userId, big3ItemId, title]
       properties:
         userId:
           type: string
-        big3SelectionItemId:
+        big3ItemId:
           type: string
         title:
           type: string
@@ -938,7 +938,7 @@ components:
       properties:
         executionUnitId:
           type: string
-        big3SelectionItemId:
+        big3ItemId:
           type: string
         title:
           type: string

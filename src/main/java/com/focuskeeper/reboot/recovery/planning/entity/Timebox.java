@@ -2,25 +2,28 @@ package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
-@Table(
-        name = "recovery_timeboxes",
-        indexes = {
-                @Index(name = "idx_recovery_timeboxes_user_start_at", columnList = "user_id, start_at"),
-                @Index(name = "idx_recovery_timeboxes_execution_unit", columnList = "execution_unit_id")
-        }
-)
+@Table(name = "recovery_timeboxes")
 @Getter
 /**
  * Big3 항목을 실제 수행 시간 구간으로 옮긴 recovery timebox 엔티티다.
  */
-public class Timebox {
+public class Timebox extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -50,9 +53,6 @@ public class Timebox {
     @Column(name = "first_recovery_block", nullable = false)
     private boolean firstRecoveryBlock;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
-
     protected Timebox() {
     }
 
@@ -73,7 +73,7 @@ public class Timebox {
         this.startAt = startAt;
         this.endAt = endAt;
         this.firstRecoveryBlock = firstRecoveryBlock;
-        this.createdAt = createdAt;
+        initializeCreatedAt(createdAt);
     }
 
     /**
@@ -112,7 +112,7 @@ public class Timebox {
                 endAt.toString(),
                 firstRecoveryBlock,
                 type.name(),
-                createdAt.toString()
+                getCreatedAt().toString()
         );
     }
 

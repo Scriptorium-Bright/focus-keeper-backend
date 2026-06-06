@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Request;
 import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Response;
 import com.focuskeeper.reboot.recovery.planning.service.Big3Service;
@@ -38,14 +38,14 @@ public class Big3Controller {
             @Valid @RequestBody SelectBig3Request request
     ) {
 
-        Big3SelectionResponse selection = big3Service.selectTodayBig3(request.userId(), request.itemIds());
+        DailyBig3BoardResponse dailyBig3Board = big3Service.selectTodayBig3(request.userId(), request.itemIds());
 
         SelectBig3Response response = new SelectBig3Response(
-                selection.selectedDate().toString(),
-                selection.selectedAt().toString(),
-                selection.selectedItems().size(),
-                selection.selectedItems(),
-                selection.status()
+                dailyBig3Board.selectedDate().toString(),
+                dailyBig3Board.selectedAt().toString(),
+                dailyBig3Board.selectedItems().size(),
+                dailyBig3Board.selectedItems(),
+                dailyBig3Board.status()
         );
         return ApiResponse.success(response, "BIG3_SELECTED");
     }

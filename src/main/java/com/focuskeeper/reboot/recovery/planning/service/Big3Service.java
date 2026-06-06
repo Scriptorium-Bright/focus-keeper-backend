@@ -4,13 +4,31 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
-import com.focuskeeper.reboot.recovery.planning.dto.Big3SelectionResponse;
-import com.focuskeeper.reboot.recovery.planning.entity.Big3Selection;
-import com.focuskeeper.reboot.recovery.planning.repository.Big3SelectionRepository;
+import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
+import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
+import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Board;
+import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Entry;
+import com.focuskeeper.reboot.recovery.planning.repository.Big3ItemRepository;
+import com.focuskeeper.reboot.recovery.planning.repository.DailyBig3BoardRepository;
+import com.focuskeeper.reboot.recovery.planning.repository.DailyBig3EntryRepository;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,14 +43,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class Big3Service {
 
     private final InboxItemRepository inboxItemRepository;
-    private final Big3SelectionRepository big3SelectionRepository;
+    private final DailyBig3BoardRepository dailyBig3BoardRepository;
+    private final DailyBig3EntryRepository dailyBig3EntryRepository;
+    private final Big3ItemRepository big3ItemRepository;
 
     public Big3Service(
             InboxItemRepository inboxItemRepository,
-            Big3SelectionRepository big3SelectionRepository
+            DailyBig3BoardRepository dailyBig3BoardRepository,
+            DailyBig3EntryRepository dailyBig3EntryRepository,
+            Big3ItemRepository big3ItemRepository
     ) {
         this.inboxItemRepository = inboxItemRepository;
-        this.big3SelectionRepository = big3SelectionRepository;
+        this.dailyBig3BoardRepository = dailyBig3BoardRepository;
+        this.dailyBig3EntryRepository = dailyBig3EntryRepository;
+        this.big3ItemRepository = big3ItemRepository;
     }
 
     /**
@@ -42,16 +66,13 @@ public class Big3Service {
      * 오늘 날짜의 selection row를 생성 또는 갱신한다.
      */
     @Transactional
-    public Big3SelectionResponse selectTodayBig3(String userId, List<String> itemIds) {
+    public DailyBig3BoardResponse selectTodayBig3(String userId, List<String> itemIds) {
         // 중복 제거
         List<String> uniqueItemIds = deduplicate(itemIds);
 
         validateNoDuplicateItemIds(uniqueItemIds,itemIds);
 
-        // Q. 요청 순서를 보장하는 이유
-        // A. Big3는 단순 집합이 아니라 사용자가 고른 우선순위/표시 순서까지 포함한 데이터다.
-        //    실제로 selection item은 sortOrder로 저장되고 응답도 그 순서로 나가므로,
-        //    DB 조회 결과를 요청 순서대로 다시 맞춰야 한다.
+        // Big3는 단순 집합이 아니라 사용자가 고른 slot 순서를 포함하므로 요청 순서를 보존한다.
         List<InboxItem> selectedItems = findInboxItemsInRequestOrder(userId, uniqueItemIds);
 
         // 요청한 itemIds 중 실제로 조회되지 않은 ID를 찾아, 존재하지 않거나 사용자 소유가 아닌 항목을 명확히 드러낸다.
@@ -69,31 +90,83 @@ public class Big3Service {
             );
         }
 
-        // 현재 시각 / 현재 날짜를 받아옴 (Big3Selection에서 사용자가 이 날짜 이시간에 골랐다를 저장하기 때문)
+        // 현재 시각 / 현재 날짜를 받아옴 (DailyBig3Board에서 사용자가 이 날짜 이시간에 골랐다를 저장하기 때문)
         LocalDate selectedDate = LocalDate.now();
         OffsetDateTime selectedAt = OffsetDateTime.now();
+        LocalDate weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        Big3Selection selection = big3SelectionRepository.findByUserIdAndSelectedDate(userId, selectedDate)
-                .orElseGet(() -> Big3Selection.create(userId, selectedDate, selectedAt));
+        DailyBig3Board dailyBig3Board = dailyBig3BoardRepository.findByUserIdAndSelectedDate(userId, selectedDate)
+                .orElseGet(() -> DailyBig3Board.create(userId, selectedDate, selectedAt));
+        DailyBig3Board savedBoard = dailyBig3BoardRepository.save(dailyBig3Board);
 
-        selection.replaceItems(selectedItems, selectedAt); // 이 부분은 조금 이해가 안 감 -> › big3를 이미 고른 상태여도 다시 선택할 수 있으니까 replace
-        Big3Selection saveSelection = big3SelectionRepository.save(selection);
-        return Big3SelectionResponse.from(saveSelection);
+        Map<String, Big3Item> weeklyItemsByInboxId = big3ItemRepository
+                .findAllByUserIdAndWeekStartAndOriginInboxItem_IdIn(userId, weekStart, uniqueItemIds)
+                .stream()
+                .collect(Collectors.toMap(
+                        item -> item.getOriginInboxItem().getId(),
+                        Function.identity(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new
+                ));
+
+        Set<Big3Item> newItems = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<Big3Item> selectedBig3Items = selectedItems.stream()
+                .map(inboxItem -> weeklyItemsByInboxId.computeIfAbsent(
+                        inboxItem.getId(),
+                        ignored -> {
+                            Big3Item newItem = Big3Item.create(userId, selectedDate, inboxItem, selectedAt);
+                            newItems.add(newItem);
+                            return newItem;
+                        }
+                ))
+                .toList();
+        big3ItemRepository.saveAll(newItems);
+
+        List<DailyBig3Entry> activeEntries =
+                dailyBig3EntryRepository.findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(
+                        savedBoard.getId()
+                );
+        activeEntries.forEach(entry -> entry.remove(selectedAt));
+        dailyBig3EntryRepository.saveAll(activeEntries);
+
+        List<DailyBig3Entry> replacementEntries = new ArrayList<>();
+        for (int index = 0; index < selectedBig3Items.size(); index++) {
+            Big3Item big3Item = selectedBig3Items.get(index);
+            SelectionSource source = newItems.contains(big3Item)
+                    ? SelectionSource.NEW
+                    : SelectionSource.CARRYOVER;
+            replacementEntries.add(DailyBig3Entry.create(
+                    savedBoard,
+                    big3Item,
+                    index + 1,
+                    source,
+                    selectedAt
+            ));
+        }
+
+        List<DailyBig3Entry> savedEntries = dailyBig3EntryRepository.saveAll(replacementEntries);
+        return DailyBig3BoardResponse.from(savedBoard, savedEntries);
     }
 
     /**
      * 오늘 날짜 기준으로 이미 선택된 Big3를 조회한다.
      */
-    public Big3SelectionResponse getTodayBig3(String userId) {
-        return big3SelectionRepository.findByUserIdAndSelectedDate(userId, LocalDate.now())
-                .map(Big3SelectionResponse::from)
+    public DailyBig3BoardResponse getTodayBig3(String userId) {
+        LocalDate selectedDate = LocalDate.now();
+        DailyBig3Board dailyBig3Board = dailyBig3BoardRepository
+                .findByUserIdAndSelectedDate(userId, selectedDate)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of(
                                 "userId", userId,
-                                "selectedDate", LocalDate.now().toString()
+                                "selectedDate", selectedDate.toString()
                         )
                 ));
+        List<DailyBig3Entry> activeEntries =
+                dailyBig3EntryRepository.findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(
+                        dailyBig3Board.getId()
+                );
+        return DailyBig3BoardResponse.from(dailyBig3Board, activeEntries);
     }
 
 

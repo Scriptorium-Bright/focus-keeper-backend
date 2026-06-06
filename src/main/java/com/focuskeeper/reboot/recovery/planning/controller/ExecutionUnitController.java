@@ -43,7 +43,7 @@ public class ExecutionUnitController {
     ) {
         List<ExecutionUnitResponse> response = executionUnitService.createUnit(
                 request.userId(),
-                request.big3SelectionItemId(),
+                request.big3ItemId(),
                 request.title()
         );
         return ApiResponse.success(response, "EXECUTION_UNIT_CREATED");
@@ -53,9 +53,9 @@ public class ExecutionUnitController {
     @Operation(summary = "Get execution units", description = "Retrieves all execution units for a specific Big3 item.")
     public ApiResponse<List<ExecutionUnitResponse>> getExecutionUnits(
             @RequestParam String userId,
-            @RequestParam String big3SelectionItemId
+            @RequestParam String big3ItemId
     ) {
-        List<ExecutionUnitResponse> response = executionUnitService.getExecutionUnits(userId, big3SelectionItemId);
+        List<ExecutionUnitResponse> response = executionUnitService.getExecutionUnits(userId, big3ItemId);
         return ApiResponse.success(response, "EXECUTION_UNITS_FETCHED");
     }
 

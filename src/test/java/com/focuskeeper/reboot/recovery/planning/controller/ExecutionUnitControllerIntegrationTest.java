@@ -32,7 +32,7 @@ class ExecutionUnitControllerIntegrationTest {
     @Test
     void createExecutionUnitReturnsStandardSuccessResponse() throws Exception {
         String userId = "execution-unit-create-user";
-        String big3SelectionItemId = selectFirstBig3Item(userId);
+        String big3ItemId = selectFirstBig3Item(userId);
 
         MvcResult result = mockMvc.perform(
                         post("/api/v1/recovery/execution-units")
@@ -40,17 +40,17 @@ class ExecutionUnitControllerIntegrationTest {
                                 .content("""
                                         {
                                           "userId": "%s",
-                                          "big3SelectionItemId": "%s",
+                                          "big3ItemId": "%s",
                                           "title": "README 문제 섹션 초안 작성"
                                         }
-                                        """.formatted(userId, big3SelectionItemId))
+                                        """.formatted(userId, big3ItemId))
                 )
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Trace-Id"))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("EXECUTION_UNIT_CREATED"))
                 .andExpect(jsonPath("$.data.executionUnitId").isString())
-                .andExpect(jsonPath("$.data.big3SelectionItemId").value(big3SelectionItemId))
+                .andExpect(jsonPath("$.data.big3ItemId").value(big3ItemId))
                 .andExpect(jsonPath("$.data.title").value("README 문제 섹션 초안 작성"))
                 .andExpect(jsonPath("$.data.status").value("PLANNED"))
                 .andExpect(jsonPath("$.data.completedAt").isEmpty())
@@ -65,8 +65,8 @@ class ExecutionUnitControllerIntegrationTest {
     @Test
     void updateExecutionUnitRenamesExistingUnit() throws Exception {
         String userId = "execution-unit-update-user";
-        String big3SelectionItemId = selectFirstBig3Item(userId);
-        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "초안 작성");
+        String big3ItemId = selectFirstBig3Item(userId);
+        String executionUnitId = createExecutionUnit(userId, big3ItemId, "초안 작성");
 
         mockMvc.perform(
                         patch("/api/v1/recovery/execution-units/{executionUnitId}", executionUnitId)
@@ -89,8 +89,8 @@ class ExecutionUnitControllerIntegrationTest {
     @Test
     void completeExecutionUnitMarksUnitCompletedWithoutSessionCompletion() throws Exception {
         String userId = "execution-unit-complete-user";
-        String big3SelectionItemId = selectFirstBig3Item(userId);
-        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "작은 실행 완료");
+        String big3ItemId = selectFirstBig3Item(userId);
+        String executionUnitId = createExecutionUnit(userId, big3ItemId, "작은 실행 완료");
 
         mockMvc.perform(
                         post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
@@ -112,8 +112,8 @@ class ExecutionUnitControllerIntegrationTest {
     @Test
     void completeExecutionUnitReturnsConflictWhenAlreadyCompleted() throws Exception {
         String userId = "execution-unit-complete-conflict-user";
-        String big3SelectionItemId = selectFirstBig3Item(userId);
-        String executionUnitId = createExecutionUnit(userId, big3SelectionItemId, "작은 실행 완료");
+        String big3ItemId = selectFirstBig3Item(userId);
+        String executionUnitId = createExecutionUnit(userId, big3ItemId, "작은 실행 완료");
 
         mockMvc.perform(
                         post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
@@ -142,14 +142,14 @@ class ExecutionUnitControllerIntegrationTest {
     }
 
     @Test
-    void createExecutionUnitReturnsNotFoundWhenBig3SelectionItemIsNotOwnedByUser() throws Exception {
+    void createExecutionUnitReturnsNotFoundWhenBig3ItemIsNotOwnedByUser() throws Exception {
         mockMvc.perform(
                         post("/api/v1/recovery/execution-units")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
                                           "userId": "execution-unit-not-found-user",
-                                          "big3SelectionItemId": "missing-selection-item",
+                                          "big3ItemId": "missing-big3-item",
                                           "title": "작은 실행 단위"
                                         }
                                         """)
@@ -158,20 +158,20 @@ class ExecutionUnitControllerIntegrationTest {
                 .andExpect(header().exists("X-Trace-Id"))
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("RESOURCE-404"))
-                .andExpect(jsonPath("$.error.details.big3SelectionItemId").value("missing-selection-item"));
+                .andExpect(jsonPath("$.error.details.big3ItemId").value("missing-big3-item"));
     }
 
-    private String createExecutionUnit(String userId, String big3SelectionItemId, String title) throws Exception {
+    private String createExecutionUnit(String userId, String big3ItemId, String title) throws Exception {
         MvcResult result = mockMvc.perform(
                         post("/api/v1/recovery/execution-units")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                         {
                                           "userId": "%s",
-                                          "big3SelectionItemId": "%s",
+                                          "big3ItemId": "%s",
                                           "title": "%s"
                                         }
-                                        """.formatted(userId, big3SelectionItemId, title))
+                                        """.formatted(userId, big3ItemId, title))
                 )
                 .andExpect(status().isOk())
                 .andReturn();
@@ -196,7 +196,7 @@ class ExecutionUnitControllerIntegrationTest {
                 .andReturn();
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        return body.path("data").path("selectedItems").get(0).path("big3SelectionItemId").asText();
+        return body.path("data").path("selectedItems").get(0).path("big3ItemId").asText();
     }
 
     private List<String> saveInboxItems(String userId) throws Exception {

@@ -35,7 +35,7 @@ describe("workflow state", () => {
       ...createInitialWorkflowState(),
       big3Items: [
         {
-          big3SelectionItemId: "selection-1",
+          big3ItemId: "big3-item-1",
           itemId: "item-1",
           content: "old focus"
         }
@@ -43,7 +43,7 @@ describe("workflow state", () => {
       executionUnits: [
         {
           executionUnitId: "unit-1",
-          big3SelectionItemId: "selection-1",
+          big3ItemId: "big3-item-1",
           title: "old unit",
           createdAt: "2026-05-13T00:00:00Z"
         }
@@ -104,7 +104,7 @@ describe("workflow state", () => {
       units: [
         {
           executionUnitId: "unit-2",
-          big3SelectionItemId: "selection-2",
+          big3ItemId: "big3-item-2",
           title: "new unit",
           createdAt: "2026-05-13T00:00:00Z"
         }
@@ -121,7 +121,7 @@ describe("workflow state", () => {
       executionUnits: [
         {
           executionUnitId: "unit-1",
-          big3SelectionItemId: "selection-1",
+          big3ItemId: "big3-item-1",
           title: "old unit",
           status: "PLANNED",
           completedAt: null,
@@ -142,7 +142,7 @@ describe("workflow state", () => {
       type: "executionUnitChanged",
       unit: {
         executionUnitId: "unit-1",
-        big3SelectionItemId: "selection-1",
+        big3ItemId: "big3-item-1",
         title: "old unit",
         status: "COMPLETED",
         completedAt: "2026-05-13T01:00:00Z",

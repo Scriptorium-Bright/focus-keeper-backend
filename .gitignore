@@ -30,4 +30,4 @@ local.properties
 /docs/
 
 ### K6 Load Test ###
-load-test.js
+perf/k6/load-test.js

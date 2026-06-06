@@ -119,8 +119,8 @@ export default function App() {
       showToast("Big 3를 먼저 선택해 주세요.");
       return false;
     }
-    const normalized = payload.map(u => ({ big3SelectionItemId: u.big3SelectionItemId, title: u.title.trim() }));
-    if (normalized.some(u => !u.big3SelectionItemId || !u.title)) {
+    const normalized = payload.map(u => ({ big3ItemId: u.big3ItemId, title: u.title.trim() }));
+    if (normalized.some(u => !u.big3ItemId || !u.title)) {
       showToast("실행 단위 제목을 모두 입력해 주세요.");
       return false;
     }

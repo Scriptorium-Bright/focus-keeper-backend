@@ -93,7 +93,7 @@ public class TimeboxService {
                 .map(TimeboxCommand::executionUnitId)
                 .distinct()
                 .toList();
-        return executionUnitRepository.findAllByIdInAndBig3SelectionItem_Selection_UserId(executionUnitIds, userId)
+        return executionUnitRepository.findAllByIdInAndBig3Item_UserId(executionUnitIds, userId)
                 .stream()
                 .collect(Collectors.toMap(ExecutionUnit::getId, Function.identity()));
     }

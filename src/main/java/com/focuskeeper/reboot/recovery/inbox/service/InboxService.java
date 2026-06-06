@@ -36,6 +36,12 @@ public class InboxService {
 
         List<InboxItem> saveList = inboxItemRepository.saveAll(inboxItemList);
 
+        /*
+        List<InboxItem> saveList = new ArrayList<>();
+        for (InboxItem item : inboxItemList) {
+            saveList.add(inboxItemRepository.save(item));
+        }
+        */
         return InboxItemResponse.from(saveList);
     }
 
