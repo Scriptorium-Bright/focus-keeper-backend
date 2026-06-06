@@ -106,14 +106,7 @@ public class ExecutionUnitService {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
 
         if (executionUnit.getStatus() == ExecutionUnitStatus.COMPLETED) {
-            throw new BusinessException(
-                    ErrorCode.CONFLICT,
-                    Map.of(
-                            "executionUnitId", executionUnitId,
-                            "currentStatus", executionUnit.getStatus().name(),
-                            "targetStatus", ExecutionUnitStatus.COMPLETED.name()
-                    )
-            );
+            return toResponse(executionUnit);
         }
 
         for (Timebox t : executionUnit.getTimeboxes()) {
@@ -131,7 +124,9 @@ public class ExecutionUnitService {
         Big3Item parent = executionUnit.getBig3Item();
         parent.updateStatusFromUnits();
 
-        return toResponse(executionUnitRepository.save(executionUnit));
+        ExecutionUnit save = executionUnitRepository.save(executionUnit);
+
+        return toResponse(save);
     }
 
     private ExecutionUnit requireUnit(String userId, String executionUnitId) {

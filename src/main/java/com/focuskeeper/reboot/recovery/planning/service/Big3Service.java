@@ -120,7 +120,8 @@ public class Big3Service {
                 .orElseThrow(() -> new BusinessException(
                 ErrorCode.RESOURCE_NOT_FOUND,
                 Map.of(
-                        "big3ItemId", big3ItemId
+                        "big3ItemId", big3ItemId,
+                        "userId", userId
                 )
         ));
 
