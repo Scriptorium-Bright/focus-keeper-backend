@@ -4,6 +4,7 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
+import com.focuskeeper.reboot.recovery.planning.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -169,6 +170,53 @@ public class Big3Service {
 
         return DailyBig3BoardResponse.from(dailyBig3Board, updatedEntries);
 
+    }
+    
+    public void continueLastWeekWork(String userId, List<String> big3ItemIds) {
+
+        OffsetDateTime selectedAt = OffsetDateTime.now();
+        LocalDate now = selectedAt.toLocalDate();
+
+        List<Big3Item> big3Items = big3ItemRepository.findAllByIdInAndUserId(big3ItemIds, userId);
+
+        if (big3Items.size() != big3ItemIds.size()) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+        }
+
+        List<Big3Item> newBig3Items = new ArrayList<>();
+
+        for (Big3Item big3Item : big3Items) {
+            big3Item.expiredStatus();
+
+            Big3Item newBig3Item = Big3Item.create(userId, now, big3Item.getOriginInboxItem(), selectedAt);
+            newBig3Item.putDerivedFromItem(big3Item);
+
+            newBig3Items.add(newBig3Item);
+        }
+
+        big3ItemRepository.saveAll(newBig3Items);
+
+        DailyBig3Board dailyBig3Board = resolveDailyBoard(userId, now, selectedAt);
+
+        List<DailyBig3Entry> activeEntries = dailyBig3EntryRepository.findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(dailyBig3Board.getId());
+
+        if (activeEntries.size() + newBig3Items.size() > 3) {
+            throw new BusinessException(ErrorCode.COMMON_BAD_REQUEST, "보드 자리가 꽉 차서 다 넘길 수 없습니다.");
+        }
+
+        int nextSlotOrder = activeEntries.size() + 1;
+        List<DailyBig3Entry> newEntries = new ArrayList<>();
+        for (Big3Item newItem : newBig3Items) {
+            DailyBig3Entry newEntry = DailyBig3Entry.create(
+                    dailyBig3Board,
+                    newItem,
+                    nextSlotOrder++, // 1, 2, 3 순서대로 증가
+                    SelectionSource.NEW, // 이전 주에서 넘어온 거지만 이번 주 입장에서는 NEW
+                    selectedAt
+            );
+            newEntries.add(newEntry);
+        }
+        dailyBig3EntryRepository.saveAll(newEntries);
     }
 
 

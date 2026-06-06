@@ -28,6 +28,8 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.EXPIRED;
+
 @Entity
 @Table(name = "big3_items")
 @Getter
@@ -115,6 +117,14 @@ public class Big3Item extends BaseTimeEntity {
             OffsetDateTime createdAt
     ) {
         return new Big3Item(userId, selectedDate, inboxItem, createdAt);
+    }
+
+    public void expiredStatus() {
+        this.status = EXPIRED;
+    }
+
+    public void putDerivedFromItem(Big3Item item) {
+        this.derivedFromItem = item;
     }
 
     /**
