@@ -200,8 +200,8 @@ public class Big3Service {
 
         OffsetDateTime selectedAt = OffsetDateTime.now();
         LocalDate today = selectedAt.toLocalDate();
-        LocalDate now = selectedAt.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate lastWeekStart = now.minusWeeks(1);
+        LocalDate currentWeekStart = selectedAt.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate lastWeekStart = currentWeekStart.minusWeeks(1);
 
         List<String> uniqueIds = big3ItemIds.stream().distinct().toList();
         if (uniqueIds.size() != big3ItemIds.size()) {
@@ -250,7 +250,7 @@ public class Big3Service {
 
         big3ItemRepository.saveAll(newBig3Items);
 
-        DailyBig3Board dailyBig3Board = resolveDailyBoard(userId, now, selectedAt);
+        DailyBig3Board dailyBig3Board = resolveDailyBoard(userId, today, selectedAt);
 
         List<DailyBig3Entry> activeEntries = dailyBig3EntryRepository.findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(dailyBig3Board.getId());
 
