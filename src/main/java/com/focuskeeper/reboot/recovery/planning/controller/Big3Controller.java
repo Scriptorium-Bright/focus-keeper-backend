@@ -11,10 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Validated
 @RestController
@@ -43,6 +40,15 @@ public class Big3Controller {
         DailyBig3BoardResponse dailyBig3Board = big3Service.selectTodayBig3(request.userId(), request.itemIds());
 
         return ApiResponse.success(dailyBig3Board, "BIG3_SELECTED");
+    }
+
+    @GetMapping("/big3")
+    public ApiResponse<DailyBig3BoardResponse> checkBig3(
+            @RequestParam("userId") String userId
+    ) {
+        DailyBig3BoardResponse todayBig3 = big3Service.getTodayBig3(userId);
+
+        return ApiResponse.success(todayBig3, "check big3");
     }
 
     @PostMapping("/expired")

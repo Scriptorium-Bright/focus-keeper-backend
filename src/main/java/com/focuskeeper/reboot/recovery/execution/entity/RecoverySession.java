@@ -103,9 +103,18 @@ public class RecoverySession {
         this.endedAt = endedAt;
     }
 
-    /**
-     * 세션을 중단 상태로 전이한다.
-     */
+    public void elapsed(OffsetDateTime endedAt) {
+        this.status = RecoverySessionStatus.COMPLETED;
+        this.recoveryEndReason = RecoveryEndReason.TIMER_ELAPSED;
+        this.endedAt = endedAt;
+    }
+
+    public void stopped(OffsetDateTime endedAt) {
+        this.status = RecoverySessionStatus.INTERRUPTED;
+        this.recoveryEndReason = RecoveryEndReason.USER_STOPPED;
+        this.endedAt = endedAt;
+    }
+
     public void interrupt(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.INTERRUPTED;
         this.recoveryEndReason = RecoveryEndReason.FAILURE_CHECKED_IN;

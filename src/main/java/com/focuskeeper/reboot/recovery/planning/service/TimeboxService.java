@@ -85,6 +85,15 @@ public class TimeboxService {
         }
     }
 
+    public void cancelledTimeBoxesByUser (List<String> timeboxIds, String userId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<Timebox> allByIdInAndUserId = timeboxRepository.findAllByIdInAndUserId(timeboxIds, userId);
+
+        for (Timebox timebox : allByIdInAndUserId) {
+            timebox.cancelledByUser(now);
+        }
+    }
+
     /**
      * 요청에 포함된 execution unit을 사용자 소유 범위에서 조회해 id 기준 맵으로 재구성한다.
      */

@@ -3,6 +3,7 @@ package com.focuskeeper.reboot.recovery.planning.repository;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,6 +28,8 @@ public interface TimeboxRepository extends JpaRepository<Timebox, String> {
             OffsetDateTime start,
             OffsetDateTime end
     );
+
+    List<Timebox> findAllByIdInAndUserId(Collection<String> ids, String userId);
 
     /**
      * 특정 유형의 timebox를 배정한 사용자 수를 기간 단위로 센다.

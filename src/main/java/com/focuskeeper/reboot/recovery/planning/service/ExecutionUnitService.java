@@ -3,7 +3,6 @@ package com.focuskeeper.reboot.recovery.planning.service;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
-import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
@@ -142,7 +141,7 @@ public class ExecutionUnitService {
 
 
         for (Timebox t : executionUnit.getTimeboxes()) {
-            t.cancelledTimebox(OffsetDateTime.now());
+            t.cancelledBySystem(OffsetDateTime.now());
         }
 
         Big3Item parent = executionUnit.getBig3Item();

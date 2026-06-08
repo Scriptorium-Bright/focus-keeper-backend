@@ -18,8 +18,7 @@ import lombok.Getter;
 
 import java.time.OffsetDateTime;
 
-import static com.focuskeeper.reboot.recovery.planning.TimeboxStatus.CANCELLED_BY_TASK_COMPLETION;
-import static com.focuskeeper.reboot.recovery.planning.TimeboxStatus.PLANNED;
+import static com.focuskeeper.reboot.recovery.planning.TimeboxStatus.*;
 import static com.focuskeeper.reboot.recovery.planning.TimeboxType.WORK;
 
 @Entity
@@ -113,13 +112,18 @@ public class Timebox extends BaseTimeEntity {
         );
     }
 
-    public void cancelledTimebox(OffsetDateTime now) {
-
+    public void cancelledBySystem(OffsetDateTime now) {
         if(this.status == PLANNED && this.startAt.isAfter(now) && this.type == WORK) {
             this.status = CANCELLED_BY_TASK_COMPLETION;
             this.cancelledAt = now;
         }
+    }
 
+    public void cancelledByUser(OffsetDateTime now) {
+        if(this.status == PLANNED && this.startAt.isAfter(now) && this.type == WORK) {
+            this.status = CANCELLED_BY_USER;
+            this.cancelledAt = now;
+        }
     }
 
     /**

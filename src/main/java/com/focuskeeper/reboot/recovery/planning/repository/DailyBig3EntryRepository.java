@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface DailyBig3EntryRepository extends JpaRepository<DailyBig3Entry, String> {
 
+    // Entry를 slotOrder순으로 조회
     @EntityGraph(attributePaths = {"big3Item", "big3Item.originInboxItem"})
     List<DailyBig3Entry> findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(
             String dailyBig3BoardId

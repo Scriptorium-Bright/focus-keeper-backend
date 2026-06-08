@@ -77,6 +77,23 @@ public class RecoverySessionService {
     }
 
     /**
+     *
+     * 진행중인 세션에 대해, 타이머가 전부 흘러갔을 경우
+     * @param userId
+     * @param sessionId
+     * @return
+     */
+    @Transactional
+    public RecoverySessionResponse elapsedSession(String userId, String sessionId) {
+        RecoverySession session = requireSession(userId, sessionId);
+        if (session.getStatus() != RecoverySessionStatus.STARTED) {
+            throw invalidTransition(sessionId, session.getStatus(), "ELAPSED");
+        }
+        session.elapsed(OffsetDateTime.now());
+        return recoverySessionRepository.save(session).toResponse();
+    }
+
+    /**
      * 진행 중인 세션을 중단 상태로 전이한다.
      *
      * 현재는 failure check-in처럼 사용자가 명시적으로 실패를 확정했을 때 주로 호출되며,
@@ -90,6 +107,25 @@ public class RecoverySessionService {
         }
 
         session.interrupt(OffsetDateTime.now());
+        return recoverySessionRepository.save(session).toResponse();
+    }
+
+    /**
+     *
+     * Failure와의 차이, 중단 상태라는게, 실패를 확정하는게 아니라 잠깐 쉬어가는 그런 개념
+     *
+     * @param userId
+     * @param sessionId
+     * @return
+     */
+    @Transactional
+    public RecoverySessionResponse stoppedSession(String userId, String sessionId) {
+        RecoverySession session = requireSession(userId, sessionId);
+        if (session.getStatus() != RecoverySessionStatus.STARTED) {
+            throw invalidTransition(sessionId, session.getStatus(), "INTERRUPTED");
+        }
+
+        session.stopped(OffsetDateTime.now());
         return recoverySessionRepository.save(session).toResponse();
     }
 

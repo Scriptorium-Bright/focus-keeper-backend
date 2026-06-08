@@ -74,6 +74,23 @@ public class RecoverySessionController {
         }
     }
 
+    @PostMapping("/elapsed")
+    @Operation(summary = "Complete a recovery session", description = "Marks an active recovery session as completed.")
+    public ApiResponse<RecoverySessionResponse> elapsedSession(
+            @Valid @RequestBody UpdateRecoverySessionRequest request
+    ) {
+        Timer.Sample sample = operationsMetricRecorder.startSample();
+
+        try {
+            RecoverySessionResponse session = recoverySessionService.elapsedSession(request.userId(), request.sessionId());
+            operationsMetricRecorder.recordRecoveryLoopAction(sample, "elapsed_session", "success");
+            return ApiResponse.success(session, "RECOVERY_SESSION_COMPLETED");
+        } catch (RuntimeException exception) {
+            operationsMetricRecorder.recordRecoveryLoopAction(sample, "elapsed_session", "failure");
+            throw exception;
+        }
+    }
+
     /**
      * 진행 중인 복귀 세션을 중단 상태로 바꾼다.
      */
@@ -85,6 +102,22 @@ public class RecoverySessionController {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {
             RecoverySessionResponse session = recoverySessionService.interruptSession(request.userId(), request.sessionId());
+            operationsMetricRecorder.recordRecoveryLoopAction(sample, "interrupt_session", "success");
+            return ApiResponse.success(session, "RECOVERY_SESSION_INTERRUPTED");
+        } catch (RuntimeException exception) {
+            operationsMetricRecorder.recordRecoveryLoopAction(sample, "interrupt_session", "failure");
+            throw exception;
+        }
+    }
+
+    @PostMapping("/stopped")
+    @Operation(summary = "Interrupt a recovery session", description = "Marks an active recovery session as interrupted.")
+    public ApiResponse<RecoverySessionResponse> stoppedSession(
+            @Valid @RequestBody UpdateRecoverySessionRequest request
+    ) {
+        Timer.Sample sample = operationsMetricRecorder.startSample();
+        try {
+            RecoverySessionResponse session = recoverySessionService.stoppedSession(request.userId(), request.sessionId());
             operationsMetricRecorder.recordRecoveryLoopAction(sample, "interrupt_session", "success");
             return ApiResponse.success(session, "RECOVERY_SESSION_INTERRUPTED");
         } catch (RuntimeException exception) {

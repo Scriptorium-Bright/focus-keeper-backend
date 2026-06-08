@@ -16,12 +16,13 @@ import org.springframework.data.jpa.repository.Query;
  */
 public interface Big3ItemRepository extends JpaRepository<Big3Item, String> {
 
+    // user가 소유한 big3Item 조회
     Optional<Big3Item> findByIdAndUserId(String id, String userId);
 
     List<Big3Item> findAllByIdInAndUserId(Collection<String> ids, String userId);
 
 
-    // what is that?
+    // user,week/originInboxItem 기준 big3Item 조회
     @EntityGraph(attributePaths = "originInboxItem")
     List<Big3Item> findAllByUserIdAndWeekStartAndOriginInboxItem_IdIn(
             String userId,

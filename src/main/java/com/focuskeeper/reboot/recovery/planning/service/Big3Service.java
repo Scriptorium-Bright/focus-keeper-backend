@@ -255,9 +255,39 @@ public class Big3Service {
             );
             newEntries.add(newEntry);
         }
+
+        validateSlotOrder(activeEntries, newEntries);
+
         dailyBig3EntryRepository.saveAll(newEntries);
 
         return DailyBig3BoardResponse.from(dailyBig3Board, newEntries);
+    }
+
+    /**
+     * 지난 주 작업을 만료시킨다.
+     * scheduling vs batch
+     */
+    @Transactional
+    public void expireLastWeekTasks() {
+        OffsetDateTime now = OffsetDateTime.now();
+        LocalDate currentWeekStart = now.toLocalDate()
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        List<Big3Item> big3Items = big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, currentWeekStart);
+
+        for (Big3Item big3Item : big3Items) {
+            big3Item.expire(now);
+        }
+    }
+
+    private static void validateSlotOrder(List<DailyBig3Entry> activeEntries, List<DailyBig3Entry> newEntries) {
+        for(int pivot = 1; pivot <= activeEntries.size(); pivot++) {
+            int slotOrder = newEntries.get(pivot - 1).getSlotOrder();
+
+            if(pivot != slotOrder) {
+                throw new BusinessException(ErrorCode.SYSTEM_INTERNAL_ERROR, "slot의 순서가 잘못되었습니다.");
+            }
+        }
     }
 
     private void validateNotContinuedYet(Big3Item big3Item) {
@@ -284,23 +314,6 @@ public class Big3Service {
                     ErrorCode.COMMON_BAD_REQUEST,
                     "만료된 작업만 이어갈 수 있습니다."
             );
-        }
-    }
-
-    /**
-     * 지난 주 작업을 만료시킨다.
-     * scheduling vs batch
-     */
-    @Transactional
-    public void expireLastWeekTasks() {
-        OffsetDateTime now = OffsetDateTime.now();
-        LocalDate currentWeekStart = now.toLocalDate()
-                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-
-        List<Big3Item> big3Items = big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, currentWeekStart);
-
-        for (Big3Item big3Item : big3Items) {
-            big3Item.expire(now);
         }
     }
 
@@ -356,6 +369,7 @@ public class Big3Service {
         }
         return selectedItems;
     }
+
 
     private DailyBig3Board resolveDailyBoard(String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
         DailyBig3Board dailyBig3Board = dailyBig3BoardRepository.findByUserIdAndSelectedDate(userId, selectedDate)
@@ -436,6 +450,8 @@ public class Big3Service {
                     selectedAt
             ));
         }
+
+        validateSlotOrder(activeEntries, replacementEntries);
 
         return dailyBig3EntryRepository.saveAll(replacementEntries);
     }
