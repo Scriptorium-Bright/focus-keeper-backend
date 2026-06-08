@@ -21,6 +21,12 @@ public interface RecoverySessionRepository extends JpaRepository<RecoverySession
 
     Optional<RecoverySession> findByIdAndUserId(String id, String userId);
 
+    Optional<RecoverySession> findByTimeboxIdAndUserIdAndStatus(
+            String timeboxId,
+            String userId,
+            RecoverySessionStatus status
+    );
+
     List<RecoverySession> findAllByUserIdOrderByStartedAtAsc(String userId);
 
     long countByUserIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(

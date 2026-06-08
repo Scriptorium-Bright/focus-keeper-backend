@@ -3,6 +3,7 @@ package com.focuskeeper.reboot.recovery.planning.validation;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -47,13 +48,14 @@ public class TimeboxOverlapValidator {
      * 충돌한 기존/요청 timebox의 식별자와 구간을 담은 공통 충돌 예외를 만든다.
      */
     private BusinessException conflictException(Timebox conflictingTimebox) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("conflictingTimeboxId", conflictingTimebox.getId());
+        details.put("startAt", conflictingTimebox.getStartAt().toString());
+        details.put("endAt", conflictingTimebox.getEndAt().toString());
+
         return new BusinessException(
                 ErrorCode.CONFLICT,
-                Map.of(
-                        "conflictingTimeboxId", conflictingTimebox.getId(),
-                        "startAt", conflictingTimebox.getStartAt().toString(),
-                        "endAt", conflictingTimebox.getEndAt().toString()
-                )
+                details
         );
     }
 }

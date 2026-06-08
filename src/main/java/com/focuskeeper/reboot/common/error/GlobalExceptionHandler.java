@@ -6,6 +6,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,6 +41,18 @@ public class GlobalExceptionHandler {
                 ErrorCode.COMMON_BAD_REQUEST.getCode(),
                 ErrorCode.COMMON_BAD_REQUEST.getMessage(),
                 details
+        );
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException exception
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+                ErrorCode.COMMON_BAD_REQUEST.getCode(),
+                ErrorCode.COMMON_BAD_REQUEST.getMessage(),
+                Map.of("requestBody", "요청 본문이 올바른 JSON 형식이 아닙니다.")
         );
         return ResponseEntity.badRequest().body(response);
     }

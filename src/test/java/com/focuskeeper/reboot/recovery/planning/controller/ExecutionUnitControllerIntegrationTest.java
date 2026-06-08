@@ -110,7 +110,7 @@ class ExecutionUnitControllerIntegrationTest {
     }
 
     @Test
-    void completeExecutionUnitReturnsConflictWhenAlreadyCompleted() throws Exception {
+    void completeExecutionUnitIsIdempotentWhenAlreadyCompleted() throws Exception {
         String userId = "execution-unit-complete-conflict-user";
         String big3ItemId = selectFirstBig3Item(userId);
         String executionUnitId = createExecutionUnit(userId, big3ItemId, "작은 실행 완료");
@@ -129,16 +129,15 @@ class ExecutionUnitControllerIntegrationTest {
         mockMvc.perform(
                         post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                          "userId": "%s"
-                                        }
-                                        """.formatted(userId))
+                .content("""
+                        {
+                          "userId": "%s"
+                        }
+                        """.formatted(userId))
                 )
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
-                .andExpect(jsonPath("$.error.details.currentStatus").value("COMPLETED"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
     }
 
     @Test
@@ -159,6 +158,107 @@ class ExecutionUnitControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("RESOURCE-404"))
                 .andExpect(jsonPath("$.error.details.big3ItemId").value("missing-big3-item"));
+    }
+
+    @Test
+    void createExecutionUnitReturnsBadRequestWhenJsonIsMalformed() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "malformed-json-user",
+                                          "big3ItemId": "item-id",
+                                          "title": "닫히지 않은 JSON"
+                                        """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+                .andExpect(jsonPath("$.error.details.requestBody")
+                        .value("요청 본문이 올바른 JSON 형식이 아닙니다."));
+    }
+
+    @Test
+    void createExecutionUnitReturnsBadRequestWhenTitleIsBlank() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "blank-title-user",
+                                          "big3ItemId": "item-id",
+                                          "title": " "
+                                        }
+                                        """)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+                .andExpect(jsonPath("$.error.details.title").value("title은 필수입니다."));
+    }
+
+    @Test
+    void createExecutionUnitReturnsBadRequestWhenTitleExceedsLimit() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "long-title-user",
+                                          "big3ItemId": "item-id",
+                                          "title": "%s"
+                                        }
+                                        """.formatted("가".repeat(201)))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+                .andExpect(jsonPath("$.error.details.title").value("title은 최대 200자까지 허용됩니다."));
+    }
+
+    @Test
+    void createMultipleExecutionUnitsValidatesEachTitle() throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/multiple")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "multiple-invalid-title-user",
+                                          "big3ItemId": "item-id",
+                                          "title": ["정상 제목", " ", "%s"]
+                                        }
+                                        """.formatted("가".repeat(201)))
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("COMMON-400"))
+                .andExpect(jsonPath("$.error.details['title[1]']")
+                        .value("title은 비어 있을 수 없습니다."))
+                .andExpect(jsonPath("$.error.details['title[2]']")
+                        .value("title은 최대 200자까지 허용됩니다."));
+    }
+
+    @Test
+    void createExecutionUnitReturnsConflictWhenBig3ItemIsCompleted() throws Exception {
+        String userId = "execution-unit-terminal-item-user";
+        String big3ItemId = selectFirstBig3Item(userId);
+        String executionUnitId = createExecutionUnit(userId, big3ItemId, "완료할 실행 단위");
+
+        completeExecutionUnit(userId, executionUnitId);
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "big3ItemId": "%s",
+                                          "title": "완료 후 추가 실행 단위"
+                                        }
+                                        """.formatted(userId, big3ItemId))
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
+                .andExpect(jsonPath("$.error.details.big3ItemId").value(big3ItemId))
+                .andExpect(jsonPath("$.error.details.status").value("COMPLETED"));
     }
 
     private String createExecutionUnit(String userId, String big3ItemId, String title) throws Exception {
@@ -197,6 +297,19 @@ class ExecutionUnitControllerIntegrationTest {
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.path("data").path("selectedItems").get(0).path("big3ItemId").asText();
+    }
+
+    private void completeExecutionUnit(String userId, String executionUnitId) throws Exception {
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/{executionUnitId}/complete", executionUnitId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s"
+                                        }
+                                        """.formatted(userId))
+                )
+                .andExpect(status().isOk());
     }
 
     private List<String> saveInboxItems(String userId) throws Exception {

@@ -42,4 +42,11 @@ public interface Big3ItemRepository extends JpaRepository<Big3Item, String> {
             LocalDate weekStart
     );
 
+    List<Big3Item> findAllByStatusAndWeekStartBefore(
+            Big3ItemStatus status,
+            LocalDate currentWeekStart
+    );
+
+    boolean existsByDerivedFromItem_Id(String derivedFromItemId);
+
 }

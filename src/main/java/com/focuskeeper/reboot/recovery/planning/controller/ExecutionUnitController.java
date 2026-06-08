@@ -49,7 +49,7 @@ public class ExecutionUnitController {
         return ApiResponse.success(response, "EXECUTION_UNIT_CREATED");
     }
 
-    @GetMapping("/multiple")
+    @GetMapping
     @Operation(summary = "Get execution units", description = "Retrieves all execution units for a specific Big3 item.")
     public ApiResponse<List<ExecutionUnitResponse>> getExecutionUnits(
             @RequestParam String userId,
@@ -59,8 +59,8 @@ public class ExecutionUnitController {
         return ApiResponse.success(response, "EXECUTION_UNITS_FETCHED");
     }
 
-    @PostMapping("/single")
-    @Operation(summary = "insert execution Unit", description = "insert execution Unit")
+    @PostMapping
+    @Operation(summary = "Create execution unit", description = "Creates one execution unit under a selected Big3 item.")
     public ApiResponse<ExecutionUnitResponse> insertUnit(
             @Valid @RequestBody InsertExecutionUnitRequest request
     ) {
@@ -70,7 +70,7 @@ public class ExecutionUnitController {
                 request.title()
         );
 
-        return ApiResponse.success(executionUnitResponse, "EXECUTION_UNIT_INSERTED");
+        return ApiResponse.success(executionUnitResponse, "EXECUTION_UNIT_CREATED");
     }
 
 
@@ -89,7 +89,11 @@ public class ExecutionUnitController {
     }
 
     @PostMapping("/{executionUnitId}/complete")
-    @Operation(summary = "Complete execution unit", description = "Marks an execution unit as completed without changing session state.")
+    @Operation(
+            summary = "Complete execution unit",
+            description = "Completes the execution unit, ends active sessions for its timeboxes, "
+                    + "and cancels future planned work timeboxes."
+    )
     public ApiResponse<ExecutionUnitResponse> completeUnit(
             @PathVariable String executionUnitId,
             @Valid @RequestBody CompleteExecutionUnitRequest request

@@ -36,7 +36,7 @@ class TimeboxAllocationValidatorTest {
     void validateExecutionUnitsRejectsWhenCommandContainsUnitOutsideUserScope() {
         ExecutionUnit executionUnit = PlanningTestFixtures.createTransientExecutionUnit("user-1", "제안서 수정");
         Map<String, ExecutionUnit> executionUnits = Map.of(
-                executionUnit.getId(), executionUnit
+                "unit-owned", executionUnit
         );
         List<TimeboxCommand> commands = List.of(
                 new TimeboxCommand("unit-missing", "2026-03-19T09:00:00+09:00", "2026-03-19T09:25:00+09:00", true, TimeboxType.WORK.name())

@@ -58,12 +58,12 @@ public class Timebox extends BaseTimeEntity {
     @Column(name = "first_recovery_block", nullable = false)
     private boolean firstRecoveryBlock;
 
-    @Column(name = "session_id", nullable = false)
-    private String sessionId;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "timebox_status", nullable = false, length = 20)
     private TimeboxStatus status;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
 
     protected Timebox() {
     }
@@ -85,6 +85,7 @@ public class Timebox extends BaseTimeEntity {
         this.startAt = startAt;
         this.endAt = endAt;
         this.firstRecoveryBlock = firstRecoveryBlock;
+        this.status = PLANNED;
         initializeCreatedAt(createdAt);
     }
 
@@ -116,6 +117,7 @@ public class Timebox extends BaseTimeEntity {
 
         if(this.status == PLANNED && this.startAt.isAfter(now) && this.type == WORK) {
             this.status = CANCELLED_BY_TASK_COMPLETION;
+            this.cancelledAt = now;
         }
 
     }

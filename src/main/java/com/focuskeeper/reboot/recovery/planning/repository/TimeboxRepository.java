@@ -1,7 +1,5 @@
 package com.focuskeeper.reboot.recovery.planning.repository;
 
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
-import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import java.time.OffsetDateTime;
@@ -51,12 +49,4 @@ public interface TimeboxRepository extends JpaRepository<Timebox, String> {
      */
     Optional<Timebox> findByIdAndUserId(String id, String userId);
 
-    @Query("""
-            select s
-            from RecoverySession s
-            join Timebox t
-            ON s.timeboxId = :timeboxId
-            WHERE s.status = 'STARTED' AND s.userId = :userId
-""")
-    RecoverySession findByRecoverySessionWithTimeboxId(String timeboxId, String userId);
 }

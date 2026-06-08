@@ -2,7 +2,6 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
@@ -84,10 +83,6 @@ public class TimeboxService {
                     Map.of("timeboxId", "BREAK timebox로는 복귀 세션을 시작할 수 없습니다.")
             );
         }
-    }
-
-    public RecoverySession getStartedSession(String timeboxId, String userId) {
-        return timeboxRepository.findByRecoverySessionWithTimeboxId(timeboxId, userId);
     }
 
     /**

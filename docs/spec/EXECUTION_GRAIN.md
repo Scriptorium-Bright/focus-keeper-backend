@@ -1,6 +1,6 @@
 # Execution Grain Spec
 
-> Version: v1.2
+> Version: v1.3
 > Updated: 2026-06-06
 > Status: Source of Truth
 > Scope: Daily Big3, weekly item identity, ExecutionUnit, Timebox, Session
@@ -74,7 +74,7 @@ Timebox         1 : N RecoverySession
 | 참/거짓 | `boolean` | `boolean` |
 | 순서·분 단위 정수 | `integer` | `int` / `Integer` |
 | 분류 confidence | `numeric(5,4)` | `BigDecimal` |
-| optimistic lock | `bigint` | `Long` + `@Version` |
+| optimistic lock | `bigint` | `long` + `@Version` |
 
 현재 ID가 `String` 기반이므로 명칭 변경과 관계 분리 단계에서는 `varchar(36)`을 유지한다.
 추후 PostgreSQL native `uuid`로 바꾸는 작업은 별도 마이그레이션으로 다룬다.
@@ -168,7 +168,7 @@ create unique index uk_daily_big3_entries_active_item
 | `abandoned_at` | `timestamp with time zone` | `OffsetDateTime` | 예 |  | 사용자가 포기한 시각 |
 | `expired_at` | `timestamp with time zone` | `OffsetDateTime` | 예 |  | 주간 reset으로 만료된 시각 |
 | `derived_from_item_id` | `varchar(36)` | `String` / `Big3Item` | 예 | self FK → `big3_items.id` | 다음 주에 새로 만든 후속 item의 이전 item |
-| `version` | `bigint` | `Long` | 아니오 | optimistic lock, default 0 | 완료와 주간 sweep 경쟁 제어 |
+| `version` | `bigint` | `long` | 아니오 | optimistic lock, default 0 | 완료와 주간 sweep 경쟁 제어 |
 
 권장 index:
 
@@ -219,7 +219,7 @@ create index idx_execution_units_big3_item
 | `execution_unit_id` | `varchar(36)` | `String` / `ExecutionUnit` | 아니오 | FK → `execution_units.id` | 어떤 하위 작업의 계획인지 |
 | `item_content` | `varchar(200)` | `String` | 아니오 |  | 생성 당시 ExecutionUnit 제목 snapshot |
 | `timebox_type` | `varchar(20)` | `TimeboxType` | 아니오 | `WORK`, `BREAK` | 작업·휴식 블록 구분 |
-| `status` | `varchar(40)` | `TimeboxStatus` | 아니오 | `PLANNED`, `CANCELLED_BY_TASK_COMPLETION`, `CANCELLED_BY_USER` | 계획 블록 상태 |
+| `timebox_status` | `varchar(20)` | `TimeboxStatus` | 아니오 | `PLANNED`, `CANCELLED_BY_TASK_COMPLETION`, `CANCELLED_BY_USER` | 계획 블록 상태 |
 | `start_at` | `timestamp with time zone` | `OffsetDateTime` | 아니오 | `start_at < end_at` | 계획 시작 시각 |
 | `end_at` | `timestamp with time zone` | `OffsetDateTime` | 아니오 | `start_at < end_at` | 계획 종료 시각 |
 | `first_recovery_block` | `boolean` | `boolean` | 아니오 | 사용자·계획일별 하나 | 첫 복귀 블록 여부 |
@@ -240,12 +240,17 @@ create index idx_execution_units_big3_item
 | `user_id` | `varchar(100)` | `String` | 아니오 | index 권장 | 소유 사용자 |
 | `timebox_id` | `varchar(36)` | `String` | 아니오 | FK 권장 → `recovery_timeboxes.id` | 실행한 계획 블록 |
 | `status` | `varchar(30)` | `RecoverySessionStatus` | 아니오 | `STARTED`, `COMPLETED`, `INTERRUPTED` | 세션 상태 |
-| `end_reason` | `varchar(30)` | `SessionEndReason` | 예 | 종료 시 필수 | `TIMER_ELAPSED`, `TASK_COMPLETED`, `USER_STOPPED`, `FAILURE_CHECKED_IN` |
+| `recovery_end_reason` | `varchar(30)` | `RecoveryEndReason` | 예 | 종료 시 필수 | `TIMER_ELAPSED`, `TASK_COMPLETED`, `USER_STOPPED`, `FAILURE_CHECKED_IN` |
 | `started_at` | `timestamp with time zone` | `OffsetDateTime` | 아니오 |  | 실제 시작 시각 |
 | `ended_at` | `timestamp with time zone` | `OffsetDateTime` | 예 | STARTED면 `NULL` | 실제 종료 시각 |
 | `created_at` | `timestamp with time zone` | `OffsetDateTime` | 아니오 |  | 세션 row 생성 시각 |
 
 동일 사용자의 활성 Session 하나만 허용하려면 다음 partial unique index를 권장한다.
+
+`STARTED` Session에서는 `recovery_end_reason`과 `ended_at`이 `NULL`이다.
+`COMPLETED` 또는 `INTERRUPTED`로 전이할 때 종료 사유와 종료 시각을 함께 기록한다.
+`Timebox`에는 역방향 `session_id`를 두지 않으며, Session 조회는
+`recovery_sessions(timebox_id, user_id, status)` 기준으로 수행한다.
 
 ```sql
 create unique index uk_recovery_sessions_active_user

@@ -2,7 +2,9 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
+import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -15,11 +17,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse.toResponse;
+import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.OPEN;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,21 +32,23 @@ public class ExecutionUnitService {
 
     private final Big3ItemRepository big3ItemRepository;
     private final ExecutionUnitRepository executionUnitRepository;
-    private final TimeboxService timeboxService;
+    private final RecoverySessionRepository recoverySessionRepository;
 
     public ExecutionUnitService(
             Big3ItemRepository big3ItemRepository,
-            ExecutionUnitRepository executionUnitRepository, TimeboxService timeboxService
+            ExecutionUnitRepository executionUnitRepository,
+            RecoverySessionRepository recoverySessionRepository
     ) {
         this.big3ItemRepository = big3ItemRepository;
         this.executionUnitRepository = executionUnitRepository;
-        this.timeboxService = timeboxService;
+        this.recoverySessionRepository = recoverySessionRepository;
     }
 
     @Transactional
     public List<ExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
 
+        validateItemAcceptsExecutionUnits(big3Item);
         unitExceedException(titles.size(), big3Item.getUnits().size());
 
         return bulkExecutionUnit(titles, big3Item);
@@ -52,12 +56,16 @@ public class ExecutionUnitService {
 
 
 
+    @Transactional
     public ExecutionUnitResponse singleInsertUnit(String userId, String big3ItemId, String title) {
 
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
+        validateItemAcceptsExecutionUnits(big3Item);
         unitExceedException(1, big3Item.getUnits().size());
 
         ExecutionUnit executionUnit = ExecutionUnit.create(big3Item, title, OffsetDateTime.now());
+
+        executionUnitRepository.save(executionUnit);
 
         return toResponse(executionUnit);
     }
@@ -86,6 +94,18 @@ public class ExecutionUnitService {
         return executionUnitResponses;
     }
 
+    private void validateItemAcceptsExecutionUnits(Big3Item big3Item) {
+        if (big3Item.getStatus() != OPEN) {
+            throw new BusinessException(
+                    ErrorCode.CONFLICT,
+                    Map.of(
+                            "big3ItemId", big3Item.getId(),
+                            "status", big3Item.getStatus().name()
+                    )
+            );
+        }
+    }
+
     @Transactional
     public ExecutionUnitResponse updateUnit(String userId, String executionUnitId, String title) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
@@ -110,8 +130,11 @@ public class ExecutionUnitService {
         }
 
         for (Timebox t : executionUnit.getTimeboxes()) {
-            RecoverySession startedSession = timeboxService.getStartedSession(t.getId(), t.getUserId());
-            startedSession.complete(OffsetDateTime.now());
+            recoverySessionRepository.findByTimeboxIdAndUserIdAndStatus(
+                    t.getId(),
+                    t.getUserId(),
+                    RecoverySessionStatus.STARTED
+            ).ifPresent(session -> session.complete(OffsetDateTime.now()));
         }
 
         executionUnit.complete(OffsetDateTime.now());
@@ -143,7 +166,7 @@ public class ExecutionUnitService {
         if (currentCount + newCount > 5) {
             throw new BusinessException(
                     ErrorCode.COMMON_BAD_REQUEST,
-                    Map.of("titles", "ExecutionUnit 아이템은 총 3개까지만 생성할 수 있습니다. (현재 " + currentCount + "개 존재)")
+                    Map.of("titles", "ExecutionUnit 아이템은 총 5개까지만 생성할 수 있습니다. (현재 " + currentCount + "개 존재)")
             );
         }
     }

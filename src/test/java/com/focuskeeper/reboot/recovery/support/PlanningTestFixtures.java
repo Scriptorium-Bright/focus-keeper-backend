@@ -13,6 +13,7 @@ import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitReposito
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class PlanningTestFixtures {
@@ -66,6 +67,7 @@ public class PlanningTestFixtures {
         return executionUnitRepository.save(ExecutionUnit.create(big3Item, title, now));
     }
 
+    @Transactional
     public ExecutionUnit saveExecutionUnit(String userId, String title) {
         return saveExecutionUnit(
                 userId,

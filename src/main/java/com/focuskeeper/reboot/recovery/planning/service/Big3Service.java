@@ -4,7 +4,6 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
-import com.focuskeeper.reboot.recovery.planning.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -78,10 +77,22 @@ public class Big3Service {
 
         // 2. 오늘의 보드(Board) 가져오거나 생성
         DailyBig3Board board = resolveDailyBoard(userId, selectedDate, selectedAt);
+        Set<String> activeBoardItemIds = dailyBig3EntryRepository
+                .findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(board.getId())
+                .stream()
+                .map(entry -> entry.getBig3Item().getId())
+                .collect(Collectors.toSet());
 
         // 3. 작업(Big3Item) 준비 및 OPEN 상태 검증
         Set<Big3Item> newItems = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<Big3Item> selectedBig3Items = resolveOrCreateBig3Items(userId, selectedDate, selectedAt, selectedInboxItems, newItems);
+        List<Big3Item> selectedBig3Items = resolveOrCreateBig3Items(
+                userId,
+                selectedDate,
+                selectedAt,
+                selectedInboxItems,
+                newItems,
+                activeBoardItemIds
+        );
 
         // 4. 기존 보드 비우고 새 작업들로 채우기
         List<DailyBig3Entry> savedEntries = replaceBoardEntries(board, selectedBig3Items, newItems, selectedAt);
@@ -112,6 +123,13 @@ public class Big3Service {
         return DailyBig3BoardResponse.from(dailyBig3Board, activeEntries);
     }
 
+    /**
+     * 이전에 하지못했던 (금주 big3) 를 다시 할 수 있게 넘겨준다.
+     * @param userId
+     * @param big3ItemId
+     * @return
+     */
+    @Transactional
     public DailyBig3BoardResponse carryOverBig3Item(String userId, String big3ItemId) {
 
         OffsetDateTime nowAt = OffsetDateTime.now();
@@ -171,13 +189,29 @@ public class Big3Service {
         return DailyBig3BoardResponse.from(dailyBig3Board, updatedEntries);
 
     }
-    
+
+    /**
+     * 지난주에 하지못했던 Big3를 이번주로 넘긴다.
+     * @param userId
+     * @param big3ItemIds
+     */
+    @Transactional
     public void continueLastWeekWork(String userId, List<String> big3ItemIds) {
 
         OffsetDateTime selectedAt = OffsetDateTime.now();
-        LocalDate now = selectedAt.toLocalDate();
+        LocalDate today = selectedAt.toLocalDate();
+        LocalDate now = selectedAt.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate lastWeekStart = now.minusWeeks(1);
 
-        List<Big3Item> big3Items = big3ItemRepository.findAllByIdInAndUserId(big3ItemIds, userId);
+        List<String> uniqueIds = big3ItemIds.stream().distinct().toList();
+        if (uniqueIds.size() != big3ItemIds.size()) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    "중복된 itemId는 허용되지 않습니다."
+            );
+        }
+
+        List<Big3Item> big3Items = big3ItemRepository.findAllByIdInAndUserId(uniqueIds, userId);
 
         if (big3Items.size() != big3ItemIds.size()) {
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
@@ -186,9 +220,29 @@ public class Big3Service {
         List<Big3Item> newBig3Items = new ArrayList<>();
 
         for (Big3Item big3Item : big3Items) {
-            big3Item.expiredStatus();
 
-            Big3Item newBig3Item = Big3Item.create(userId, now, big3Item.getOriginInboxItem(), selectedAt);
+            if(big3Item.getStatus() != EXPIRED) {
+                throw new BusinessException(
+                        ErrorCode.COMMON_BAD_REQUEST,
+                        "만료된 작업만 이어갈 수 있습니다."
+                );
+            }
+
+            if(!big3Item.getWeekStart().equals(lastWeekStart))  {
+                throw new BusinessException(
+                        ErrorCode.COMMON_BAD_REQUEST,
+                        "지난 주 작업에 대해서만 가능합니다."
+                );
+            }
+
+            if (big3ItemRepository.existsByDerivedFromItem_Id(big3Item.getId())) {
+                throw new BusinessException(
+                        ErrorCode.COMMON_BAD_REQUEST,
+                        "이미 이번 주로 이어간 작업입니다."
+                );
+            }
+
+            Big3Item newBig3Item = Big3Item.create(userId, today, big3Item.getOriginInboxItem(), selectedAt);
             newBig3Item.putDerivedFromItem(big3Item);
 
             newBig3Items.add(newBig3Item);
@@ -217,6 +271,20 @@ public class Big3Service {
             newEntries.add(newEntry);
         }
         dailyBig3EntryRepository.saveAll(newEntries);
+    }
+
+    @Transactional
+    public void weeklySweep() {
+        OffsetDateTime now = OffsetDateTime.now();
+        LocalDate currentWeekStart = now.toLocalDate()
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        List<Big3Item> big3Items = big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, currentWeekStart);
+
+        for (Big3Item big3Item : big3Items) {
+            big3Item.expire(now);
+        }
+
     }
 
 
@@ -281,7 +349,8 @@ public class Big3Service {
 
     private List<Big3Item> resolveOrCreateBig3Items(
             String userId, LocalDate selectedDate, OffsetDateTime selectedAt,
-            List<InboxItem> selectedItems, Set<Big3Item> newItems
+            List<InboxItem> selectedItems, Set<Big3Item> newItems,
+            Set<String> activeBoardItemIds
     ) {
         LocalDate weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         List<String> uniqueItemIds = selectedItems.stream().map(InboxItem::getId).toList();
@@ -309,7 +378,9 @@ public class Big3Service {
 
         // 이미 이번 주에 생성되었던 작업(Carryover 대상)이라면, 상태가 OPEN인지 반드시 검증한다.
         for (Big3Item item : selectedBig3Items) {
-            if (!newItems.contains(item) && item.getStatus() != OPEN) {
+            boolean completedOnCurrentBoard =
+                    item.getStatus() == COMPLETED && activeBoardItemIds.contains(item.getId());
+            if (!newItems.contains(item) && item.getStatus() != OPEN && !completedOnCurrentBoard) {
                 throw new BusinessException(
                         ErrorCode.COMMON_BAD_REQUEST,
                         Map.of(

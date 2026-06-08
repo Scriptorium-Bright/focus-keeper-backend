@@ -27,6 +27,7 @@ import java.util.UUID;
  *
  * started/completed/interrupted 상태 전이를 통해 사용자가 실제로 계획한 블록을 수행했는지 기록한다.
  */
+@Getter
 public class RecoverySession {
 
     @Id
@@ -45,7 +46,7 @@ public class RecoverySession {
     private RecoverySessionStatus status;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "recovery_end_reason", nullable = false, length = 30)
+    @Column(name = "recovery_end_reason", length = 30)
     private RecoveryEndReason recoveryEndReason;
 
     @Column(name = "started_at", nullable = false)

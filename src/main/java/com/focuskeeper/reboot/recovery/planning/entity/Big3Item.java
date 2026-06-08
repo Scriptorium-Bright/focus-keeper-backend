@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.EXPIRED;
+import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.OPEN;
 
 @Entity
 @Table(name = "big3_items")
@@ -119,10 +120,15 @@ public class Big3Item extends BaseTimeEntity {
         return new Big3Item(userId, selectedDate, inboxItem, createdAt);
     }
 
-    public void expiredStatus() {
-        this.status = EXPIRED;
-    }
+    public void expire(OffsetDateTime now) {
 
+        if(this.status != OPEN) {
+            throw new IllegalArgumentException("OPEN 상태만 만료 가능합니다.");
+        }
+
+        this.status = EXPIRED;
+        this.expiredAt = now;
+    }
     public void putDerivedFromItem(Big3Item item) {
         this.derivedFromItem = item;
     }
