@@ -1,6 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardRequest;
 import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Request;
 import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Response;
@@ -8,6 +9,7 @@ import com.focuskeeper.reboot.recovery.planning.service.Big3Service;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,4 +51,25 @@ public class Big3Controller {
         );
         return ApiResponse.success(response, "BIG3_SELECTED");
     }
+
+    @PostMapping("/expired")
+    @Scheduled(cron = "0 30 0 * * *")
+    public ApiResponse<?> expiredTask() {
+        big3Service.expireLastWeekTasks();
+        return ApiResponse.success("만료 작업 성공");
+    }
+
+    @PostMapping("/continue")
+    public ApiResponse<DailyBig3BoardResponse> continueWork(@RequestBody DailyBig3BoardRequest request) {
+
+        DailyBig3BoardResponse dailyBig3BoardResponse = big3Service.continueLastWeekWork(
+                request.userId(),
+                request.big3ItemIds()
+        );
+
+        return ApiResponse.success(dailyBig3BoardResponse, "이월 작업을 완료하였습니다.");
+    }
+
+
+
 }

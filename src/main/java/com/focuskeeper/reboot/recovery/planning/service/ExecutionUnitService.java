@@ -7,6 +7,7 @@ import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.MultipleExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
@@ -45,7 +46,7 @@ public class ExecutionUnitService {
     }
 
     @Transactional
-    public List<ExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
+    public List<MultipleExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
 
         validateItemAcceptsExecutionUnits(big3Item);
@@ -79,14 +80,14 @@ public class ExecutionUnitService {
                 ));
     }
 
-    private List<ExecutionUnitResponse> bulkExecutionUnit(List<String> titles, Big3Item big3Item) {
-        List<ExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
+    private List<MultipleExecutionUnitResponse> bulkExecutionUnit(List<String> titles, Big3Item big3Item) {
+        List<MultipleExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
 
         for (String title : titles) {
             ExecutionUnit executionUnit = ExecutionUnit.create(big3Item, title, OffsetDateTime.now());
             big3Item.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
             big3Item.updateStatusFromUnits();
-            ExecutionUnitResponse response = toResponse(executionUnit);
+            MultipleExecutionUnitResponse response = MultipleExecutionUnitResponse.toResponse(executionUnit);
 
             executionUnitResponses.add(response);
         }

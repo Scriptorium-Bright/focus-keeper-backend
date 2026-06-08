@@ -37,10 +37,10 @@ public class ExecutionUnitController {
      */
     @PostMapping("/multiple")
     @Operation(summary = "Create execution unit", description = "Creates a concrete unit under a selected Big3 item.")
-    public ApiResponse<List<ExecutionUnitResponse>> createUnit(
+    public ApiResponse<List<MultipleExecutionUnitResponse>> createUnit(
             @Valid @RequestBody CreateExecutionUnitRequest request
     ) {
-        List<ExecutionUnitResponse> response = executionUnitService.createUnit(
+        List<MultipleExecutionUnitResponse> response = executionUnitService.createUnit (
                 request.userId(),
                 request.big3ItemId(),
                 request.title()

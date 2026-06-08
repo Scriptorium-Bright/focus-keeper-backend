@@ -62,7 +62,7 @@ class Big3ServiceTest {
         try (MockedStatic<OffsetDateTime> mockedTime = mockStatic(OffsetDateTime.class)) {
             mockedTime.when(OffsetDateTime::now).thenReturn(FIXED_NOW);
 
-            big3Service.weeklySweep();
+            big3Service.runExpireLastWeekTasks();
         }
 
         assertThat(pastOpenItem.getStatus()).isEqualTo(EXPIRED);

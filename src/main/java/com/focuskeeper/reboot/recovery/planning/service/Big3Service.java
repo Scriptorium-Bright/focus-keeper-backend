@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -129,7 +130,7 @@ public class Big3Service {
      * @param big3ItemId
      * @return
      */
-    @Transactional
+/*    @Transactional
     public DailyBig3BoardResponse carryOverBig3Item(String userId, String big3ItemId) {
 
         OffsetDateTime nowAt = OffsetDateTime.now();
@@ -188,7 +189,7 @@ public class Big3Service {
 
         return DailyBig3BoardResponse.from(dailyBig3Board, updatedEntries);
 
-    }
+    }*/
 
     /**
      * 지난주에 하지못했던 Big3를 이번주로 넘긴다.
@@ -196,7 +197,7 @@ public class Big3Service {
      * @param big3ItemIds
      */
     @Transactional
-    public void continueLastWeekWork(String userId, List<String> big3ItemIds) {
+    public DailyBig3BoardResponse continueLastWeekWork(String userId, List<String> big3ItemIds) {
 
         OffsetDateTime selectedAt = OffsetDateTime.now();
         LocalDate today = selectedAt.toLocalDate();
@@ -221,31 +222,15 @@ public class Big3Service {
 
         for (Big3Item big3Item : big3Items) {
 
-            if(big3Item.getStatus() != EXPIRED) {
-                throw new BusinessException(
-                        ErrorCode.COMMON_BAD_REQUEST,
-                        "만료된 작업만 이어갈 수 있습니다."
-                );
-            }
-
-            if(!big3Item.getWeekStart().equals(lastWeekStart))  {
-                throw new BusinessException(
-                        ErrorCode.COMMON_BAD_REQUEST,
-                        "지난 주 작업에 대해서만 가능합니다."
-                );
-            }
-
-            if (big3ItemRepository.existsByDerivedFromItem_Id(big3Item.getId())) {
-                throw new BusinessException(
-                        ErrorCode.COMMON_BAD_REQUEST,
-                        "이미 이번 주로 이어간 작업입니다."
-                );
-            }
+            validateExpired(big3Item);
+            validateIsLastWeekItem(big3Item, lastWeekStart);
+            validateNotContinuedYet(big3Item);
 
             Big3Item newBig3Item = Big3Item.create(userId, today, big3Item.getOriginInboxItem(), selectedAt);
             newBig3Item.putDerivedFromItem(big3Item);
 
             newBig3Items.add(newBig3Item);
+
         }
 
         big3ItemRepository.saveAll(newBig3Items);
@@ -271,10 +256,43 @@ public class Big3Service {
             newEntries.add(newEntry);
         }
         dailyBig3EntryRepository.saveAll(newEntries);
+
+        return DailyBig3BoardResponse.from(dailyBig3Board, newEntries);
     }
 
+    private void validateNotContinuedYet(Big3Item big3Item) {
+        if (big3ItemRepository.existsByDerivedFromItem_Id(big3Item.getId())) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    "이미 이번 주로 이어간 작업입니다."
+            );
+        }
+    }
+
+    private void validateIsLastWeekItem(Big3Item big3Item, LocalDate lastWeekStart) {
+        if(!big3Item.getWeekStart().equals(lastWeekStart))  {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    "지난 주 작업에 대해서만 가능합니다."
+            );
+        }
+    }
+
+    private void validateExpired(Big3Item big3Item) {
+        if(big3Item.getStatus() != EXPIRED) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    "만료된 작업만 이어갈 수 있습니다."
+            );
+        }
+    }
+
+    /**
+     * 지난 주 작업을 만료시킨다.
+     * scheduling vs batch
+     */
     @Transactional
-    public void weeklySweep() {
+    public void expireLastWeekTasks() {
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate currentWeekStart = now.toLocalDate()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
@@ -284,8 +302,8 @@ public class Big3Service {
         for (Big3Item big3Item : big3Items) {
             big3Item.expire(now);
         }
-
     }
+
 
 
 
