@@ -14,7 +14,9 @@ public record DailyBig3BoardResponse(
         LocalDate selectedDate,
         OffsetDateTime selectedAt,
         List<Big3ItemResponse> selectedItems,
-        Big3ItemCompletionStatus status
+        Big3ItemCompletionStatus status,
+        String dailyBig3boardId,
+        List<DailyBig3EntryResponse> dailyBig3Entries
 ) {
     public static DailyBig3BoardResponse from(
             DailyBig3Board dailyBig3Board,
@@ -25,12 +27,17 @@ public record DailyBig3BoardResponse(
                 .map(DailyBig3Entry::getBig3Item)
                 .map(Big3ItemResponse::from)
                 .toList();
+
+        List<DailyBig3EntryResponse> entries = DailyBig3EntryResponse.fromList(activeEntries);
+
         return new DailyBig3BoardResponse(
                 dailyBig3Board.getUserId(),
                 dailyBig3Board.getSelectedDate(),
                 dailyBig3Board.getSelectedAt(),
                 items,
-                completionStatus(activeEntries)
+                completionStatus(activeEntries),
+                dailyBig3Board.getId(),
+                entries
         );
     }
 

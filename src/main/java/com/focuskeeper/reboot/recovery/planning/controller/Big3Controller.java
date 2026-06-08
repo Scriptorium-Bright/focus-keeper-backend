@@ -36,20 +36,13 @@ public class Big3Controller {
      */
     @PostMapping("/big3")
     @Operation(summary = "Select today's Big3", description = "Picks up to three inbox items as today's recovery priorities.")
-    public ApiResponse<SelectBig3Response> selectBig3(
+    public ApiResponse<DailyBig3BoardResponse> selectBig3(
             @Valid @RequestBody SelectBig3Request request
     ) {
 
         DailyBig3BoardResponse dailyBig3Board = big3Service.selectTodayBig3(request.userId(), request.itemIds());
 
-        SelectBig3Response response = new SelectBig3Response(
-                dailyBig3Board.selectedDate().toString(),
-                dailyBig3Board.selectedAt().toString(),
-                dailyBig3Board.selectedItems().size(),
-                dailyBig3Board.selectedItems(),
-                dailyBig3Board.status()
-        );
-        return ApiResponse.success(response, "BIG3_SELECTED");
+        return ApiResponse.success(dailyBig3Board, "BIG3_SELECTED");
     }
 
     @PostMapping("/expired")
@@ -59,6 +52,7 @@ public class Big3Controller {
         return ApiResponse.success("만료 작업 성공");
     }
 
+    // dailyBig3BoardResponse 를 응답으로 넣는게 맞는가?
     @PostMapping("/continue")
     public ApiResponse<DailyBig3BoardResponse> continueWork(@RequestBody DailyBig3BoardRequest request) {
 
