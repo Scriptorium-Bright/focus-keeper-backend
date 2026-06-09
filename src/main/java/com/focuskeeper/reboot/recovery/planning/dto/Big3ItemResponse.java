@@ -27,7 +27,6 @@ public record Big3ItemResponse(
         // total success percentage -> 도입 할 지 안 할지 모름
         double successPer = completedCount == 0 ? 0.0 : (double) completedCount / units.size();
 
-
         return new Big3ItemResponse(
                 big3Item.getId(),
                 big3Item.getOriginInboxItem().getId(),

@@ -5,6 +5,7 @@ import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
 import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Board;
@@ -122,6 +123,24 @@ public class Big3Service {
                         dailyBig3Board.getId()
                 );
         return DailyBig3BoardResponse.from(dailyBig3Board, activeEntries);
+    }
+
+    @Transactional
+    public Big3ItemResponse abandonItem(String userId, String big3ItemId) {
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Big3Item big3Item = big3ItemRepository.findByIdAndUserId(big3ItemId, userId)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RESOURCE_NOT_FOUND,
+                        Map.of(
+                                "userId", userId,
+                                "big3ItemId", big3ItemId
+                        )
+                ));
+
+        big3Item.abandon(now);
+
+        return Big3ItemResponse.from(big3Item);
     }
 
     /**

@@ -1,10 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardRequest;
-import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Request;
-import com.focuskeeper.reboot.recovery.planning.dto.SelectBig3Response;
+import com.focuskeeper.reboot.recovery.planning.dto.*;
 import com.focuskeeper.reboot.recovery.planning.service.Big3Service;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -68,6 +65,17 @@ public class Big3Controller {
         );
 
         return ApiResponse.success(dailyBig3BoardResponse, "이월 작업을 완료하였습니다.");
+    }
+
+    @PostMapping("/abandon")
+    public ApiResponse<Big3ItemResponse> abandonItem(
+            @RequestBody String userId,
+            @RequestBody String big3ItemId
+    ) {
+
+        Big3ItemResponse big3ItemResponse = big3Service.abandonItem(userId, big3ItemId);
+
+        return ApiResponse.success(big3ItemResponse, "abandon big3Item");
     }
 
 
