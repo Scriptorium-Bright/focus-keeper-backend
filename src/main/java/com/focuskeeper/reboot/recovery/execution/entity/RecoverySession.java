@@ -3,13 +3,7 @@ package com.focuskeeper.reboot.recovery.execution.entity;
 import com.focuskeeper.reboot.recovery.execution.RecoveryEndReason;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.OffsetDateTime;
@@ -57,6 +51,9 @@ public class RecoverySession {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+
+    @Version
+    private Long version;
 
     protected RecoverySession() {
     }

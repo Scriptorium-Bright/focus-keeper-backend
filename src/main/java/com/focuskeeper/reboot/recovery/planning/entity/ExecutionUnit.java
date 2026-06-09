@@ -39,6 +39,9 @@ public class ExecutionUnit extends BaseTimeEntity {
     @OneToMany(mappedBy = "executionUnit", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Timebox> timeboxes = new ArrayList<>();
 
+    @Version
+    private Long version;
+
     protected ExecutionUnit() {
     }
 

@@ -711,8 +711,8 @@ Session 종료와 unit 완료 동시 요청
 
 권장:
 
-- `Big3Item`에 optimistic locking version 추가
-- 상태 조건부 update: `OPEN -> COMPLETED/ABANDONED/EXPIRED`
+- `Big3Item`, `ExecutionUnit`, `RecoverySession`에 optimistic locking (`@Version`) 추가
+- 완료 및 상태 변경 시 조건부 업데이트(Native UPDATE) 대신 순수 엔티티 변경 후 `save()` 호출 (버전 충돌 활용)
 - 완료 API idempotency
 - partial unique index로 활성 entry 중복 방지
 - 사용자의 활성 Session 하나 제약을 DB 수준에서도 보강

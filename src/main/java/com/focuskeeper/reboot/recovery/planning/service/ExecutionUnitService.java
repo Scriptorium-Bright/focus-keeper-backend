@@ -4,7 +4,6 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
-import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.MultipleExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -20,6 +19,8 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import static com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus.COMPLETED;
+import static com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus.PLANNED;
 import static com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse.toResponse;
 import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.OPEN;
 
@@ -124,8 +125,9 @@ public class ExecutionUnitService {
     @Transactional
     public ExecutionUnitResponse completeUnit(String userId, String executionUnitId) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
+        OffsetDateTime now = OffsetDateTime.now();
 
-        if (executionUnit.getStatus() == ExecutionUnitStatus.COMPLETED) {
+        if (executionUnit.getStatus() == COMPLETED) {
             return toResponse(executionUnit);
         }
 
@@ -134,11 +136,17 @@ public class ExecutionUnitService {
                     t.getId(),
                     t.getUserId(),
                     RecoverySessionStatus.STARTED
-            ).ifPresent(session -> session.complete(OffsetDateTime.now()));
+            ).ifPresent(session -> session.complete(now));
         }
+         executionUnit.complete(now);
+        // 조건부 쿼리 vs Version Optimisitic Lock
+/*
+        int updatedCount = executionUnitRepository.updateExeucutionUnitStatus(COMPLETED, now, PLANNED, executionUnitId);
 
-        executionUnit.complete(OffsetDateTime.now());
-
+        if(updatedCount == 0) {
+            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Update Failure");
+        }
+*/
 
         for (Timebox t : executionUnit.getTimeboxes()) {
             t.cancelledBySystem(OffsetDateTime.now());
