@@ -84,6 +84,15 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
             @Param("end") OffsetDateTime end
     );
 
+    @Query("""
+        select s.status
+        from FailureEvent f
+        JOIN RecoverySession s
+        ON s.id = :sessionId
+        WHERE s.status = "STARTED" AND f.userId = :userId
+        """)
+    boolean existsByStatusIsStarted(String sessionId, String userId);
+
     /**
      * 기간 내 가장 많이 발생한 failure reason을 반환한다.
      */

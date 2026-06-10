@@ -1,8 +1,11 @@
 package com.focuskeeper.reboot.recovery.execution.repository;
 
+import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
 import com.focuskeeper.reboot.recovery.execution.entity.RestartEvent;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,6 +47,17 @@ public interface RestartEventRepository extends JpaRepository<RestartEvent, Stri
             @Param("start") OffsetDateTime start,
             @Param("end") OffsetDateTime end
     );
+
+    @Query("""
+        select f
+        from RestartEvent r
+        join FailureEvent f
+        ON f.id = :failureEventId
+        WHERE f.userId = :userId
+        """)
+    Optional<FailureEvent> findByFailureEventIdAndUserId(String failureEventId, String userId);
+
+    long countByFailureEventId(String id);
 
     /**
      * KPI 및 품질 검사에서 사용하는 최소 restart 필드 projection이다.

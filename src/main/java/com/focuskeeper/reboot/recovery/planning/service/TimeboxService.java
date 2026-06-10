@@ -71,6 +71,8 @@ public class TimeboxService {
     /**
      * 세션 시작 전에 특정 timebox가 존재하는지, 그리고 WORK 타입인지 검증한다.
      */
+    // 이름 수정 필요함
+
     public void getTimebox(String userId, String timeboxId) {
         Timebox timebox = timeboxRepository.findByIdAndUserId(timeboxId, userId)
                 .orElseThrow(() -> new BusinessException(

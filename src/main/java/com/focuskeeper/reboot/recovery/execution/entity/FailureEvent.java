@@ -2,13 +2,9 @@ package com.focuskeeper.reboot.recovery.execution.entity;
 
 import com.focuskeeper.reboot.recovery.execution.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Getter;
+
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -24,9 +20,11 @@ import java.util.UUID;
  *
  * analytics와 friction 계층은 이후 이 원천 이벤트를 기준으로 복귀율과 실패 패턴을 다시 계산한다.
  */
+@Getter
 public class FailureEvent {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -53,7 +51,6 @@ public class FailureEvent {
     }
 
     private FailureEvent(
-            String id,
             String userId,
             String sessionId,
             String timeboxId,
@@ -61,7 +58,6 @@ public class FailureEvent {
             String note,
             OffsetDateTime occurredAt
     ) {
-        this.id = id;
         this.userId = userId;
         this.sessionId = sessionId;
         this.timeboxId = timeboxId;
@@ -73,7 +69,7 @@ public class FailureEvent {
     /**
      * 새로운 실패 체크인 이벤트를 생성한다.
      */
-    public static FailureEvent create(
+    public static FailureEvent create (
             String userId,
             String sessionId,
             String timeboxId,
@@ -82,7 +78,6 @@ public class FailureEvent {
             OffsetDateTime occurredAt
     ) {
         return new FailureEvent(
-                UUID.randomUUID().toString(),
                 userId,
                 sessionId,
                 timeboxId,

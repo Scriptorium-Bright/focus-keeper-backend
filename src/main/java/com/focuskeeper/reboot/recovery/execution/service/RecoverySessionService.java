@@ -10,9 +10,12 @@ import com.focuskeeper.reboot.recovery.planning.service.TimeboxService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 /**
@@ -43,13 +46,13 @@ public class RecoverySessionService {
     @Transactional
     public RecoverySessionResponse startSession(String userId, String timeboxId) {
         timeboxService.getTimebox(userId, timeboxId);
-        // T. Timebox에 대한 세션이 지금 활성상태인지 아닌지에 대해 확인하고, 아닐 경우 복귀? 라고 해야하나
-        // A. 맞다. 다만 현재 로직은 특정 timebox별 활성 여부가 아니라 "사용자에게 진행 중인 복귀 세션이 하나라도 있는지"를 막는 전역 제약이다.
-        //    한 사용자가 동시에 여러 복귀 세션을 열지 못하게 해서 실행 기록과 KPI 집계가 중복되는 것을 방지한다.
-        boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus(
+
+        boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus (
                 userId,
                 RecoverySessionStatus.STARTED
         );
+
+        log.info("세션이 활성화되었나 ? = {}", hasActiveSession);
 
         validateHasActiveSession(hasActiveSession);
 
