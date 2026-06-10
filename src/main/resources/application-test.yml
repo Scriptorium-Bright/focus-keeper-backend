@@ -1,18 +1,36 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:rebootfocus-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:rebootfocus}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:rebootfocus}
+    password: ${DB_PASSWORD:rebootfocus}
+    hikari:
+      maximum-pool-size: 17
+
   batch:
     job:
       enabled: false
-  main:
-    banner-mode: "off"
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true  # 2. 쿼리를 한 줄이 아닌, 예쁘게 들여쓰기해서 보여줌
+        highlight_sql: true # 3. (선택) 쿼리에 SQL 문법 색상(Color)을 입혀서 가독성을 높임
+        jdbc:
+          batch_size: 90
+        order_inserts: true
+        order_updates: true
+
 
 logging:
   level:
-    root: WARN
+    root: INFO
+    com.focuskeeper.reboot: DEBUG
+
+management:
+  endpoint:
+    health:
+      show-details: always

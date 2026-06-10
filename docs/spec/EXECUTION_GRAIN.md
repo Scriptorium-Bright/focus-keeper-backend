@@ -63,7 +63,7 @@ Timebox         1 : N RecoverySession
 ### 3.1 자료형 기준
 
 아래 표는 목표 운영 스키마 기준이다.
-구현 착수 시점은 `docs/goal/IMPLEMENTATION_SCOPE.md`를 따른다.
+구현 착수 시점은 `docs/goal/SCOPE.md`를 따른다.
 
 | 의미 | PostgreSQL | Java/JPA |
 |---|---|---|

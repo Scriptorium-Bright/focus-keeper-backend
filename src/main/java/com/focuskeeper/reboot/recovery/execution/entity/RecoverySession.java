@@ -10,12 +10,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "recovery_sessions",
-        indexes = {
-                @Index(name = "idx_recovery_sessions_user_status", columnList = "user_id, status")
-        }
-)
+@Table(name = "recovery_session")
 /**
  * 특정 timebox 실행을 나타내는 복귀 세션 엔티티다.
  *
@@ -25,6 +20,7 @@ import java.util.UUID;
 public class RecoverySession {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -59,7 +55,6 @@ public class RecoverySession {
     }
 
     private RecoverySession(
-            String id,
             String userId,
             String timeboxId,
             RecoverySessionStatus status,
@@ -67,7 +62,6 @@ public class RecoverySession {
             OffsetDateTime endedAt,
             OffsetDateTime createdAt
     ) {
-        this.id = id;
         this.userId = userId;
         this.timeboxId = timeboxId;
         this.status = status;
@@ -81,7 +75,6 @@ public class RecoverySession {
      */
     public static RecoverySession start(String userId, String timeboxId, OffsetDateTime startedAt) {
         return new RecoverySession(
-                UUID.randomUUID().toString(),
                 userId,
                 timeboxId,
                 RecoverySessionStatus.STARTED,

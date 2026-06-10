@@ -27,6 +27,8 @@ public interface RecoverySessionRepository extends JpaRepository<RecoverySession
             RecoverySessionStatus status
     );
 
+    long countByUserIdAndStatus(String userId, RecoverySessionStatus status);
+
     List<RecoverySession> findAllByUserIdOrderByStartedAtAsc(String userId);
 
     long countByUserIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(

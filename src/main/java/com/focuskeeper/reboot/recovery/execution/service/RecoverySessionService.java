@@ -50,17 +50,14 @@ public class RecoverySessionService {
                 userId,
                 RecoverySessionStatus.STARTED
         );
-        if (hasActiveSession) {
-            throw new BusinessException(
-                    ErrorCode.CONFLICT,
-                    Map.of("session", "이미 진행 중인 복귀 세션이 있습니다.")
-            );
-        }
+
+        validateHasActiveSession(hasActiveSession);
 
         return recoverySessionRepository.save(
                 RecoverySession.start(userId, timeboxId, OffsetDateTime.now())
         ).toResponse();
     }
+
 
     /**
      * 진행 중인 세션을 완료 상태로 전이한다.
@@ -160,6 +157,16 @@ public class RecoverySessionService {
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("sessionId", sessionId)
                 ));
+    }
+
+
+    private static void validateHasActiveSession(boolean hasActiveSession) {
+        if (hasActiveSession) {
+            throw new BusinessException(
+                    ErrorCode.CONFLICT,
+                    Map.of("session", "이미 진행 중인 복귀 세션이 있습니다.")
+            );
+        }
     }
 
     /**
