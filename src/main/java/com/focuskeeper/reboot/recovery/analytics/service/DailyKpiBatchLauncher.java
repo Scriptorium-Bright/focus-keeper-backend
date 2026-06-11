@@ -49,6 +49,7 @@ public class DailyKpiBatchLauncher {
      *    observability는 그 실행 단위의 성공/실패/소요 시간을 밖에서 볼 수 있게 붙인 운영 보강 책임이다.
      */
 
+    // medium
     public void launch(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {

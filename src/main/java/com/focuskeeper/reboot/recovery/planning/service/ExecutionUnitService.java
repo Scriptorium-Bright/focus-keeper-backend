@@ -46,6 +46,7 @@ public class ExecutionUnitService {
     }
 
     @Transactional
+    // high
     public List<MultipleExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
 
@@ -58,6 +59,7 @@ public class ExecutionUnitService {
 
 
     @Transactional
+    // high
     public ExecutionUnitResponse singleInsertUnit(String userId, String big3ItemId, String title) {
 
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
@@ -80,6 +82,7 @@ public class ExecutionUnitService {
                 ));
     }
 
+    // medium
     private List<MultipleExecutionUnitResponse> bulkExecutionUnit(List<String> titles, Big3Item big3Item) {
         List<MultipleExecutionUnitResponse> executionUnitResponses = new ArrayList<>();
 
@@ -123,6 +126,7 @@ public class ExecutionUnitService {
     }
 
     @Transactional
+    // high
     public ExecutionUnitResponse completeUnit(String userId, String executionUnitId) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
         OffsetDateTime now = OffsetDateTime.now();
@@ -170,6 +174,7 @@ public class ExecutionUnitService {
     }
 
     // 추후 exception으로 이관예정
+    // high
     private static void unitExceedException(int newCount, int currentCount) {
         if (currentCount + newCount > 5) {
             throw new BusinessException(

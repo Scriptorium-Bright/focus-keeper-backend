@@ -60,6 +60,7 @@ public class WeeklyRetrospectiveService {
      * 여러 번 호출되어도 해당 주차의 데이터를 덮어쓰므로 멱등성(Idempotency)이 보장된다.
      */
     @Transactional
+    // critical
     public WeeklyRetrospectiveResponse generate(String userId, LocalDate weekStart) {
         LocalDate weekEnd = weekStart.plusDays(6);
         OffsetDateTime periodStart = weekStart.atStartOfDay().atOffset(DEFAULT_OFFSET);

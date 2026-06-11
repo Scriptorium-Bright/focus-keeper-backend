@@ -21,6 +21,7 @@ public class TimeboxAllocationValidator {
     /**
      * 첫 복귀 블록의 개수와 타입 규칙을 검증한다.
      */
+    // medium
     public void validateFirstRecoveryBlock(List<TimeboxCommand> commands) {
         long firstRecoveryBlockCount = commands.stream()
                 .filter(TimeboxCommand::firstRecoveryBlock)

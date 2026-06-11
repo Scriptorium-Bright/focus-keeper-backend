@@ -111,6 +111,7 @@ public class FrictionSignalAnalyticsService {
      *
      * 같은 날짜에 다시 계산하더라도 signal type별 증거 수와 활성 여부만 최신 값으로 덮어쓴다.
      */
+    // high
     private RecoveryFrictionSignal upsertSignal(
             String userId,
             LocalDate metricDate,

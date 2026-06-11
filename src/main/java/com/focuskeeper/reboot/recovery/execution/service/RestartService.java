@@ -44,6 +44,7 @@ public class RestartService {
      * 특정 failure event를 기준으로 새 복귀 세션을 시작하고 restart event를 남긴다.
      */
     @Transactional
+    // critical
     public RestartRecoveryResult restart(String userId, String failureEventId) {
 
         // 특정 Failure event 1건

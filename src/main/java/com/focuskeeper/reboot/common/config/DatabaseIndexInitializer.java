@@ -21,6 +21,19 @@ public class DatabaseIndexInitializer {
         WHERE status = 'STARTED';
         """);
 
+        // entry 중복 삽입 방지를 위한 partial unique index
+        jdbcTemplate.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_big3_entry_order
+        ON daily_big3_entries (daily_big3_board_id, slot_order)
+        WHERE removed_at is NULL
+        """);
+
+        // 동일 작업 중복 등록 방지를 위한 partial unique index
+        jdbcTemplate.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_daily_big3_entry_item
+        ON daily_big3_entries (daily_big3_board_id, big3_item_id)
+        WHERE removed_at is NULL
+        """);
 
     }
 }

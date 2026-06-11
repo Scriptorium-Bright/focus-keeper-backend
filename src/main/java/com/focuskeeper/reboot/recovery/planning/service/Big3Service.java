@@ -216,6 +216,7 @@ public class Big3Service {
      * @param big3ItemIds
      */
     @Transactional
+    // critical
     public DailyBig3BoardResponse continueLastWeekWork(String userId, List<String> big3ItemIds) {
 
         OffsetDateTime selectedAt = OffsetDateTime.now();
@@ -287,6 +288,7 @@ public class Big3Service {
      * scheduling vs batch
      */
     @Transactional
+    // critical
     public void expireLastWeekTasks() {
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate currentWeekStart = now.toLocalDate()
@@ -299,6 +301,7 @@ public class Big3Service {
         }
     }
 
+    // high
     private static void validateSlotOrder(List<DailyBig3Entry> activeEntries, List<DailyBig3Entry> newEntries) {
         for(int pivot = 1; pivot <= activeEntries.size(); pivot++) {
             int slotOrder = newEntries.get(pivot - 1).getSlotOrder();
@@ -309,6 +312,7 @@ public class Big3Service {
         }
     }
 
+    // critical
     private void validateNotContinuedYet(Big3Item big3Item) {
         if (big3ItemRepository.existsByDerivedFromItem_Id(big3Item.getId())) {
             throw new BusinessException(
@@ -390,12 +394,14 @@ public class Big3Service {
     }
 
 
+    // high
     private DailyBig3Board resolveDailyBoard(String userId, LocalDate selectedDate, OffsetDateTime selectedAt) {
         DailyBig3Board dailyBig3Board = dailyBig3BoardRepository.findByUserIdAndSelectedDate(userId, selectedDate)
                 .orElseGet(() -> DailyBig3Board.create(userId, selectedDate, selectedAt));
         return dailyBig3BoardRepository.save(dailyBig3Board);
     }
 
+    // critical
     private List<Big3Item> resolveOrCreateBig3Items(
             String userId, LocalDate selectedDate, OffsetDateTime selectedAt,
             List<InboxItem> selectedItems, Set<Big3Item> newItems,
@@ -444,6 +450,7 @@ public class Big3Service {
         return selectedBig3Items;
     }
 
+    // critical
     private List<DailyBig3Entry> replaceBoardEntries(
             DailyBig3Board savedBoard, List<Big3Item> selectedBig3Items,
             Set<Big3Item> newItems, OffsetDateTime selectedAt

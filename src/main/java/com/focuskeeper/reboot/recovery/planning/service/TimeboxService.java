@@ -50,6 +50,7 @@ public class TimeboxService {
      * 요청받은 명령 목록을 검증한 뒤 recovery timebox로 확정해 저장한다.
      */
     @Transactional
+    // critical
     public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
         timeboxAllocationValidator.validateTypes(commands);
         timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
@@ -87,6 +88,7 @@ public class TimeboxService {
         }
     }
 
+    // high
     public void cancelledTimeBoxesByUser (List<String> timeboxIds, String userId) {
         OffsetDateTime now = OffsetDateTime.now();
         List<Timebox> allByIdInAndUserId = timeboxRepository.findAllByIdInAndUserId(timeboxIds, userId);

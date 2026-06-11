@@ -164,6 +164,7 @@ public class DailyKpiQualityService {
      *    여기 Transform은 같은 raw event를 품질 지표로 바꿔 결함 수를 계산하는 DQ 변환이다.
      *    그래서 "정제를 두 번"이라기보다, 같은 원천 데이터를 KPI mart와 quality report라는 서로 다른 산출물로 변환하는 구조다.
      */
+    // high
     void generateFromSlices(
             String userId,
             LocalDate metricDate,

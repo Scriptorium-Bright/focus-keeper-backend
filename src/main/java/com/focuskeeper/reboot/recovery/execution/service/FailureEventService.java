@@ -44,6 +44,7 @@ public class FailureEventService {
      * 다음 행동을 바로 제안한다"는 recovery loop 전환 지점을 구현한다.
      */
     @Transactional
+    // high
     public FailureCheckInResult checkIn(String userId, String sessionId, String reasonValue, String note) {
         // Q. 애초에 외부 문자열이 아닌 Enum Type으로 Request를 받을 수는 없나? (드롭다운같은걸로)
         // A. 가능하다. Spring은 @RequestBody 안의 enum 필드도 매핑할 수 있어서 Request DTO를 FailureReason으로 받을 수 있다.

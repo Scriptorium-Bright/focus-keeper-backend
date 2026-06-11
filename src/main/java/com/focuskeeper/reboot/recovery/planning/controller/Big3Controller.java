@@ -50,6 +50,7 @@ public class Big3Controller {
 
     @PostMapping("/expired")
     @Scheduled(cron = "0 30 0 * * *")
+    // high
     public ApiResponse<?> expiredTask() {
         big3Service.expireLastWeekTasks();
         return ApiResponse.success("만료 작업 성공");
@@ -68,6 +69,7 @@ public class Big3Controller {
     }
 
     @PostMapping("/abandon")
+    // high
     public ApiResponse<Big3ItemResponse> abandonItem(
             @RequestBody String userId,
             @RequestBody String big3ItemId

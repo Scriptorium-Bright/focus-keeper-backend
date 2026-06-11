@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
  * 현재 활성 경보 목록을 유지한다. 즉 숫자 신호를 운영자가 바로 볼 수 있는
  * "위험 상태"로 승격하는 책임을 가진다.
  */
+// high
 @Service
 public class OperationsAlertService {
 

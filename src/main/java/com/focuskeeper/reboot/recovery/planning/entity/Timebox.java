@@ -91,7 +91,7 @@ public class Timebox extends BaseTimeEntity {
     /**
      * 새 timebox 엔티티를 생성한다.
      */
-    public static Timebox create(
+    public static Timebox create (
             String userId,
             ExecutionUnit executionUnit,
             TimeboxType type,

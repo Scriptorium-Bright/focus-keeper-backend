@@ -44,6 +44,7 @@ public class RecoverySessionService {
      * 실행 단위와 KPI 집계 단위가 중복되지 않도록 한다.
      */
     @Transactional
+    // critical
     public RecoverySessionResponse startSession(String userId, String timeboxId) {
         timeboxService.getTimebox(userId, timeboxId);
 
@@ -66,6 +67,7 @@ public class RecoverySessionService {
      * 진행 중인 세션을 완료 상태로 전이한다.
      */
     @Transactional
+    // medium
     public RecoverySessionResponse completeSession(String userId, String sessionId) {
         RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
@@ -84,6 +86,7 @@ public class RecoverySessionService {
      * @return
      */
     @Transactional
+    // medium
     public RecoverySessionResponse elapsedSession(String userId, String sessionId) {
         RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
@@ -100,6 +103,7 @@ public class RecoverySessionService {
      * 약한 이탈 신호를 자동 감지해 끊는 용도까지는 확장하지 않았다.
      */
     @Transactional
+    // medium
     public RecoverySessionResponse interruptSession(String userId, String sessionId) {
         RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
@@ -119,6 +123,7 @@ public class RecoverySessionService {
      * @return
      */
     @Transactional
+    // medium
     public RecoverySessionResponse stoppedSession(String userId, String sessionId) {
         RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
