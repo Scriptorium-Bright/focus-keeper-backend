@@ -87,7 +87,7 @@ public class Big3Service {
 
         // 3. 작업(Big3Item) 준비 및 OPEN 상태 검증
         Set<Big3Item> newItems = Collections.newSetFromMap(new IdentityHashMap<>());
-        List<Big3Item> selectedBig3Items = resolveOrCreateBig3Items(
+        List<Big3Item> selectedBig3Items = resolveOrCreateBig3Items (
                 userId,
                 selectedDate,
                 selectedAt,
@@ -289,16 +289,17 @@ public class Big3Service {
      */
     @Transactional
     // critical
-    public void expireLastWeekTasks() {
+    public int expireLastWeekTasks() {
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate currentWeekStart = now.toLocalDate()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        List<Big3Item> big3Items = big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, currentWeekStart);
-
-        for (Big3Item big3Item : big3Items) {
-            big3Item.expire(now);
-        }
+        return big3ItemRepository.expirePastOpenItem(
+                now,
+                OPEN,
+                EXPIRED,
+                currentWeekStart
+        );
     }
 
     // high

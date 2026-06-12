@@ -64,7 +64,7 @@ class PlanningSqlBaselineIntegrationTest {
                 )
                 .andExpect(status().isOk());
 
-        assertThat(statistics.getPrepareStatementCount()).isEqualTo(12);
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(8);
     }
 
     @Test
@@ -116,7 +116,7 @@ class PlanningSqlBaselineIntegrationTest {
                 )
                 .andExpect(status().isOk());
 
-        assertThat(statistics.getPrepareStatementCount()).isEqualTo(3);
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(4);
     }
 
     private String selectFirstBig3Item(String userId) throws Exception {

@@ -3,8 +3,10 @@ package com.focuskeeper.reboot.common.error;
 import com.focuskeeper.reboot.common.response.ErrorResponse;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -17,6 +19,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Map<String, Map<String, String>> CONSTRAINT_CONFLICT_DETAILS = Map.of(
+            "uq_recovery_session_active",
+            Map.of("resource", "recoverySession", "reason", "ACTIVE_SESSION_ALREADY_EXISTS"),
+            "uq_daily_big3_entry_order",
+            Map.of("resource", "dailyBig3Entry", "reason", "ACTIVE_SLOT_ALREADY_EXISTS"),
+            "uq_daily_big3_entry_item",
+            Map.of("resource", "dailyBig3Entry", "reason", "ACTIVE_ITEM_ALREADY_EXISTS"),
+            "uk_daily_big3_boards_user_date",
+            Map.of("resource", "dailyBig3Board", "reason", "BOARD_ALREADY_EXISTS")
+    );
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException exception) {
@@ -58,8 +70,30 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(response);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(
+            DataIntegrityViolationException exception
+    ) {
+        String constraintName = findConstraintName(exception);
+        Map<String, String> details = CONSTRAINT_CONFLICT_DETAILS.get(constraintName);
+        if (details == null) {
+            return internalServerError(exception);
+        }
+
+        ErrorResponse response = ErrorResponse.of(
+                ErrorCode.CONFLICT.getCode(),
+                ErrorCode.CONFLICT.getMessage(),
+                details
+        );
+        return ResponseEntity.status(ErrorCode.CONFLICT.getStatus()).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception exception) {
+        return internalServerError(exception);
+    }
+
+    private ResponseEntity<ErrorResponse> internalServerError(Exception exception) {
         log.error("Unhandled exception", exception);
         ErrorResponse response = ErrorResponse.of(
                 ErrorCode.SYSTEM_INTERNAL_ERROR.getCode(),
@@ -67,5 +101,26 @@ public class GlobalExceptionHandler {
                 null
         );
         return ResponseEntity.internalServerError().body(response);
+    }
+
+    private String findConstraintName(Throwable exception) {
+        Throwable current = exception;
+        while (current != null) {
+            if (current instanceof ConstraintViolationException constraintViolationException
+                    && constraintViolationException.getConstraintName() != null) {
+                return constraintViolationException.getConstraintName();
+            }
+
+            String message = current.getMessage();
+            if (message != null) {
+                for (String constraintName : CONSTRAINT_CONFLICT_DETAILS.keySet()) {
+                    if (message.contains(constraintName)) {
+                        return constraintName;
+                    }
+                }
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 }

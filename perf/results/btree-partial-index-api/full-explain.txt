@@ -1,0 +1,21 @@
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=121.39..121.40 rows=3 width=75) (actual time=0.158..0.159 rows=3 loops=1)
+   Sort Key: slot_order
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=31 read=3
+   ->  Bitmap Heap Scan on daily_big3_entries  (cost=4.65..121.37 rows=3 width=75) (actual time=0.134..0.134 rows=3 loops=1)
+         Recheck Cond: ((daily_big3_board_id)::text = 'btree-board-00000001'::text)
+         Filter: (removed_at IS NULL)
+         Rows Removed by Filter: 27
+         Heap Blocks: exact=28
+         Buffers: shared hit=28 read=3
+         ->  Bitmap Index Scan on idx_btree_api_full  (cost=0.00..4.65 rows=30 width=0) (actual time=0.050..0.050 rows=30 loops=1)
+               Index Cond: ((daily_big3_board_id)::text = 'btree-board-00000001'::text)
+               Buffers: shared read=3
+ Planning:
+   Buffers: shared hit=107 read=1
+ Planning Time: 0.445 ms
+ Execution Time: 0.194 ms
+(17 rows)
+

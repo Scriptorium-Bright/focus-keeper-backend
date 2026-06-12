@@ -52,8 +52,8 @@ public class Big3Controller {
     @Scheduled(cron = "0 30 0 * * *")
     // high
     public ApiResponse<?> expiredTask() {
-        big3Service.expireLastWeekTasks();
-        return ApiResponse.success("만료 작업 성공");
+        int successCount = big3Service.expireLastWeekTasks();
+        return ApiResponse.success(successCount,"만료 작업 성공");
     }
 
     // dailyBig3BoardResponse 를 응답으로 넣는게 맞는가?

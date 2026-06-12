@@ -28,7 +28,9 @@ spring:
 logging:
   level:
     root: INFO
-    com.focuskeeper.reboot: DEBUG
+    com.focuskeeper.reboot: TRACE
+#    org.hibernate.orm.jdbc.bind: trace
+#    org.hibernate.orm.jdbc.extract: trace
 
 management:
   endpoint:

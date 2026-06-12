@@ -1,6 +1,8 @@
 package com.focuskeeper.reboot.recovery.execution.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,13 +10,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -27,6 +39,12 @@ class RecoverySessionControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @SpyBean
+    private RecoverySessionRepository recoverySessionRepository;
 
     @Test
     void startSessionReturnsStandardSuccessResponse() throws Exception {
@@ -139,6 +157,80 @@ class RecoverySessionControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
                 .andExpect(jsonPath("$.error.details.timeboxId").value("BREAK timebox로는 복귀 세션을 시작할 수 없습니다."));
+    }
+
+    @Test
+    void concurrentStartReturnsOneSuccessOneConflictAndKeepsOneActiveSession() throws Exception {
+        String userId = "session-http-race-user";
+        String timeboxId = allocateFirstRecoveryTimebox(userId);
+        CountDownLatch bothChecked = new CountDownLatch(2);
+        CountDownLatch startRequests = new CountDownLatch(1);
+
+        doAnswer(invocation -> {
+            String checkedUserId = invocation.getArgument(0);
+            String checkedStatus = invocation.getArgument(1).toString();
+            Boolean exists = jdbcTemplate.queryForObject(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM recovery_session
+                        WHERE user_id = ?
+                          AND status = ?
+                    )
+                    """,
+                    Boolean.class,
+                    checkedUserId,
+                    checkedStatus
+            );
+            bothChecked.countDown();
+            await(bothChecked);
+            return exists;
+        }).when(recoverySessionRepository).existsByUserIdAndStatus(
+                eq(userId),
+                eq(RecoverySessionStatus.STARTED)
+        );
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<MvcResult> first = executor.submit(() -> {
+                await(startRequests);
+                return startSessionRequest(userId, timeboxId).andReturn();
+            });
+            Future<MvcResult> second = executor.submit(() -> {
+                await(startRequests);
+                return startSessionRequest(userId, timeboxId).andReturn();
+            });
+
+            startRequests.countDown();
+            List<MvcResult> results = List.of(
+                    first.get(10, TimeUnit.SECONDS),
+                    second.get(10, TimeUnit.SECONDS)
+            );
+            List<Integer> statuses = results.stream()
+                    .map(result -> result.getResponse().getStatus())
+                    .sorted(Comparator.naturalOrder())
+                    .toList();
+
+            assertThat(statuses).containsExactly(200, 409);
+
+            MvcResult conflict = results.stream()
+                    .filter(result -> result.getResponse().getStatus() == 409)
+                    .findFirst()
+                    .orElseThrow();
+            JsonNode conflictBody = objectMapper.readTree(conflict.getResponse().getContentAsString());
+
+            assertThat(conflictBody.path("error").path("code").asText()).isEqualTo("CONFLICT-409");
+            assertThat(conflictBody.path("error").path("details").path("resource").asText())
+                    .isEqualTo("recoverySession");
+            assertThat(conflictBody.path("error").path("details").path("reason").asText())
+                    .isEqualTo("ACTIVE_SESSION_ALREADY_EXISTS");
+            assertThat(recoverySessionRepository.countByUserIdAndStatus(
+                    userId,
+                    RecoverySessionStatus.STARTED
+            )).isEqualTo(1);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     private String allocateFirstRecoveryTimebox(String userId) throws Exception {
@@ -261,21 +353,39 @@ class RecoverySessionControllerIntegrationTest {
     }
 
     private String startSession(String userId, String timeboxId) throws Exception {
-        MvcResult result = mockMvc.perform(
-                        post("/api/v1/recovery/sessions/start")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                          "userId": "%s",
-                                          "timeboxId": "%s"
-                                        }
-                                        """.formatted(userId, timeboxId))
-                )
+        MvcResult result = startSessionRequest(userId, timeboxId)
                 .andExpect(status().isOk())
                 .andReturn();
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.path("data").path("sessionId").asText();
+    }
+
+    private org.springframework.test.web.servlet.ResultActions startSessionRequest(
+            String userId,
+            String timeboxId
+    ) throws Exception {
+        return mockMvc.perform(
+                post("/api/v1/recovery/sessions/start")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": "%s",
+                                  "timeboxId": "%s"
+                                }
+                                """.formatted(userId, timeboxId))
+        );
+    }
+
+    private void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Concurrency barrier timed out");
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Concurrency barrier interrupted", exception);
+        }
     }
 
     private void completeSession(String userId, String sessionId) throws Exception {
