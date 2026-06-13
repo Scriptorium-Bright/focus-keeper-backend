@@ -7,7 +7,6 @@ import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
-import com.focuskeeper.reboot.recovery.planning.repository.GuardRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxAllocationValidator;
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxOverlapValidator;
@@ -37,7 +36,7 @@ public class TimeboxService {
     private final TimeboxRepository timeboxRepository;
     private final TimeboxAllocationValidator timeboxAllocationValidator;
     private final TimeboxOverlapValidator timeboxOverlapValidator;
-    private final GuardRepository guardRepository;
+//    private final GuardRepository guardRepository;
 
 
     /**
@@ -47,7 +46,7 @@ public class TimeboxService {
     // critical
     public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
 
-        guardRepository.findByUserId(userId).orElseThrow();
+//        guardRepository.findByUserId(userId).orElseThrow();
 
         timeboxAllocationValidator.validateTypes(commands);
         timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
@@ -57,7 +56,7 @@ public class TimeboxService {
 
 
         List<Timebox> pendingTimeboxes = materializeTimeboxes(userId, commands, executionUnits);
-        List<Timebox> existingTimeboxes = getExistingTimeboxes(userId, pendingTimeboxes);
+        List<Timebox> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId);
 
         timeboxOverlapValidator.validate(
                 existingTimeboxes,

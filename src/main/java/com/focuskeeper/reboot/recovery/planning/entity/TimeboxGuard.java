@@ -1,3 +1,4 @@
+/*
 package com.focuskeeper.reboot.recovery.planning.entity;
 
 import jakarta.persistence.*;
@@ -21,3 +22,4 @@ public class TimeboxGuard {
 
     }
 }
+*/

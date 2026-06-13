@@ -82,8 +82,113 @@ class TimeboxOverlapConcurrencyReproductionTest {
     @SpyBean
     private TimeboxOverlapValidator timeboxOverlapValidator;
 
+    // Run against a disposable PostgreSQL database:
+// TIMEBOX_OVERLAP_CONCURRENCY_TEST_ENABLED=true \
+// ./gradlew test --tests '*TimeboxOverlapConcurrencyReproductionTest' \
+//   -Dspring.profiles.active=local
+    @Test
+    @DisplayName("allocateTimeboxes 동시 요청의 겹침 발생 또는 DB exclusion constraint 방어를 검증한다")
+    void concurrentAllocateTimeboxesVerifiesOverlapConstraintBehavior() throws Exception {
+        String userId = "timebox-overlap-" + UUID.randomUUID();
+        OffsetDateTime createdAt = OffsetDateTime.now();
+        List<ExecutionUnit> executionUnits = saveExecutionUnits(userId, createdAt);
+        OffsetDateTime firstStart = createdAt.plusDays(1).withMinute(0).withSecond(0).withNano(0);
+        OffsetDateTime firstEnd = firstStart.plusHours(1);
+        OffsetDateTime secondStart = firstStart.plusMinutes(30);
+        OffsetDateTime secondEnd = secondStart.plusHours(1);
+        guardRepository.save(new TimeboxGuard(userId));
+
+        TimeboxCommand firstCommand = command(
+                executionUnits.get(0).getId(),
+                firstStart,
+                firstEnd
+        );
+        TimeboxCommand secondCommand = command(
+                executionUnits.get(1).getId(),
+                secondStart,
+                secondEnd
+        );
+
+        CountDownLatch bothValidated = new CountDownLatch(2);
+        CountDownLatch proceedToSave = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            List<?> existingTimeboxes = invocation.getArgument(0);
+            List<?> pendingTimeboxes = invocation.getArgument(1);
+            assertThat(existingTimeboxes).isEmpty();
+            assertThat(pendingTimeboxes).hasSize(1);
+
+            invocation.callRealMethod();
+            bothValidated.countDown();
+            await(bothValidated);
+            await(proceedToSave);
+            return null;
+        }).when(timeboxOverlapValidator).validate(
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.anyList()
+        );
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<List<?>> first = executor.submit(
+                    allocateTimeboxes(userId, firstCommand)
+            );
+            Future<List<?>> second = executor.submit(
+                    allocateTimeboxes(userId, secondCommand)
+            );
+
+            await(bothValidated);
+            proceedToSave.countDown();
+
+            Throwable firstFailure = failureOf(first);
+            Throwable secondFailure = failureOf(second);
+            long successCount = Stream.of(firstFailure, secondFailure)
+                    .filter(Objects::isNull)
+                    .count();
+            List<Throwable> failures = Stream.of(firstFailure, secondFailure)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            List<Timebox> savedTimeboxes = findSavedTimeboxes(userId);
+
+            if (overlapConstraintExists()) {
+                printConstraintProtection(
+                        firstStart,
+                        firstEnd,
+                        secondStart,
+                        secondEnd,
+                        successCount,
+                        failures.size(),
+                        savedTimeboxes.size()
+                );
+
+                assertThat(successCount).isEqualTo(1);
+                assertThat(failures)
+                        .singleElement()
+                        .isInstanceOf(DataIntegrityViolationException.class);
+                assertThat(savedTimeboxes).hasSize(1);
+            } else {
+                printOverlapReproduction(
+                        firstStart,
+                        firstEnd,
+                        secondStart,
+                        secondEnd,
+                        successCount,
+                        savedTimeboxes.size()
+                );
+
+                assertThat(successCount).isEqualTo(2);
+                assertThat(failures).isEmpty();
+                assertThat(savedTimeboxes).hasSize(2);
+                assertThat(overlaps(savedTimeboxes.get(0), savedTimeboxes.get(1))).isTrue();
+            }
+        } finally {
+            proceedToSave.countDown();
+            executor.shutdownNow();
+        }
+    }
 
     @Test
+    @Disabled("guard row 락 적용 전용 테스트")
     @DisplayName("guard row 락이 같은 사용자의 Timebox 배정을 직렬화한다")
     void guardRowLockSerializesConcurrentTimeboxAllocation() throws Exception {
         String userId = "timebox-overlap-" + UUID.randomUUID();

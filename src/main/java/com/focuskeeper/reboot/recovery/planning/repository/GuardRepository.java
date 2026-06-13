@@ -1,3 +1,4 @@
+/*
 package com.focuskeeper.reboot.recovery.planning.repository;
 
 import com.focuskeeper.reboot.recovery.planning.entity.TimeboxGuard;
@@ -13,3 +14,4 @@ public interface GuardRepository extends JpaRepository<TimeboxGuard, String> {
     Optional<TimeboxGuard> findByUserId(String userId);
 
 }
+*/
