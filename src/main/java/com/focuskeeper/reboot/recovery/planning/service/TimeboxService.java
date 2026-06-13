@@ -7,6 +7,7 @@ import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;
+import com.focuskeeper.reboot.recovery.planning.repository.GuardRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxAllocationValidator;
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxOverlapValidator;
@@ -17,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,24 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * 입력 검증, Big3 소속 여부 확인, 시간 충돌 방지, 엔티티 생성까지를 한 흐름으로 처리한다.
  */
+@RequiredArgsConstructor
 public class TimeboxService {
 
     private final ExecutionUnitRepository executionUnitRepository;
     private final TimeboxRepository timeboxRepository;
     private final TimeboxAllocationValidator timeboxAllocationValidator;
     private final TimeboxOverlapValidator timeboxOverlapValidator;
+    private final GuardRepository guardRepository;
 
-    public TimeboxService(
-            ExecutionUnitRepository executionUnitRepository,
-            TimeboxRepository timeboxRepository,
-            TimeboxAllocationValidator timeboxAllocationValidator,
-            TimeboxOverlapValidator timeboxOverlapValidator
-    ) {
-        this.executionUnitRepository = executionUnitRepository;
-        this.timeboxRepository = timeboxRepository;
-        this.timeboxAllocationValidator = timeboxAllocationValidator;
-        this.timeboxOverlapValidator = timeboxOverlapValidator;
-    }
 
     /**
      * 요청받은 명령 목록을 검증한 뒤 recovery timebox로 확정해 저장한다.
@@ -52,21 +46,41 @@ public class TimeboxService {
     @Transactional
     // critical
     public List<TimeboxResponse> allocateTimeboxes(String userId, List<TimeboxCommand> commands) {
+
+        guardRepository.findByUserId(userId).orElseThrow();
+
         timeboxAllocationValidator.validateTypes(commands);
         timeboxAllocationValidator.validateFirstRecoveryBlock(commands);
 
         Map<String, ExecutionUnit> executionUnits = indexExecutionUnits(userId, commands);
         timeboxAllocationValidator.validateExecutionUnits(commands, executionUnits);
 
-        List<Timebox> requestedTimeboxes = materializeTimeboxes(userId, commands, executionUnits);
+
+        List<Timebox> pendingTimeboxes = materializeTimeboxes(userId, commands, executionUnits);
+        List<Timebox> existingTimeboxes = getExistingTimeboxes(userId, pendingTimeboxes);
+
         timeboxOverlapValidator.validate(
-                timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId),
-                requestedTimeboxes
+                existingTimeboxes,
+                pendingTimeboxes
         );
 
-        return timeboxRepository.saveAll(requestedTimeboxes).stream()
+        return timeboxRepository.saveAll(pendingTimeboxes).stream()
                 .map(Timebox::toResponse)
                 .toList();
+    }
+
+    private List<Timebox> getExistingTimeboxes(String userId, List<Timebox> pendingTimeboxes) {
+        OffsetDateTime minStart = pendingTimeboxes.stream()
+                .map(Timebox::getStartAt)
+                .min(OffsetDateTime::compareTo)
+                .orElseThrow();
+
+        OffsetDateTime maxEnd = pendingTimeboxes.stream()
+                .map(Timebox::getEndAt)
+                .max(OffsetDateTime::compareTo)
+                .orElseThrow();
+
+        return timeboxRepository.findOverlappingForUpdate(userId, minStart, maxEnd);
     }
 
     /**
@@ -121,24 +135,16 @@ public class TimeboxService {
             List<TimeboxCommand> commands,
             Map<String, ExecutionUnit> executionUnits) {
 
-        List<Timebox> requestedTimeboxes = new ArrayList<>();
+        List<Timebox> pendingTimeboxes = new ArrayList<>();
         commands.forEach((TimeboxCommand command) -> {
             OffsetDateTime startAt = parseDateTime("startAt", command.startAt());
             OffsetDateTime endAt = parseDateTime("endAt", command.endAt());
 
-            // Q. Validator를 따로 빼놨으면 철저하게 Validate의 책임은 Validator가 가져가야 하는 것 아닌가? parseType같은 것들은 반환하는 것이 명확하다고 하지만
-            // A. 그 지적이 맞다. 지금은 validator도 parseType을 하고 service도 parseType을 해서 경계가 조금 겹친다.
-            //    parsing은 규칙 검증이라기보다 외부 입력을 내부 타입으로 번역하는 책임에 가깝다.
-            //    이상적으로는 command가 처음부터 OffsetDateTime/TimeboxType을 들고 오고, validator는 그 상태의 규칙만 봐야 더 깔끔하다.
-            if (!startAt.isBefore(endAt)) {
-                throw new BusinessException(
-                        ErrorCode.COMMON_BAD_REQUEST,
-                        Map.of("timeboxes", "startAt은 endAt보다 빨라야 합니다.")
-                );
-            }
+
+            timeboxAllocationValidator.validateStartTime(startAt, endAt);
 
             ExecutionUnit executionUnit = executionUnits.get(command.executionUnitId());
-            requestedTimeboxes.add(Timebox.create(
+            pendingTimeboxes.add(Timebox.create(
                     userId,
                     executionUnit,
                     parseType(command.type()),
@@ -151,8 +157,10 @@ public class TimeboxService {
         // Q. Request의 명칭은 사용자 입력이 아닌가? 좀 뭔가 애매하지 않나
         // A. 맞다. 여기서는 이미 request를 검증/파싱해서 엔티티 후보로 만든 상태라 "request"보다는 "candidate"나
         //    "pending"이 더 정확하다. 지금 이름은 "아직 저장 전"이라는 뜻은 전달하지만, 계층 의미상은 다소 흐리다.
-        return requestedTimeboxes;
+        return pendingTimeboxes;
     }
+
+
 
     /**
      * 외부 문자열을 TimeboxType enum으로 변환한다.

@@ -45,7 +45,7 @@ public class Timebox extends BaseTimeEntity {
     private String itemContent;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "timebox_type", nullable = false, length = 20)
+    @Column(name = "timebox_type", nullable = false, length = 40)
     private TimeboxType type;
 
     @Column(name = "start_at", nullable = false)

@@ -19,12 +19,12 @@ public class TimeboxOverlapValidator {
      * 시간 겹치는거 방지
      */
     // critical
-    public void validate(List<Timebox> existingTimeboxes, List<Timebox> requestedTimeboxes) {
-        for (int index = 0; index < requestedTimeboxes.size(); index++) {
-            Timebox current = requestedTimeboxes.get(index);
+    public void validate(List<Timebox> existingTimeboxes, List<Timebox> pendingTimeboxes) {
+        for (int index = 0; index < pendingTimeboxes.size(); index++) {
+            Timebox current = pendingTimeboxes.get(index);
 
-            for (int otherIndex = index + 1; otherIndex < requestedTimeboxes.size(); otherIndex++) {
-                Timebox other = requestedTimeboxes.get(otherIndex);
+            for (int otherIndex = index + 1; otherIndex < pendingTimeboxes.size(); otherIndex++) {
+                Timebox other = pendingTimeboxes.get(otherIndex);
                 if (overlaps(current, other)) {
                     throw conflictException(current);
                 }

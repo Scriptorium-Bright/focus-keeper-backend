@@ -5,6 +5,8 @@ import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.planning.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.service.TimeboxCommand;
+
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -69,6 +71,15 @@ public class TimeboxAllocationValidator {
             throw new BusinessException(
                     ErrorCode.COMMON_BAD_REQUEST,
                     Map.of("type", "지원하지 않는 timebox type입니다.")
+            );
+        }
+    }
+
+    public void validateStartTime(OffsetDateTime startAt, OffsetDateTime endAt) {
+        if (!startAt.isBefore(endAt)) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_BAD_REQUEST,
+                    Map.of("timeboxes", "startAt은 endAt보다 빨라야 합니다.")
             );
         }
     }
