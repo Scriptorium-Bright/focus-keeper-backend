@@ -4,7 +4,7 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
-import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.constant.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -31,11 +31,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.*;
+import static com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus.*;
 
 @Service
 @Transactional(readOnly = true)

@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import java.util.ArrayList;
 import java.util.Comparator;

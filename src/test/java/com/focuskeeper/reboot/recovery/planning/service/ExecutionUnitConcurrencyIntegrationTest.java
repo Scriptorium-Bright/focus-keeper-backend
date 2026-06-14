@@ -1,5 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.service;
 
+import com.focuskeeper.reboot.recovery.planning.constant.ExecutionUnitStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxStatus;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3ItemRepository;
@@ -109,7 +111,7 @@ public class ExecutionUnitConcurrencyIntegrationTest {
 
         // 데이터베이스의 최종 상태가 한 치의 오차 없이 COMPLETED 여야 함
         ExecutionUnit finalUnit = executionUnitRepository.findById(unitId).orElseThrow();
-        assertThat(finalUnit.getStatus()).isEqualTo(com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus.COMPLETED);
+        assertThat(finalUnit.getStatus()).isEqualTo(ExecutionUnitStatus.COMPLETED);
     }
 
     @Test
@@ -177,10 +179,10 @@ public class ExecutionUnitConcurrencyIntegrationTest {
         long zombieTimeboxCount = timeboxRepository.findAll().stream()
                 .filter(t -> t.getUserId().equals(userId))
                 // 부모는 COMPLETED인데, 자식은 멀쩡하게 살아있는(PLANNED) 놈들 = 좀비!
-                .filter(t -> t.getStatus() == com.focuskeeper.reboot.recovery.planning.TimeboxStatus.PLANNED)
+                .filter(t -> t.getStatus() == TimeboxStatus.PLANNED)
                 .count();
 
-        if (finalUnit.getStatus() == com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus.COMPLETED) {
+        if (finalUnit.getStatus() == ExecutionUnitStatus.COMPLETED) {
             System.out.println("부모가 완료되었습니다. 이때 살아있는 좀비 Timebox 개수: " + zombieTimeboxCount);
             
             // 🚨 낙관적 락(@Version) + Force Increment 세팅이 제대로 안 되어 있다면 좀비가 1개 이상 존재합니다!

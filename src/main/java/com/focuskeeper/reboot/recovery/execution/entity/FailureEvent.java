@@ -1,12 +1,11 @@
 package com.focuskeeper.reboot.recovery.execution.entity;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(

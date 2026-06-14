@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
-import com.focuskeeper.reboot.recovery.planning.TimeboxStatus;
-import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,8 +18,8 @@ import lombok.Getter;
 
 import java.time.OffsetDateTime;
 
-import static com.focuskeeper.reboot.recovery.planning.TimeboxStatus.*;
-import static com.focuskeeper.reboot.recovery.planning.TimeboxType.WORK;
+import static com.focuskeeper.reboot.recovery.planning.constant.TimeboxStatus.*;
+import static com.focuskeeper.reboot.recovery.planning.constant.TimeboxType.WORK;
 
 @Entity
 @Table(name = "recovery_timeboxes")

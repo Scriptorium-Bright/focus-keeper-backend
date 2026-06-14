@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
-import com.focuskeeper.reboot.recovery.planning.Big3ItemStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3ItemRepository;
 import com.focuskeeper.reboot.recovery.planning.repository.ExecutionUnitRepository;

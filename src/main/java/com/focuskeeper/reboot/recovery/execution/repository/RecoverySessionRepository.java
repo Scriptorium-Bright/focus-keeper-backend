@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.repository;
 
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import java.time.OffsetDateTime;
 import java.util.List;

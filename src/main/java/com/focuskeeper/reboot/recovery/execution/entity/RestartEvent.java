@@ -1,11 +1,10 @@
 package com.focuskeeper.reboot.recovery.execution.entity;
 
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartEventResponse;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "restart_events")

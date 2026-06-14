@@ -1,13 +1,12 @@
 package com.focuskeeper.reboot.recovery.execution.entity;
 
-import com.focuskeeper.reboot.recovery.execution.RecoveryEndReason;
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoveryEndReason;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "recovery_session")

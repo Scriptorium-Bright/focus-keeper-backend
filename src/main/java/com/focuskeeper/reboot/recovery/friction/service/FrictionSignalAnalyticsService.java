@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.friction.service;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;

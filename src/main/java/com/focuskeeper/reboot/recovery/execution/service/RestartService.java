@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.service;
 
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartEventResponse;

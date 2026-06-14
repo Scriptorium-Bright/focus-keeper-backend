@@ -2,7 +2,7 @@ package com.focuskeeper.reboot.recovery.support;
 
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
-import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.constant.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Board;
 import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Entry;

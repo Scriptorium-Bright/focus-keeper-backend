@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
-import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.constant.SelectionSource;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

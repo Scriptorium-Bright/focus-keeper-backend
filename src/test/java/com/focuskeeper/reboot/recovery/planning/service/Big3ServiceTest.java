@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.service;
 
-import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.EXPIRED;
-import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.OPEN;
+import static com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus.EXPIRED;
+import static com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus.OPEN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,7 +17,7 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
-import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.constant.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Board;
 import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Entry;

@@ -48,14 +48,6 @@ public class Big3Controller {
         return ApiResponse.success(todayBig3, "check big3");
     }
 
-    @PostMapping("/expired")
-    @Scheduled(cron = "0 30 0 * * *")
-    // high
-    public ApiResponse<?> expiredTask() {
-        int successCount = big3Service.expireLastWeekTasks();
-        return ApiResponse.success(successCount,"만료 작업 성공");
-    }
-
     // dailyBig3BoardResponse 를 응답으로 넣는게 맞는가?
     @PostMapping("/continue")
     public ApiResponse<DailyBig3BoardResponse> continueWork(@RequestBody DailyBig3BoardRequest request) {

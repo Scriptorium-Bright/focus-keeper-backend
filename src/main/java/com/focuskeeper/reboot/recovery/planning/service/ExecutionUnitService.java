@@ -2,7 +2,7 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.MultipleExecutionUnitResponse;
@@ -19,10 +19,9 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import static com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus.COMPLETED;
-import static com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus.PLANNED;
+import static com.focuskeeper.reboot.recovery.planning.constant.ExecutionUnitStatus.COMPLETED;
 import static com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse.toResponse;
-import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.OPEN;
+import static com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus.OPEN;
 
 @Service
 @Transactional(readOnly = true)

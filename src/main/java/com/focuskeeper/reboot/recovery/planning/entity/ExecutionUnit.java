@@ -1,7 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
-import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
-import com.focuskeeper.reboot.recovery.planning.TimeboxStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.ExecutionUnitStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 

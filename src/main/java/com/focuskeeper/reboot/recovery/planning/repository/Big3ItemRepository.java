@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.repository;
 
-import com.focuskeeper.reboot.recovery.planning.Big3ItemStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;

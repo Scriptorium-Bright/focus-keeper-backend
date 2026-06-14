@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.repository;
 
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
-import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxType;
 
 import java.time.OffsetDateTime;
 import java.util.Collection;

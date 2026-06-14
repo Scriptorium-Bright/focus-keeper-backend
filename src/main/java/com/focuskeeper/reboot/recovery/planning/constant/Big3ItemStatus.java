@@ -1,4 +1,4 @@
-package com.focuskeeper.reboot.recovery.planning;
+package com.focuskeeper.reboot.recovery.planning.constant;
 
 /**
  * Big3Item의 lifecycle 상태다. DB에 저장된다.

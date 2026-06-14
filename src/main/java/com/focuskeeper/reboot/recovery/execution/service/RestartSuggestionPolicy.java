@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.execution.service;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartSuggestionResponse;
 import org.springframework.stereotype.Component;
 

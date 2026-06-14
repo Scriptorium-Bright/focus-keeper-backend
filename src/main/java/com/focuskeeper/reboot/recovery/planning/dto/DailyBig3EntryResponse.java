@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.dto;
 
-import com.focuskeeper.reboot.recovery.planning.SelectionSource;
+import com.focuskeeper.reboot.recovery.planning.constant.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.entity.DailyBig3Entry;
 
 import java.util.List;

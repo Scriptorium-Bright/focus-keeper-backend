@@ -2,7 +2,7 @@ package com.focuskeeper.reboot.recovery.retrospective.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import org.junit.jupiter.api.Test;
 
 class AntiSlipActionPolicyTest {

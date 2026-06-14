@@ -1,9 +1,9 @@
 package com.focuskeeper.reboot.recovery.planning.entity;
 
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
-import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
-import com.focuskeeper.reboot.recovery.planning.Big3ItemStatus;
-import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemCompletionStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -28,7 +28,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.focuskeeper.reboot.recovery.planning.Big3ItemStatus.*;
+import static com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus.*;
 
 @Entity
 @Table(name = "big3_items")

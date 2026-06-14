@@ -1,4 +1,4 @@
-package com.focuskeeper.reboot.recovery.planning;
+package com.focuskeeper.reboot.recovery.planning.constant;
 
 public enum TimeboxStatus {
     PLANNED,

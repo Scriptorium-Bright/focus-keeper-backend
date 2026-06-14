@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.dto;
 
-import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemCompletionStatus;
 
 import java.util.List;
 

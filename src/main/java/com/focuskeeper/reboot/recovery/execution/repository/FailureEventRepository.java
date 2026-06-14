@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.execution.repository;
 
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;

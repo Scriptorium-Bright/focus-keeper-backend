@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.repository;
 
-import com.focuskeeper.reboot.recovery.planning.ExecutionUnitStatus;
+import com.focuskeeper.reboot.recovery.planning.constant.ExecutionUnitStatus;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 
 import java.time.OffsetDateTime;

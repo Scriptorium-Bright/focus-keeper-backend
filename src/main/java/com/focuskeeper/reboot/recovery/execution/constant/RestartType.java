@@ -1,4 +1,4 @@
-package com.focuskeeper.reboot.recovery.execution;
+package com.focuskeeper.reboot.recovery.execution.constant;
 
 /**
  * 현재 지원하는 재시작 방식의 종류를 나타내는 enum이다.
