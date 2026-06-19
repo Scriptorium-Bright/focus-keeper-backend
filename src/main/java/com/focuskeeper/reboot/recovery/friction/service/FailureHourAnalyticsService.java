@@ -47,6 +47,7 @@ public class FailureHourAnalyticsService {
     /**
      * 지정한 날짜의 실패 이벤트를 시간대별로 집계하고 peak hour/window를 포함한 보고서를 저장한다.
      */
+    // high
     public FailureHourReport generate(String userId, LocalDate metricDate) {
         OffsetDateTime periodStart = metricDate.atStartOfDay().atOffset(DEFAULT_OFFSET);
         OffsetDateTime periodEndExclusive = metricDate.plusDays(1).atStartOfDay().atOffset(DEFAULT_OFFSET);

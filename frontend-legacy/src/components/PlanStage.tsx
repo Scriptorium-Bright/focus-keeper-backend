@@ -33,7 +33,7 @@ interface PlanStageProps {
 }
 
 interface ExecutionUnitDraft {
-  big3SelectionItemId: string;
+  big3ItemId: string;
   title: string;
 }
 
@@ -84,11 +84,11 @@ export function PlanStage({
     setUnitDrafts((current) =>
       big3Items.map((item) => {
         const existing = current.find(
-          (draft) => draft.big3SelectionItemId === item.big3SelectionItemId
+          (draft) => draft.big3ItemId === item.big3ItemId
         );
         return (
           existing ?? {
-            big3SelectionItemId: item.big3SelectionItemId,
+            big3ItemId: item.big3ItemId,
             title: item.content
           }
         );
@@ -238,7 +238,7 @@ export function PlanStage({
                 event.preventDefault();
                 void onCreateExecutionUnits(
                   unitDrafts.map((draft) => ({
-                    big3SelectionItemId: draft.big3SelectionItemId,
+                    big3ItemId: draft.big3ItemId,
                     title: draft.title.trim()
                   }))
                 ).then((created) => {
@@ -411,12 +411,12 @@ function Big3Result({ items }: { items: Big3Item[] }) {
   return (
     <div className="result-list item-list">
       {items.map((item, index) => (
-        <div className="item-row" key={item.big3SelectionItemId}>
+        <div className="item-row" key={item.big3ItemId}>
           <div>
             <div>
               {index + 1}. {item.content}
             </div>
-            <small className="meta-kicker">{item.big3SelectionItemId}</small>
+            <small className="meta-kicker">{item.big3ItemId}</small>
           </div>
           <span className="chip">BIG 3</span>
         </div>
@@ -438,10 +438,10 @@ function ExecutionUnitBuilder({
     return <div className="builder-list empty-state">Big 3를 고르면 실행 단위를 입력할 수 있습니다.</div>;
   }
 
-  const updateDraft = (big3SelectionItemId: string, title: string) => {
+  const updateDraft = (big3ItemId: string, title: string) => {
     onChange(
       drafts.map((draft) =>
-        draft.big3SelectionItemId === big3SelectionItemId ? { ...draft, title } : draft
+        draft.big3ItemId === big3ItemId ? { ...draft, title } : draft
       )
     );
   };
@@ -450,13 +450,13 @@ function ExecutionUnitBuilder({
     <div className="builder-list timebox-list">
       {items.map((item, index) => {
         const draft =
-          drafts.find((candidate) => candidate.big3SelectionItemId === item.big3SelectionItemId) ?? {
-            big3SelectionItemId: item.big3SelectionItemId,
+          drafts.find((candidate) => candidate.big3ItemId === item.big3ItemId) ?? {
+            big3ItemId: item.big3ItemId,
             title: item.content
           };
 
         return (
-          <div className="timebox-row" key={item.big3SelectionItemId}>
+          <div className="timebox-row" key={item.big3ItemId}>
             <div className="timebox-meta">
               <span className="meta-kicker">BIG 3 {index + 1}</span>
               <strong>{item.content}</strong>
@@ -467,7 +467,7 @@ function ExecutionUnitBuilder({
                 name="executionUnitTitle"
                 type="text"
                 value={draft.title}
-                onChange={(event) => updateDraft(item.big3SelectionItemId, event.target.value)}
+                onChange={(event) => updateDraft(item.big3ItemId, event.target.value)}
               />
             </label>
           </div>

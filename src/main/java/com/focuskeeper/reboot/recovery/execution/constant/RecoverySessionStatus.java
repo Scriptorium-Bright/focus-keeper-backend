@@ -1,4 +1,4 @@
-package com.focuskeeper.reboot.recovery.execution;
+package com.focuskeeper.reboot.recovery.execution.constant;
 
 /**
  * 복귀 세션의 상태 전이를 나타내는 enum이다.

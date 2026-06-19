@@ -1,10 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.CompleteExecutionUnitRequest;
-import com.focuskeeper.reboot.recovery.planning.dto.CreateExecutionUnitRequest;
-import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.UpdateExecutionUnitRequest;
+import com.focuskeeper.reboot.recovery.planning.dto.*;
 import com.focuskeeper.reboot.recovery.planning.service.ExecutionUnitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,16 +33,19 @@ public class ExecutionUnitController {
         this.executionUnitService = executionUnitService;
     }
 
-    @PostMapping
+    /*
+     */
+    @PostMapping("/multiple")
     @Operation(summary = "Create execution unit", description = "Creates a concrete unit under a selected Big3 item.")
-    public ApiResponse<List<ExecutionUnitResponse>> createUnit(
+    public ApiResponse<List<MultipleExecutionUnitResponse>> createUnit(
             @Valid @RequestBody CreateExecutionUnitRequest request
     ) {
-        List<ExecutionUnitResponse> response = executionUnitService.createUnit(
+        List<MultipleExecutionUnitResponse> response = executionUnitService.createUnit (
                 request.userId(),
-                request.big3SelectionItemId(),
+                request.big3ItemId(),
                 request.title()
         );
+
         return ApiResponse.success(response, "EXECUTION_UNIT_CREATED");
     }
 
@@ -53,11 +53,26 @@ public class ExecutionUnitController {
     @Operation(summary = "Get execution units", description = "Retrieves all execution units for a specific Big3 item.")
     public ApiResponse<List<ExecutionUnitResponse>> getExecutionUnits(
             @RequestParam String userId,
-            @RequestParam String big3SelectionItemId
+            @RequestParam String big3ItemId
     ) {
-        List<ExecutionUnitResponse> response = executionUnitService.getExecutionUnits(userId, big3SelectionItemId);
+        List<ExecutionUnitResponse> response = executionUnitService.getExecutionUnits(userId, big3ItemId);
         return ApiResponse.success(response, "EXECUTION_UNITS_FETCHED");
     }
+
+    @PostMapping
+    @Operation(summary = "Create execution unit", description = "Creates one execution unit under a selected Big3 item.")
+    public ApiResponse<ExecutionUnitResponse> insertUnit(
+            @Valid @RequestBody InsertExecutionUnitRequest request
+    ) {
+        ExecutionUnitResponse executionUnitResponse = executionUnitService.singleInsertUnit(
+                request.userId(),
+                request.big3ItemId(),
+                request.title()
+        );
+
+        return ApiResponse.success(executionUnitResponse, "EXECUTION_UNIT_CREATED");
+    }
+
 
     @PatchMapping("/{executionUnitId}")
     @Operation(summary = "Update execution unit", description = "Renames a concrete execution unit.")
@@ -74,7 +89,11 @@ public class ExecutionUnitController {
     }
 
     @PostMapping("/{executionUnitId}/complete")
-    @Operation(summary = "Complete execution unit", description = "Marks an execution unit as completed without changing session state.")
+    @Operation(
+            summary = "Complete execution unit",
+            description = "Completes the execution unit, ends active sessions for its timeboxes, "
+                    + "and cancels future planned work timeboxes."
+    )
     public ApiResponse<ExecutionUnitResponse> completeUnit(
             @PathVariable String executionUnitId,
             @Valid @RequestBody CompleteExecutionUnitRequest request

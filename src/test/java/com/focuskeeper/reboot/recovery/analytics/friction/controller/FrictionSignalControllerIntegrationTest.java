@@ -8,8 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.focuskeeper.reboot.recovery.friction.repository.RecoveryFrictionSignalRepository;
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
 import com.focuskeeper.reboot.recovery.execution.entity.RestartEvent;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;

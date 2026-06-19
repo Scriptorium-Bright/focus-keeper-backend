@@ -1,15 +1,10 @@
 package com.focuskeeper.reboot.recovery.execution.entity;
 
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartEventResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "restart_events")
@@ -19,13 +14,14 @@ import java.util.UUID;
 public class RestartEvent {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
     @Column(name = "user_id", nullable = false, length = 100)
     private String userId;
 
-    @Column(name = "failure_event_id", nullable = false, length = 36)
+    @Column(name = "failure_event_id", nullable = false, length = 36, unique = true)
     private String failureEventId;
     // RestartEvent는 특정 FailureEvent 이후 발생한 재시작 사실을 기록하는 이벤트이므로, JPA 연관관계로 묶기보다 failureEventId 참조만 저장해 실행/이벤트 흐름을 느슨하게 연결했다.
 
@@ -43,14 +39,12 @@ public class RestartEvent {
     }
 
     private RestartEvent(
-            String id,
             String userId,
             String failureEventId,
             RestartType restartType,
             int suggestedMinutes,
             OffsetDateTime occurredAt
     ) {
-        this.id = id;
         this.userId = userId;
         this.failureEventId = failureEventId;
         this.restartType = restartType;
@@ -69,7 +63,6 @@ public class RestartEvent {
             OffsetDateTime occurredAt
     ) {
         return new RestartEvent(
-                UUID.randomUUID().toString(),
                 userId,
                 failureEventId,
                 restartType,

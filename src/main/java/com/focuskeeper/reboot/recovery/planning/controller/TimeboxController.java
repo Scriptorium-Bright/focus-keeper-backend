@@ -1,10 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.controller;
 
 import com.focuskeeper.reboot.common.response.ApiResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.AllocateTimeboxesRequest;
-import com.focuskeeper.reboot.recovery.planning.dto.AllocateTimeboxesResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.AllocatedTimeboxResponse;
-import com.focuskeeper.reboot.recovery.planning.dto.TimeboxResponse;
+import com.focuskeeper.reboot.recovery.planning.dto.*;
 import com.focuskeeper.reboot.recovery.planning.service.TimeboxCommand;
 import com.focuskeeper.reboot.recovery.planning.service.TimeboxService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -72,5 +69,15 @@ public class TimeboxController {
                 responseItems
         );
         return ApiResponse.success(response, "TIMEBOXES_ALLOCATED");
+    }
+
+    @PostMapping("/cancelled")
+    public ApiResponse<String> cancelledTimeboxes(@RequestBody TimeboxCancelledRequest request) {
+        timeboxService.cancelledTimeBoxesByUser(
+                request.ids(),
+                request.userId()
+        );
+
+        return ApiResponse.success("timebox cancelled by user");
     }
 }

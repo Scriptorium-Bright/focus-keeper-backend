@@ -12,7 +12,7 @@ import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepos
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository.SessionSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
-import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import io.micrometer.core.instrument.Timer;
@@ -22,7 +22,7 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,6 +70,7 @@ public class DailyKpiBackfillService {
     /**
      * 지정한 날짜 구간을 하루씩 다시 계산해 KPI mart를 재생성하고, 처리 결과와 최신 lastProcessedDate를 반환한다.
      */
+    // high
     public BackfillDailyKpiResponse backfill(String userId, LocalDate startDate, LocalDate endDate) {
         if (endDate.isBefore(startDate)) {
             throw new BusinessException(

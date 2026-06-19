@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.retrospective.service;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import org.springframework.stereotype.Component;
 
 @Component

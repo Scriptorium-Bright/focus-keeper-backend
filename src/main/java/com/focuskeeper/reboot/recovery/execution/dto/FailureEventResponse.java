@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.dto;
 
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import java.time.OffsetDateTime;
 
 // 그냥 말그대로 Response (Entity 보호)

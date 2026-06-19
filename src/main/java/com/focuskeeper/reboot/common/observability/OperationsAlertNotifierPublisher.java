@@ -3,6 +3,7 @@ package com.focuskeeper.reboot.common.observability;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
+// medium
 @Component
 public class OperationsAlertNotifierPublisher implements OperationsAlertTransitionPublisher {
 

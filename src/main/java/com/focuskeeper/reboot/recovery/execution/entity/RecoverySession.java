@@ -1,32 +1,25 @@
 package com.focuskeeper.reboot.recovery.execution.entity;
 
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoveryEndReason;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.Getter;
+
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
-@Table(
-        name = "recovery_sessions",
-        indexes = {
-                @Index(name = "idx_recovery_sessions_user_status", columnList = "user_id, status")
-        }
-)
+@Table(name = "recovery_session")
 /**
  * 특정 timebox 실행을 나타내는 복귀 세션 엔티티다.
  *
  * started/completed/interrupted 상태 전이를 통해 사용자가 실제로 계획한 블록을 수행했는지 기록한다.
  */
+@Getter
 public class RecoverySession {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false, length = 36)
     private String id;
 
@@ -41,6 +34,10 @@ public class RecoverySession {
     @Column(nullable = false, length = 30)
     private RecoverySessionStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "recovery_end_reason", length = 30)
+    private RecoveryEndReason recoveryEndReason;
+
     @Column(name = "started_at", nullable = false)
     private OffsetDateTime startedAt;
 
@@ -50,11 +47,13 @@ public class RecoverySession {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Version
+    private Long version;
+
     protected RecoverySession() {
     }
 
     private RecoverySession(
-            String id,
             String userId,
             String timeboxId,
             RecoverySessionStatus status,
@@ -62,7 +61,6 @@ public class RecoverySession {
             OffsetDateTime endedAt,
             OffsetDateTime createdAt
     ) {
-        this.id = id;
         this.userId = userId;
         this.timeboxId = timeboxId;
         this.status = status;
@@ -76,7 +74,6 @@ public class RecoverySession {
      */
     public static RecoverySession start(String userId, String timeboxId, OffsetDateTime startedAt) {
         return new RecoverySession(
-                UUID.randomUUID().toString(),
                 userId,
                 timeboxId,
                 RecoverySessionStatus.STARTED,
@@ -91,14 +88,25 @@ public class RecoverySession {
      */
     public void complete(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.COMPLETED;
+        this.recoveryEndReason = RecoveryEndReason.TASK_COMPLETED;
         this.endedAt = endedAt;
     }
 
-    /**
-     * 세션을 중단 상태로 전이한다.
-     */
+    public void elapsed(OffsetDateTime endedAt) {
+        this.status = RecoverySessionStatus.COMPLETED;
+        this.recoveryEndReason = RecoveryEndReason.TIMER_ELAPSED;
+        this.endedAt = endedAt;
+    }
+
+    public void stopped(OffsetDateTime endedAt) {
+        this.status = RecoverySessionStatus.INTERRUPTED;
+        this.recoveryEndReason = RecoveryEndReason.USER_STOPPED;
+        this.endedAt = endedAt;
+    }
+
     public void interrupt(OffsetDateTime endedAt) {
         this.status = RecoverySessionStatus.INTERRUPTED;
+        this.recoveryEndReason = RecoveryEndReason.FAILURE_CHECKED_IN;
         this.endedAt = endedAt;
     }
 
@@ -116,10 +124,4 @@ public class RecoverySession {
         );
     }
 
-    /**
-     * 현재 세션 상태를 반환한다.
-     */
-    public RecoverySessionStatus getStatus() {
-        return status;
-    }
 }

@@ -9,7 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.focuskeeper.reboot.recovery.friction.repository.FailureHourMetricRepository;
 import com.focuskeeper.reboot.recovery.friction.repository.FailureHourReportRepository;
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import java.time.LocalDate;

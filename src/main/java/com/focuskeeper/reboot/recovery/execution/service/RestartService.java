@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.service;
 
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureEventResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartEventResponse;
@@ -8,9 +8,12 @@ import com.focuskeeper.reboot.recovery.execution.dto.RestartSuggestionResponse;
 import com.focuskeeper.reboot.recovery.execution.entity.RestartEvent;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import java.time.OffsetDateTime;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 /**
@@ -41,16 +44,19 @@ public class RestartService {
      * 특정 failure event를 기준으로 새 복귀 세션을 시작하고 restart event를 남긴다.
      */
     @Transactional
+    // critical
     public RestartRecoveryResult restart(String userId, String failureEventId) {
+
         // 특정 Failure event 1건
         FailureEventResponse failureEvent = failureEventService.getFailureEvent(userId, failureEventId);
-
         RestartSuggestionResponse suggestion = restartSuggestionPolicy.suggest(failureEvent.reason());
+
 
         // T. FailureEventService의 checkIn과 뭔 차이가 있나 생각을 했었는데, 쟤는 Session을 멈추는 거고 얘는 새로 시작하는거구나 ..
         // A. 맞다. checkIn은 진행 중인 세션을 실패로 중단하고 failure event를 남기는 흐름이고,
         //    restart는 그 failure event를 기준으로 다시 시작할 새 세션과 restart event를 남기는 흐름이다.
         RecoverySessionResponse recoverySession = recoverySessionService.startSession(userId, failureEvent.timeboxId());
+
         RestartEventResponse restartEvent = restartEventRepository.save(
                 RestartEvent.create(
                         userId,
@@ -60,6 +66,7 @@ public class RestartService {
                         OffsetDateTime.now()
                 )
         ).toResponse();
+        log.info("활성확인");
 
         return new RestartRecoveryResult(restartEvent, recoverySession, suggestion);
     }

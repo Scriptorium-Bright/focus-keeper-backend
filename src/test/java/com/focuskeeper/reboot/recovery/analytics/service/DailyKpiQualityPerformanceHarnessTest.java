@@ -3,8 +3,8 @@ package com.focuskeeper.reboot.recovery.analytics.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiQualityReportRepository;
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
-import com.focuskeeper.reboot.recovery.execution.RestartType;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.RestartType;
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
 import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.execution.entity.RestartEvent;
@@ -14,7 +14,7 @@ import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepos
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository.SessionSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
-import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;

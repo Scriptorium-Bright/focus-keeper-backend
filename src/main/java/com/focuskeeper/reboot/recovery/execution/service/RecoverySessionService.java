@@ -2,7 +2,7 @@ package com.focuskeeper.reboot.recovery.execution.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.dto.RecoverySessionResponse;
 import com.focuskeeper.reboot.recovery.execution.entity.RecoverySession;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
@@ -10,9 +10,12 @@ import com.focuskeeper.reboot.recovery.planning.service.TimeboxService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 /**
@@ -41,31 +44,30 @@ public class RecoverySessionService {
      * 실행 단위와 KPI 집계 단위가 중복되지 않도록 한다.
      */
     @Transactional
+    // critical
     public RecoverySessionResponse startSession(String userId, String timeboxId) {
         timeboxService.getTimebox(userId, timeboxId);
-        // T. Timebox에 대한 세션이 지금 활성상태인지 아닌지에 대해 확인하고, 아닐 경우 복귀? 라고 해야하나
-        // A. 맞다. 다만 현재 로직은 특정 timebox별 활성 여부가 아니라 "사용자에게 진행 중인 복귀 세션이 하나라도 있는지"를 막는 전역 제약이다.
-        //    한 사용자가 동시에 여러 복귀 세션을 열지 못하게 해서 실행 기록과 KPI 집계가 중복되는 것을 방지한다.
-        boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus(
+
+        boolean hasActiveSession = recoverySessionRepository.existsByUserIdAndStatus (
                 userId,
                 RecoverySessionStatus.STARTED
         );
-        if (hasActiveSession) {
-            throw new BusinessException(
-                    ErrorCode.CONFLICT,
-                    Map.of("session", "이미 진행 중인 복귀 세션이 있습니다.")
-            );
-        }
+
+        log.info("세션이 활성화되었나 ? = {}", hasActiveSession);
+
+        validateHasActiveSession(hasActiveSession);
 
         return recoverySessionRepository.save(
                 RecoverySession.start(userId, timeboxId, OffsetDateTime.now())
         ).toResponse();
     }
 
+
     /**
      * 진행 중인 세션을 완료 상태로 전이한다.
      */
     @Transactional
+    // medium
     public RecoverySessionResponse completeSession(String userId, String sessionId) {
         RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
@@ -77,12 +79,31 @@ public class RecoverySessionService {
     }
 
     /**
+     *
+     * 진행중인 세션에 대해, 타이머가 전부 흘러갔을 경우
+     * @param userId
+     * @param sessionId
+     * @return
+     */
+    @Transactional
+    // medium
+    public RecoverySessionResponse elapsedSession(String userId, String sessionId) {
+        RecoverySession session = requireSession(userId, sessionId);
+        if (session.getStatus() != RecoverySessionStatus.STARTED) {
+            throw invalidTransition(sessionId, session.getStatus(), "ELAPSED");
+        }
+        session.elapsed(OffsetDateTime.now());
+        return recoverySessionRepository.save(session).toResponse();
+    }
+
+    /**
      * 진행 중인 세션을 중단 상태로 전이한다.
      *
      * 현재는 failure check-in처럼 사용자가 명시적으로 실패를 확정했을 때 주로 호출되며,
      * 약한 이탈 신호를 자동 감지해 끊는 용도까지는 확장하지 않았다.
      */
     @Transactional
+    // medium
     public RecoverySessionResponse interruptSession(String userId, String sessionId) {
         RecoverySession session = requireSession(userId, sessionId);
         if (session.getStatus() != RecoverySessionStatus.STARTED) {
@@ -90,6 +111,26 @@ public class RecoverySessionService {
         }
 
         session.interrupt(OffsetDateTime.now());
+        return recoverySessionRepository.save(session).toResponse();
+    }
+
+    /**
+     *
+     * Failure와의 차이, 중단 상태라는게, 실패를 확정하는게 아니라 잠깐 쉬어가는 그런 개념
+     *
+     * @param userId
+     * @param sessionId
+     * @return
+     */
+    @Transactional
+    // medium
+    public RecoverySessionResponse stoppedSession(String userId, String sessionId) {
+        RecoverySession session = requireSession(userId, sessionId);
+        if (session.getStatus() != RecoverySessionStatus.STARTED) {
+            throw invalidTransition(sessionId, session.getStatus(), "INTERRUPTED");
+        }
+
+        session.stopped(OffsetDateTime.now());
         return recoverySessionRepository.save(session).toResponse();
     }
 
@@ -124,6 +165,16 @@ public class RecoverySessionService {
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("sessionId", sessionId)
                 ));
+    }
+
+
+    private static void validateHasActiveSession(boolean hasActiveSession) {
+        if (hasActiveSession) {
+            throw new BusinessException(
+                    ErrorCode.CONFLICT,
+                    Map.of("session", "이미 진행 중인 복귀 세션이 있습니다.")
+            );
+        }
     }
 
     /**

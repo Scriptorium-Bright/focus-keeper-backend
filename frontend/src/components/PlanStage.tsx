@@ -41,8 +41,8 @@ export function PlanStage(props: PlanStageProps) {
 
   useEffect(() => {
     setUnitDrafts(current => big3Items.map(item => {
-      const existing = current.find(d => d.big3SelectionItemId === item.big3SelectionItemId);
-      return existing ?? { big3SelectionItemId: item.big3SelectionItemId, title: item.content };
+      const existing = current.find(d => d.big3ItemId === item.big3ItemId);
+      return existing ?? { big3ItemId: item.big3ItemId, title: item.content };
     }));
   }, [big3Items]);
 
@@ -148,14 +148,14 @@ export function PlanStage(props: PlanStageProps) {
           {big3Items.length === 0 ? <Text style={styles.emptyState}>Big 3를 고르면 입력할 수 있습니다.</Text> : (
             <View style={styles.builderList}>
               {big3Items.map((item, index) => {
-                const draft = unitDrafts.find(d => d.big3SelectionItemId === item.big3SelectionItemId) || { title: '' };
+                const draft = unitDrafts.find(d => d.big3ItemId === item.big3ItemId) || { title: '' };
                 return (
-                  <View key={item.big3SelectionItemId} style={styles.builderRow}>
+                  <View key={item.big3ItemId} style={styles.builderRow}>
                     <Text style={styles.builderLabel}>BIG 3 {index + 1}: {item.content}</Text>
                     <TextInput
                       style={styles.input}
                       value={draft.title}
-                      onChangeText={val => setUnitDrafts(curr => curr.map(d => d.big3SelectionItemId === item.big3SelectionItemId ? { ...d, title: val } : d))}
+                      onChangeText={val => setUnitDrafts(curr => curr.map(d => d.big3ItemId === item.big3ItemId ? { ...d, title: val } : d))}
                     />
                   </View>
                 );
@@ -163,7 +163,7 @@ export function PlanStage(props: PlanStageProps) {
             </View>
           )}
           <TouchableOpacity style={styles.primaryButton} onPress={() => {
-            onCreateExecutionUnits(unitDrafts.map(d => ({ big3SelectionItemId: d.big3SelectionItemId, title: d.title.trim() })))
+            onCreateExecutionUnits(unitDrafts.map(d => ({ big3ItemId: d.big3ItemId, title: d.title.trim() })))
               .then(ok => { if (ok) setActivePlanStep("timebox"); });
           }}>
             <Text style={styles.primaryButtonText}>실행 단위 생성</Text>

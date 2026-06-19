@@ -1,28 +1,37 @@
 package com.focuskeeper.reboot.recovery.planning.dto;
 
-import com.focuskeeper.reboot.recovery.planning.Big3ItemCompletionStatus;
-import com.focuskeeper.reboot.recovery.planning.entity.Big3Selection;
-import com.focuskeeper.reboot.recovery.planning.entity.Big3SelectionItem;
+import com.focuskeeper.reboot.recovery.planning.constant.ExecutionUnitStatus;
+import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
+import com.focuskeeper.reboot.recovery.planning.entity.ExecutionUnit;
 
-import java.util.Comparator;
 import java.util.List;
 
 public record Big3ItemResponse(
-        String big3SelectionItemId,
+        String big3ItemId,
         String itemId,
         String content,
         String completionStatus
 ) {
-    public Big3ItemResponse(String big3SelectionItemId, String itemId, String content) {
-        this(big3SelectionItemId, itemId, content, "NOT_STARTED");
+    public Big3ItemResponse(String big3ItemId, String itemId, String content) {
+        this(big3ItemId, itemId, content, "NOT_STARTED");
     }
 
-    public static Big3ItemResponse from(Big3SelectionItem selectionItem) {
+    public static Big3ItemResponse from(Big3Item big3Item) {
+
+        List<ExecutionUnit> units = big3Item.getUnits();
+
+        long completedCount = units.stream()
+                .filter(u -> u.getStatus() == ExecutionUnitStatus.COMPLETED)
+                .count();
+
+        // total success percentage -> 도입 할 지 안 할지 모름
+        double successPer = completedCount == 0 ? 0.0 : (double) completedCount / units.size();
+
         return new Big3ItemResponse(
-                selectionItem.getId(),
-                selectionItem.getInboxItem().getId(),
-                selectionItem.getInboxItem().getContent(),
-                selectionItem.getStatus().name()
+                big3Item.getId(),
+                big3Item.getOriginInboxItem().getId(),
+                big3Item.getTitleSnapshot(),
+                big3Item.getCompletionStatus().name()
         );
     }
 }

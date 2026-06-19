@@ -1,7 +1,7 @@
 package com.focuskeeper.reboot.recovery.execution.repository;
 
 import com.focuskeeper.reboot.recovery.execution.entity.FailureEvent;
-import com.focuskeeper.reboot.recovery.execution.FailureReason;
+import com.focuskeeper.reboot.recovery.execution.constant.FailureReason;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +83,15 @@ public interface FailureEventRepository extends JpaRepository<FailureEvent, Stri
             @Param("start") OffsetDateTime start,
             @Param("end") OffsetDateTime end
     );
+
+    @Query("""
+        select s.status
+        from FailureEvent f
+        JOIN RecoverySession s
+        ON s.id = :sessionId
+        WHERE s.status = "STARTED" AND f.userId = :userId
+        """)
+    boolean existsByStatusIsStarted(String sessionId, String userId);
 
     /**
      * 기간 내 가장 많이 발생한 failure reason을 반환한다.

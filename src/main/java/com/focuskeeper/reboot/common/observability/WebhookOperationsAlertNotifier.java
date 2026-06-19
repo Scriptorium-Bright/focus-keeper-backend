@@ -9,6 +9,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+// medium
 @Component
 public class WebhookOperationsAlertNotifier implements OperationsAlertNotifier {
 

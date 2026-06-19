@@ -6,14 +6,14 @@ import com.focuskeeper.reboot.common.observability.OperationsPipelineKeys;
 import com.focuskeeper.reboot.recovery.analytics.entity.DailyKpiMetric;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricRepository;
 import com.focuskeeper.reboot.recovery.analytics.repository.DailyKpiMetricUpsertJdbcRepository;
-import com.focuskeeper.reboot.recovery.execution.RecoverySessionStatus;
+import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.FailureEventRepository.FailureSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository.SessionSlice;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository;
 import com.focuskeeper.reboot.recovery.execution.repository.RestartEventRepository.RestartSlice;
-import com.focuskeeper.reboot.recovery.planning.TimeboxType;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxType;
 import com.focuskeeper.reboot.recovery.planning.entity.Timebox;
 import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
 import io.micrometer.core.instrument.Timer;
@@ -85,6 +85,7 @@ public class DailyKpiPipelineService {
      * A. 맞다. 여기서는 metricDate 기준으로 원천 이벤트와 계획 데이터를 먼저 읽어오는 Extract 역할을 한다.
      *    다만 메소드 전체는 Extract만 하는 게 아니라, 이후 Transform/Load까지 이어지는 파이프라인 오케스트레이션이다.
      */
+    // high
     public void generate(String userId, LocalDate metricDate) {
         Timer.Sample sample = operationsMetricRecorder.startSample();
         try {

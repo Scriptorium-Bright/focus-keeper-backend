@@ -39,3 +39,33 @@ tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'spring.profiles.active', System.getProperty('spring.profiles.active', 'test')
 }
+
+tasks.register('expirationMemoryHarness', Test) {
+    description = 'Runs the isolated Big3 expiration memory pressure harness.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching(
+                'com.focuskeeper.reboot.recovery.planning.service.Big3ServiceExpirationMemoryPressureHarnessTest'
+        )
+    }
+
+    environment 'PERF_EXPIRATION_MEMORY_ENABLED', 'true'
+    maxHeapSize = System.getenv().getOrDefault('PERF_EXPIRATION_MAX_HEAP', '512m')
+    forkEvery = 1
+    testLogging {
+        showStandardStreams = true
+    }
+
+    doFirst {
+        if (System.getenv('PERF_EXPIRATION_CONFIRM_DEDICATED_DB') != 'true') {
+            throw new GradleException(
+                    'Set PERF_EXPIRATION_CONFIRM_DEDICATED_DB=true after selecting a disposable DB_NAME. '
+                            + 'The local profile uses ddl-auto=create and the expiration job updates all matching rows.'
+            )
+        }
+    }
+}

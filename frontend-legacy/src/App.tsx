@@ -168,11 +168,11 @@ export function App() {
     }
 
     const normalized = payload.map((unit) => ({
-      big3SelectionItemId: unit.big3SelectionItemId,
+      big3ItemId: unit.big3ItemId,
       title: unit.title.trim()
     }));
 
-    if (normalized.some((unit) => !unit.big3SelectionItemId || !unit.title)) {
+    if (normalized.some((unit) => !unit.big3ItemId || !unit.title)) {
       showToast("실행 단위 제목을 모두 입력해 주세요.");
       return false;
     }

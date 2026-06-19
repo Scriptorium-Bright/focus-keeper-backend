@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
  * 즉 배치 실패, DQ issue 수, processing lag 같은 운영 신호를 숫자 메트릭으로 바꿔
  * Prometheus가 수집할 수 있게 만드는 책임을 가진다.
  */
+// medium
 @Service
 public class OperationsMetricRecorder {
 

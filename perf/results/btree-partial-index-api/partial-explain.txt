@@ -1,0 +1,11 @@
+                                                                   QUERY PLAN                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using uq_daily_big3_entry_order on daily_big3_entries  (cost=0.42..16.47 rows=3 width=75) (actual time=0.491..0.492 rows=3 loops=1)
+   Index Cond: ((daily_big3_board_id)::text = 'btree-board-00000001'::text)
+   Buffers: shared hit=1 read=3
+ Planning:
+   Buffers: shared hit=121 read=2
+ Planning Time: 0.553 ms
+ Execution Time: 0.517 ms
+(7 rows)
+
