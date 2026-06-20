@@ -339,7 +339,6 @@ public class Big3Service {
         return totalChunkCount;
     }
 
-    // high
     private static void validateSlotOrder(List<DailyBig3Entry> newEntries) {
         for(int pivot = 1; pivot <= newEntries.size(); pivot++) {
             int slotOrder = newEntries.get(pivot - 1).getSlotOrder();
@@ -350,7 +349,6 @@ public class Big3Service {
         }
     }
 
-    // critical
     private void validateNotContinuedYet(Big3Item big3Item) {
         if (big3ItemRepository.existsByDerivedFromItem_Id(big3Item.getId())) {
             throw new BusinessException(

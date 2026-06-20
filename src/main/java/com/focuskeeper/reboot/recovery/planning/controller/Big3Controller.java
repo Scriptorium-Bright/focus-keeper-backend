@@ -61,13 +61,11 @@ public class Big3Controller {
     }
 
     @PostMapping("/abandon")
-    // high
     public ApiResponse<Big3ItemResponse> abandonItem(
-            @RequestBody String userId,
-            @RequestBody String big3ItemId
+            @RequestBody Big3ItemRequest request
     ) {
 
-        Big3ItemResponse big3ItemResponse = big3Service.abandonItem(userId, big3ItemId);
+        Big3ItemResponse big3ItemResponse = big3Service.abandonItem(request.userId(), request.big3ItemId());
 
         return ApiResponse.success(big3ItemResponse, "abandon big3Item");
     }

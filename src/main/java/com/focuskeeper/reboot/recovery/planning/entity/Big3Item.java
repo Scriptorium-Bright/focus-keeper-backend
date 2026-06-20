@@ -123,7 +123,7 @@ public class Big3Item extends BaseTimeEntity {
         }
 
         this.status = ABANDONED;
-        this.expiredAt = now;
+        this.abandonedAt = now;
     }
 
 
