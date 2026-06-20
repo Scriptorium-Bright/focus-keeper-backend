@@ -151,18 +151,25 @@ public class Big3Item extends BaseTimeEntity {
      * 이미 COMPLETED/ABANDONED/EXPIRED인 item에는 아무 일도 하지 않는다.
      */
     // medium
-    public boolean updateStatusFromUnits() {
+    private void updateStatusFromUnits() {
         if (this.status != Big3ItemStatus.OPEN) {
-            return true;
+            return;
         }
 
         if (getCompletionStatus() == Big3ItemCompletionStatus.COMPLETED) {
             this.status = Big3ItemStatus.COMPLETED;
             this.completedAt = OffsetDateTime.now();
-            return true;
         }
 
-        return false;
+    }
+
+    public void addExecutionUnit(ExecutionUnit unit) {
+        units.add(unit);
+        updateStatusFromUnits();
+    }
+
+        public void refreshCompletionStatusFromUnits() {
+        updateStatusFromUnits();
     }
 
     /**

@@ -8,6 +8,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.focuskeeper.reboot.recovery.planning.constant.TimeboxStatus;
+import com.focuskeeper.reboot.recovery.planning.repository.TimeboxRepository;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,9 @@ class TimeboxControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TimeboxRepository timeboxRepository;
 
     @Test
     void allocateTimeboxesReturnsStandardSuccessResponse() throws Exception {
@@ -228,6 +234,76 @@ class TimeboxControllerIntegrationTest {
                 .andExpect(jsonPath("$.error.details.timeboxes").value("BREAK timebox는 첫 복귀 블록이 될 수 없습니다."));
     }
 
+    @Test
+    void allocateTimeboxesAllowsAnotherFirstRecoveryBlockOnSameDateAcrossRequests() throws Exception {
+        String userId = "timebox-first-block-global-user";
+        LocalDate plannedDate = LocalDate.of(2035, 3, 16);
+        List<String> itemIds = saveInboxItems(userId);
+        List<String> executionUnitIds = createExecutionUnits(
+                userId,
+                selectBig3(userId, itemIds.subList(0, 2))
+        );
+
+        allocateSingleTimebox(
+                userId,
+                executionUnitIds.get(0),
+                plannedDate + "T09:00:00+09:00",
+                plannedDate + "T09:30:00+09:00",
+                true
+        );
+        allocateSingleTimebox(
+                userId,
+                executionUnitIds.get(1),
+                plannedDate + "T10:00:00+09:00",
+                plannedDate + "T10:30:00+09:00",
+                true
+        );
+
+        long firstRecoveryBlockCount = timeboxRepository.findAll().stream()
+                .filter(timebox -> timebox.getUserId().equals(userId))
+                .filter(timebox -> timebox.getStartAt().toLocalDate().equals(plannedDate))
+                .filter(timebox -> timebox.isFirstRecoveryBlock())
+                .count();
+        assertThat(firstRecoveryBlockCount).isEqualTo(2);
+    }
+
+    @Test
+    void cancelTimeboxesReturnsNotFoundWhenRequestedIdsArePartiallyMissing() throws Exception {
+        String userId = "timebox-cancel-missing-user";
+        LocalDate plannedDate = LocalDate.of(2036, 3, 16);
+        List<String> itemIds = saveInboxItems(userId);
+        List<String> executionUnitIds = createExecutionUnits(
+                userId,
+                selectBig3(userId, itemIds.subList(0, 2))
+        );
+
+        String timeboxId = allocateSingleTimebox(
+                userId,
+                executionUnitIds.get(0),
+                plannedDate + "T09:00:00+09:00",
+                plannedDate + "T09:30:00+09:00",
+                true
+        );
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/cancelled")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "ids": ["%s", "missing-timebox-id"]
+                                        }
+                                        """.formatted(userId, timeboxId))
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("RESOURCE-404"))
+                .andExpect(jsonPath("$.error.details.missingTimeboxIds[0]").value("missing-timebox-id"));
+
+        assertThat(timeboxRepository.findById(timeboxId).orElseThrow().getStatus())
+                .isEqualTo(TimeboxStatus.PLANNED);
+    }
+
     private List<String> saveInboxItems(String userId) throws Exception {
         String requestBody = """
                 {
@@ -312,6 +388,42 @@ class TimeboxControllerIntegrationTest {
             executionUnitIds.add(body.path("data").path("executionUnitId").asText());
         }
         return executionUnitIds;
+    }
+
+    private String allocateSingleTimebox(
+            String userId,
+            String executionUnitId,
+            String startAt,
+            String endAt,
+            boolean firstRecoveryBlock
+    ) throws Exception {
+        MvcResult result = mockMvc.perform(
+                        post("/api/v1/recovery/timeboxes")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "timeboxes": [
+                                            {
+                                              "executionUnitId": "%s",
+                                              "startAt": "%s",
+                                              "endAt": "%s",
+                                              "type": "WORK",
+                                              "firstRecoveryBlock": %s
+                                            }
+                                          ]
+                                        }
+                                        """.formatted(userId, executionUnitId, startAt, endAt, firstRecoveryBlock))
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .path("data")
+                .path("timeboxes")
+                .get(0)
+                .path("timeboxId")
+                .asText();
     }
 
     private String readTraceIdFromBody(MvcResult result) throws Exception {

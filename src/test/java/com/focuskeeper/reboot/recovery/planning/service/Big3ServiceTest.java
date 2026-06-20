@@ -144,6 +144,42 @@ class Big3ServiceTest {
     }
 
     @Test
+    void continueLastWeekWorkFailsWhenExistingActiveEntryMakesNewEntryStartAtSlotTwo() {
+        Big3Item sourceItem = createExpiredItem("source-item", LAST_WEEK_START);
+        DailyBig3Board board = DailyBig3Board.create(USER_ID, TODAY, FIXED_NOW);
+        ReflectionTestUtils.setField(board, "id", "today-board");
+        Big3Item activeItem = createItem("active-item", CURRENT_WEEK_START);
+        DailyBig3Entry activeEntry = DailyBig3Entry.create(
+                board,
+                activeItem,
+                1,
+                SelectionSource.NEW,
+                FIXED_NOW.minusHours(1)
+        );
+
+        when(big3ItemRepository.findAllByIdInAndUserId(List.of("source-item"), USER_ID))
+                .thenReturn(List.of(sourceItem));
+        when(big3ItemRepository.existsByDerivedFromItem_Id("source-item")).thenReturn(false);
+        when(big3ItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(dailyBig3BoardRepository.findByUserIdAndSelectedDate(USER_ID, TODAY))
+                .thenReturn(Optional.of(board));
+        when(dailyBig3BoardRepository.save(board)).thenReturn(board);
+        when(dailyBig3EntryRepository
+                .findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc("today-board"))
+                .thenReturn(List.of(activeEntry));
+
+        try (MockedStatic<OffsetDateTime> mockedTime = mockStatic(OffsetDateTime.class)) {
+            mockedTime.when(OffsetDateTime::now).thenReturn(FIXED_NOW);
+
+            assertThatThrownBy(() -> big3Service.continueLastWeekWork(USER_ID, List.of("source-item")))
+                    .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.SYSTEM_INTERNAL_ERROR);
+                        assertThat(exception.getDetails()).isEqualTo("slot의 순서가 잘못되었습니다.");
+                    });
+        }
+    }
+
+    @Test
     void continueLastWeekWorkRejectsOpenItem() {
         Big3Item openItem = createItem("open-item", LAST_WEEK_START);
         when(big3ItemRepository.findAllByIdInAndUserId(List.of("open-item"), USER_ID))

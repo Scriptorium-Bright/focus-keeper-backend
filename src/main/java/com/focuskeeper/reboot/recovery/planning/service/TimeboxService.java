@@ -12,9 +12,7 @@ import com.focuskeeper.reboot.recovery.planning.validation.TimeboxAllocationVali
 import com.focuskeeper.reboot.recovery.planning.validation.TimeboxOverlapValidator;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -54,9 +52,8 @@ public class TimeboxService {
         Map<String, ExecutionUnit> executionUnits = indexExecutionUnits(userId, commands);
         timeboxAllocationValidator.validateExecutionUnits(commands, executionUnits);
 
-
         List<Timebox> pendingTimeboxes = materializeTimeboxes(userId, commands, executionUnits);
-        List<Timebox> existingTimeboxes = timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId);
+        List<Timebox> existingTimeboxes = getExistingTimeboxes(userId, pendingTimeboxes);
 
         timeboxOverlapValidator.validate(
                 existingTimeboxes,
@@ -101,11 +98,25 @@ public class TimeboxService {
         }
     }
 
-    // high
-    public void cancelledTimeBoxesByUser (List<String> timeboxIds, String userId) {
+    @Transactional
+    public void cancelledTimeBoxesByUser(List<String> timeboxIds, String userId) {
         OffsetDateTime now = OffsetDateTime.now();
         List<Timebox> allByIdInAndUserId = timeboxRepository.findAllByIdInAndUserId(timeboxIds, userId);
 
+        Set<String> foundIds = allByIdInAndUserId.stream()
+                .map(Timebox::getId)
+                .collect(Collectors.toSet());
+
+        List<String> missingIds = timeboxIds.stream()
+                .filter(id -> !foundIds.contains(id))
+                .toList();
+
+        if (!missingIds.isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.RESOURCE_NOT_FOUND,
+                    Map.of("missingTimeboxIds", missingIds)
+            );
+        }
         for (Timebox timebox : allByIdInAndUserId) {
             timebox.cancelledByUser(now);
         }
@@ -153,9 +164,7 @@ public class TimeboxService {
                     OffsetDateTime.now()
             ));
         });
-        // Q. Request의 명칭은 사용자 입력이 아닌가? 좀 뭔가 애매하지 않나
-        // A. 맞다. 여기서는 이미 request를 검증/파싱해서 엔티티 후보로 만든 상태라 "request"보다는 "candidate"나
-        //    "pending"이 더 정확하다. 지금 이름은 "아직 저장 전"이라는 뜻은 전달하지만, 계층 의미상은 다소 흐리다.
+
         return pendingTimeboxes;
     }
 
@@ -174,6 +183,7 @@ public class TimeboxService {
             );
         }
     }
+
 
     /**
      * 외부 문자열을 OffsetDateTime으로 파싱하고 형식 오류를 도메인 예외로 바꾼다.

@@ -237,6 +237,37 @@ class ExecutionUnitControllerIntegrationTest {
     }
 
     @Test
+    void createMultipleExecutionUnitsPersistsChildrenThroughCascadeContract() throws Exception {
+        String userId = "execution-unit-bulk-cascade-user";
+        String big3ItemId = selectFirstBig3Item(userId);
+
+        mockMvc.perform(
+                        post("/api/v1/recovery/execution-units/multiple")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                          "userId": "%s",
+                                          "big3ItemId": "%s",
+                                          "title": ["첫 번째 bulk 실행", "두 번째 bulk 실행"]
+                                        }
+                                        """.formatted(userId, big3ItemId))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.length()").value(2));
+
+        mockMvc.perform(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/recovery/execution-units")
+                                .param("userId", userId)
+                                .param("big3ItemId", big3ItemId)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].title").value("첫 번째 bulk 실행"))
+                .andExpect(jsonPath("$.data[1].title").value("두 번째 bulk 실행"));
+    }
+
+    @Test
     void createExecutionUnitReturnsConflictWhenBig3ItemIsCompleted() throws Exception {
         String userId = "execution-unit-terminal-item-user";
         String big3ItemId = selectFirstBig3Item(userId);

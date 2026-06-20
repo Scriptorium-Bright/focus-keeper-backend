@@ -50,7 +50,7 @@ public class ExecutionUnitService {
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
 
         validateItemAcceptsExecutionUnits(big3Item);
-        unitExceedException(titles.size(), big3Item.getUnits().size());
+        validateUnitExceed(titles.size(), big3Item.getUnits().size());
 
         return bulkExecutionUnit(titles, big3Item);
     }
@@ -63,7 +63,7 @@ public class ExecutionUnitService {
 
         Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
         validateItemAcceptsExecutionUnits(big3Item);
-        unitExceedException(1, big3Item.getUnits().size());
+        validateUnitExceed(1, big3Item.getUnits().size());
 
         ExecutionUnit executionUnit = ExecutionUnit.create(big3Item, title, OffsetDateTime.now());
 
@@ -87,8 +87,7 @@ public class ExecutionUnitService {
 
         for (String title : titles) {
             ExecutionUnit executionUnit = ExecutionUnit.create(big3Item, title, OffsetDateTime.now());
-            big3Item.getUnits().add(executionUnit); // 자식 리스트에 수동으로 넣어줘야 영속성 컨텍스트 내에서 부모가 인지함
-            big3Item.updateStatusFromUnits();
+            big3Item.addExecutionUnit(executionUnit);
             MultipleExecutionUnitResponse response = MultipleExecutionUnitResponse.toResponse(executionUnit);
 
             executionUnitResponses.add(response);
@@ -113,7 +112,7 @@ public class ExecutionUnitService {
     public ExecutionUnitResponse updateUnit(String userId, String executionUnitId, String title) {
         ExecutionUnit executionUnit = requireUnit(userId, executionUnitId);
         executionUnit.rename(title);
-        executionUnit.getBig3Item().updateStatusFromUnits();
+        executionUnit.getBig3Item().refreshCompletionStatusFromUnits();
         
         return toResponse(executionUnitRepository.save(executionUnit));
     }
@@ -156,7 +155,7 @@ public class ExecutionUnitService {
         }
 
         Big3Item parent = executionUnit.getBig3Item();
-        parent.updateStatusFromUnits();
+        parent.refreshCompletionStatusFromUnits();
 
         ExecutionUnit save = executionUnitRepository.save(executionUnit);
 
@@ -174,7 +173,7 @@ public class ExecutionUnitService {
 
     // 추후 exception으로 이관예정
     // high
-    private static void unitExceedException(int newCount, int currentCount) {
+    private static void validateUnitExceed(int newCount, int currentCount) {
         if (currentCount + newCount > 5) {
             throw new BusinessException(
                     ErrorCode.COMMON_BAD_REQUEST,

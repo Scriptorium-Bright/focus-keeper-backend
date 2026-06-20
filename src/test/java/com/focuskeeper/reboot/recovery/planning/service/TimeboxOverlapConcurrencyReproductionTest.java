@@ -415,7 +415,10 @@ class TimeboxOverlapConcurrencyReproductionTest {
     }
 
     private List<Timebox> findSavedTimeboxes(String userId) {
-        return timeboxRepository.findAllByUserIdOrderByStartAtAsc(userId);
+        return timeboxRepository.findAll().stream()
+                .filter(timebox -> timebox.getUserId().equals(userId))
+                .sorted(java.util.Comparator.comparing(Timebox::getStartAt))
+                .toList();
     }
 
     private boolean overlapConstraintExists() {
