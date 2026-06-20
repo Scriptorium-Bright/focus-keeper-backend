@@ -76,8 +76,8 @@ class TimeboxOverlapConcurrencyReproductionTest {
     @Autowired
     private TransactionTemplate transactionTemplate;
 
-    @Autowired
-    private GuardRepository guardRepository;
+/*    @Autowired
+    private GuardRepository guardRepository;*/
 
     @SpyBean
     private TimeboxOverlapValidator timeboxOverlapValidator;
@@ -96,7 +96,7 @@ class TimeboxOverlapConcurrencyReproductionTest {
         OffsetDateTime firstEnd = firstStart.plusHours(1);
         OffsetDateTime secondStart = firstStart.plusMinutes(30);
         OffsetDateTime secondEnd = secondStart.plusHours(1);
-        guardRepository.save(new TimeboxGuard(userId));
+//        guardRepository.save(new TimeboxGuard(userId));
 
         TimeboxCommand firstCommand = command(
                 executionUnits.get(0).getId(),
@@ -198,8 +198,8 @@ class TimeboxOverlapConcurrencyReproductionTest {
         OffsetDateTime firstEnd = firstStart.plusHours(1);
         OffsetDateTime secondStart = firstStart.plusMinutes(30);
         OffsetDateTime secondEnd = secondStart.plusHours(1);
-        TimeboxGuard timeboxGuard = new TimeboxGuard(userId);
-        guardRepository.save(timeboxGuard);
+/*        TimeboxGuard timeboxGuard = new TimeboxGuard(userId);
+        guardRepository.save(timeboxGuard);*/
 
         TimeboxCommand firstCommand = command(
                 executionUnits.get(0).getId(),
@@ -284,7 +284,7 @@ class TimeboxOverlapConcurrencyReproductionTest {
         String userId = "timebox-row-lock-" + UUID.randomUUID();
         OffsetDateTime createdAt = OffsetDateTime.now();
         ExecutionUnit executionUnit = saveExecutionUnits(userId, createdAt).get(0);
-        guardRepository.save(new TimeboxGuard(userId));
+//        guardRepository.save(new TimeboxGuard(userId));
         OffsetDateTime existingStart = createdAt.plusDays(1).withMinute(0).withSecond(0).withNano(0);
         OffsetDateTime existingEnd = existingStart.plusHours(1);
 

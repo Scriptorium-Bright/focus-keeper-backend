@@ -1,9 +1,10 @@
-const storageKey = "rebootfocus-validation-context";
+const storageKey = "focusloop-web-context";
+const validRoutes = ["home", "capture", "today", "weekly", "patterns"];
 
 const state = {
     userId: "",
     metricDate: "",
-    activeStage: 0,
+    activeRoute: "home",
     alertsActiveOnly: true,
     inboxItems: [],
     big3Items: [],
@@ -15,6 +16,13 @@ const state = {
 
 const el = {
     toast: document.getElementById("toast"),
+    routeLinks: [...document.querySelectorAll("[data-route-link]")],
+    routeScreens: [...document.querySelectorAll("[data-route]")],
+    diagnosisForm: document.getElementById("diagnosis-form"),
+    diagnosisPlan: document.getElementById("diagnosis-plan"),
+    diagnosisReason: document.getElementById("diagnosis-reason"),
+    diagnosisHour: document.getElementById("diagnosis-hour"),
+    diagnosisResult: document.getElementById("diagnosis-result"),
     userId: document.getElementById("user-id"),
     metricDate: document.getElementById("metric-date"),
     statusUser: document.getElementById("status-user"),
@@ -39,44 +47,47 @@ const el = {
     batchJson: document.getElementById("batch-overview-json"),
     alertsJson: document.getElementById("alerts-json"),
     alertsLifecycleView: document.getElementById("alerts-lifecycle-view"),
+    weeklyNarrative: document.getElementById("weekly-narrative"),
     summaryRecovery24: document.getElementById("summary-recovery24"),
     summaryTtr: document.getElementById("summary-ttr"),
     summaryCycle: document.getElementById("summary-cycle"),
-    summaryLastProcessedDate: document.getElementById("summary-last-processed-date"),
-    stageButtons: [...document.querySelectorAll("[data-stage]")],
-    stagePanels: [...document.querySelectorAll("[data-stage-panel]")]
+    summaryLastProcessedDate: document.getElementById("summary-last-processed-date")
 };
 
 document.addEventListener("DOMContentLoaded", () => {
     hydrateContext();
+    bindRouting();
     bindForms();
-    bindStageNavigation();
+    setRoute(routeFromHash(), { replaceHash: true, scroll: false });
     renderAll();
 });
 
-function bindStageNavigation() {
-    el.stageButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-            setStage(Number(button.dataset.stage));
-        });
-    });
+window.addEventListener("hashchange", () => {
+    setRoute(routeFromHash(), { replaceHash: true, scroll: false });
+});
 
-    document.querySelectorAll("[data-go-stage]").forEach((button) => {
-        button.addEventListener("click", () => {
-            setStage(Number(button.dataset.goStage));
+function bindRouting() {
+    el.routeLinks.forEach((link) => {
+        link.addEventListener("click", (event) => {
+            event.preventDefault();
+            setRoute(link.dataset.routeLink);
         });
     });
 }
 
 function bindForms() {
+    el.diagnosisForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        renderDiagnosis();
+    });
+
     document.getElementById("context-form").addEventListener("submit", (event) => {
         event.preventDefault();
         state.userId = el.userId.value.trim();
         state.metricDate = el.metricDate.value;
         persistContext();
         renderStatusStrip();
-        setStage(1);
-        toast("검증 컨텍스트를 저장했습니다.");
+        toast("웹 사용 컨텍스트를 저장했습니다.");
     });
 
     document.getElementById("inbox-form").addEventListener("submit", async (event) => {
@@ -113,6 +124,7 @@ function bindForms() {
         state.latestFailure = null;
         el.inboxItems.value = "";
         renderAll();
+        setRoute("capture");
         toast(`${response.data.savedCount}개의 Inbox Item을 저장했습니다.`);
     });
 
@@ -127,7 +139,7 @@ function bindForms() {
             .slice(0, 3);
 
         if (selectedIds.length === 0) {
-            toast("Big 3를 최소 1개 선택해 주세요.");
+            toast("Big3를 최소 1개 선택해 주세요.");
             return;
         }
 
@@ -145,7 +157,8 @@ function bindForms() {
         state.latestFailureEventId = null;
         state.latestFailure = null;
         renderAll();
-        toast(`${response.data.selectedCount}개의 Big 3를 확정했습니다.`);
+        setRoute("today");
+        toast(`${response.data.selectedCount}개의 Big3를 확정했습니다.`);
     });
 
     document.getElementById("timebox-form").addEventListener("submit", async (event) => {
@@ -164,7 +177,7 @@ function bindForms() {
         }));
 
         if (payload.length === 0) {
-            toast("Big 3를 먼저 선택해 주세요.");
+            toast("Big3를 먼저 선택해 주세요.");
             return;
         }
 
@@ -187,8 +200,8 @@ function bindForms() {
         state.latestFailureEventId = null;
         state.latestFailure = null;
         renderAll();
-        toast(`${response.data.allocatedCount}개의 타임박스를 만들었습니다.`);
-        setStage(2);
+        setRoute("today");
+        toast(`${response.data.allocatedCount}개의 오늘 블록을 만들었습니다.`);
     });
 
     el.completeButton.addEventListener("click", async () => {
@@ -245,7 +258,7 @@ function bindForms() {
         state.latestFailureEventId = response.data.failureEventId;
         state.latestFailure = response.data;
         renderAll();
-        toast("실패 이벤트를 기록했습니다.");
+        toast("실패 이벤트를 기록했습니다. 이제 10분 재시작을 누르세요.");
     });
 
     el.restartButton.addEventListener("click", async () => {
@@ -285,11 +298,41 @@ function bindForms() {
     });
 }
 
+function routeFromHash() {
+    const route = window.location.hash.replace("#", "");
+    return validRoutes.includes(route) ? route : "home";
+}
+
+function setRoute(route, options = {}) {
+    const nextRoute = validRoutes.includes(route) ? route : "home";
+    state.activeRoute = nextRoute;
+
+    el.routeScreens.forEach((screen) => {
+        screen.classList.toggle("is-active", screen.dataset.route === nextRoute);
+    });
+
+    el.routeLinks.forEach((link) => {
+        link.classList.toggle("is-active", link.dataset.routeLink === nextRoute);
+    });
+
+    if (!options.replaceHash && window.location.hash !== `#${nextRoute}`) {
+        window.location.hash = nextRoute;
+    }
+
+    if (options.replaceHash && window.location.hash !== `#${nextRoute}`) {
+        history.replaceState(null, "", `#${nextRoute}`);
+    }
+
+    if (options.scroll !== false) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+}
+
 function hydrateContext() {
     const today = new Date().toISOString().slice(0, 10);
     const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
 
-    state.userId = saved.userId || "demo-validation-user";
+    state.userId = saved.userId || "demo-web-user";
     state.metricDate = saved.metricDate || today;
 
     el.userId.value = state.userId;
@@ -307,7 +350,7 @@ function ensureContext() {
     state.userId = el.userId.value.trim();
     state.metricDate = el.metricDate.value;
     if (!state.userId || !state.metricDate) {
-        throw new Error("userId와 metricDate를 먼저 입력해 주세요.");
+        throw new Error("userId와 기준일을 먼저 입력해 주세요.");
     }
     persistContext();
 }
@@ -318,8 +361,68 @@ function safeEnsureContext() {
         return true;
     } catch (error) {
         toast(error.message || "컨텍스트를 먼저 입력해 주세요.");
+        setRoute("capture");
         return false;
     }
+}
+
+function renderDiagnosis() {
+    const plans = el.diagnosisPlan.value
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    if (plans.length === 0) {
+        toast("이번 주에 밀린 계획을 한 줄 이상 입력해 주세요.");
+        return;
+    }
+
+    const reason = diagnosisReasonLabel(el.diagnosisReason.value);
+    const hour = diagnosisHourLabel(el.diagnosisHour.value);
+    const leadPlan = plans[0];
+    const nextAction = nextActionByReason(el.diagnosisReason.value, leadPlan);
+
+    el.diagnosisResult.innerHTML = `
+        <strong>${escapeHtml(reason)} 때문에 ${escapeHtml(hour)}에 계획이 밀리는 패턴이 보입니다.</strong>
+        <p>${escapeHtml(nextAction)}</p>
+        <p>이 결과를 저장하면 다음 주 리셋과 4주 패턴 리포트로 이어질 수 있습니다.</p>
+    `;
+}
+
+function diagnosisReasonLabel(reason) {
+    return {
+        TOO_BIG: "작업 크기",
+        UNCLEAR_NEXT_ACTION: "불명확한 다음 행동",
+        LOW_ENERGY: "에너지 저하",
+        CONTEXT_SWITCHED: "잦은 전환",
+        INTERRUPTION: "외부 방해"
+    }[reason] || "반복 조건";
+}
+
+function diagnosisHourLabel(hour) {
+    return {
+        morning: "오전",
+        afternoon: "오후",
+        evening: "저녁",
+        night: "밤"
+    }[hour] || "반복 시간대";
+}
+
+function nextActionByReason(reason, plan) {
+    const safePlan = plan || "첫 번째 계획";
+    if (reason === "TOO_BIG") {
+        return `"${safePlan}"을 그대로 이월하지 말고 30분 안에 시작 가능한 첫 action으로 줄이세요.`;
+    }
+    if (reason === "UNCLEAR_NEXT_ACTION") {
+        return `"${safePlan}"의 완료 기준보다 먼저 눌러볼 수 있는 첫 행동을 한 문장으로 적으세요.`;
+    }
+    if (reason === "LOW_ENERGY") {
+        return `에너지가 낮은 시간대에는 "${safePlan}"을 10분 restart 블록으로만 시작하세요.`;
+    }
+    if (reason === "CONTEXT_SWITCHED") {
+        return `전환이 잦은 시간대에는 "${safePlan}"을 시작하기 전 브라우저 탭과 알림을 먼저 닫는 check-in을 두세요.`;
+    }
+    return `방해가 잦은 시간대에는 "${safePlan}"을 고정 블록이 아니라 실패 후 복귀 가능한 짧은 블록으로 잡으세요.`;
 }
 
 async function refreshInsights() {
@@ -342,9 +445,25 @@ async function refreshInsights() {
     el.summaryTtr.textContent = dailyKpi?.ttrMinutes ?? "-";
     el.summaryCycle.textContent = dailyKpi?.cycleCompletionRate ?? "-";
     el.summaryLastProcessedDate.textContent = batch.data.lastProcessedDate?.lastProcessedDate ?? "-";
+    renderWeeklyNarrative(dailyKpi);
 
-    setStage(3);
-    toast("Recovery / Batch overview를 갱신했습니다.");
+    setRoute("weekly");
+    toast("주간 리셋 리포트를 갱신했습니다.");
+}
+
+function renderWeeklyNarrative(dailyKpi) {
+    const recoveryText = dailyKpi?.recovery24
+        ? "실패 후 24시간 안에 복귀한 흔적이 있습니다."
+        : "아직 24시간 내 복귀 신호가 약합니다.";
+    const ttr = dailyKpi?.ttrMinutes;
+    const ttrText = ttr === null || ttr === undefined
+        ? "복귀 지연은 아직 계산되지 않았습니다."
+        : `가장 빠른 복귀 지연은 ${ttr}분입니다.`;
+
+    el.weeklyNarrative.innerHTML = `
+        <strong>${escapeHtml(recoveryText)}</strong>
+        <p>${escapeHtml(ttrText)} 다음 주에는 가장 많이 밀린 작업 하나를 30분 시작 블록으로 줄이고, 실패 체크인 후 같은 화면에서 restart를 누르는 흐름을 유지하세요.</p>
+    `;
 }
 
 function renderAlertLifecycleCards(alerts) {
@@ -387,14 +506,13 @@ async function api(url, options = {}) {
         }
         return payload;
     } catch (error) {
-        toast(error.message || "알 수 없는 오류가 발생했습니다.");
+        toast(error.message || "API 서버에 연결할 수 없습니다.");
         throw error;
     }
 }
 
 function renderAll() {
     renderStatusStrip();
-    renderStage();
     renderInbox();
     renderBig3();
     renderTimeboxBuilder();
@@ -408,21 +526,6 @@ function renderStatusStrip() {
     el.statusPlanCount.textContent = `${state.inboxItems.length} / ${state.big3Items.length}`;
     el.statusTimeboxCount.textContent = String(state.timeboxes.length);
     el.statusSession.textContent = state.activeSession?.status || "대기 중";
-}
-
-function renderStage() {
-    el.stageButtons.forEach((button) => {
-        button.classList.toggle("is-active", Number(button.dataset.stage) === state.activeStage);
-    });
-    el.stagePanels.forEach((panel, index) => {
-        panel.classList.toggle("is-active", index === state.activeStage);
-    });
-}
-
-function setStage(stageIndex) {
-    state.activeStage = stageIndex;
-    renderStage();
-    document.querySelector(".workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderInbox() {
@@ -463,7 +566,7 @@ function renderBig3() {
 
     if (state.big3Items.length === 0) {
         el.big3Result.className = "result-list empty-state";
-        el.big3Result.textContent = "아직 선택된 Big 3가 없습니다.";
+        el.big3Result.textContent = "아직 선택된 Big3가 없습니다.";
         return;
     }
 
@@ -474,7 +577,7 @@ function renderBig3() {
                 <div>${index + 1}. ${escapeHtml(item.content)}</div>
                 <small class="meta-kicker">${escapeHtml(item.id)}</small>
             </div>
-            <span class="chip">BIG 3</span>
+            <span class="chip">BIG3</span>
         </div>
     `).join("");
 }
@@ -482,7 +585,7 @@ function renderBig3() {
 function renderTimeboxBuilder() {
     if (state.big3Items.length === 0) {
         el.timeboxBuilder.className = "builder-list empty-state";
-        el.timeboxBuilder.textContent = "Big 3를 고르면 자동으로 입력 폼이 생성됩니다.";
+        el.timeboxBuilder.textContent = "Big3를 고르면 자동으로 입력 폼이 생성됩니다.";
         return;
     }
 
@@ -492,7 +595,7 @@ function renderTimeboxBuilder() {
         return `
             <div class="timebox-row" data-timebox-row data-item-id="${escapeHtml(item.id)}">
                 <div class="timebox-meta">
-                    <span class="meta-kicker">ITEM ${index + 1}</span>
+                    <span class="meta-kicker">ACTION ${index + 1}</span>
                     <strong>${escapeHtml(item.content)}</strong>
                 </div>
                 <label>
@@ -504,7 +607,7 @@ function renderTimeboxBuilder() {
                     <input name="endAt" type="datetime-local" value="${defaults.end}">
                 </label>
                 <div>
-                    <span>타입 / 첫 복귀</span>
+                    <span class="meta-kicker">타입 / 첫 복귀</span>
                     <div class="action-row">
                         <select name="type">
                             <option value="WORK">WORK</option>
@@ -566,7 +669,7 @@ function renderSession() {
 
     if (state.timeboxes.length === 0) {
         el.timeboxActions.className = "chip-list empty-state";
-        el.timeboxActions.textContent = "타임박스 할당 후 시작 버튼이 보입니다.";
+        el.timeboxActions.textContent = "타임박스 생성 후 시작 버튼이 보입니다.";
         return;
     }
 
@@ -604,7 +707,7 @@ function renderFailure() {
     el.failureResult.className = "result-list alert-list";
     el.failureResult.innerHTML = `
         <div class="alert-row">
-            <strong>${escapeHtml(state.latestFailure.reason)}</strong>
+            <strong>${escapeHtml(diagnosisReasonLabel(state.latestFailure.reason))}</strong>
             <div>${escapeHtml(state.latestFailure.note || "메모 없음")}</div>
             <small class="meta-kicker">failureEventId: ${escapeHtml(state.latestFailure.failureEventId)}</small>
         </div>
@@ -648,7 +751,7 @@ function toast(message) {
     clearTimeout(toast.timeoutId);
     toast.timeoutId = setTimeout(() => {
         el.toast.classList.remove("show");
-    }, 2200);
+    }, 2400);
 }
 
 function escapeHtml(value) {

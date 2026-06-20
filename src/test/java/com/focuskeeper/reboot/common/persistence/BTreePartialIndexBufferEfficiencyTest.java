@@ -130,6 +130,9 @@ class BTreePartialIndexBufferEfficiencyTest {
             ExplainMetrics full = explainActiveRowScan(statement, "probe_full");
             ExplainMetrics partial = explainActiveRowScan(statement, "probe_partial");
 
+            printExplainPlan("Full index", full);
+            printExplainPlan("Partial index", partial);
+
             assertThat(full.indexNames()).contains(FULL_INDEX);
             assertThat(partial.indexNames()).contains(PARTIAL_INDEX);
             assertThat(full.actualRows()).isEqualTo(TOTAL_ROWS - SOFT_DELETED_ROWS);
@@ -260,8 +263,91 @@ class BTreePartialIndexBufferEfficiencyTest {
                     plan.path("Actual Rows").asLong(),
                     sumLongField(plan, "Rows Removed by Filter"),
                     explain.path("Execution Time").asDouble(),
-                    indexNames
+                    indexNames,
+                    formatPlanTree(plan)
             );
+        }
+    }
+
+    private void printExplainPlan(String label, ExplainMetrics metrics) {
+        System.out.printf(
+                "%n========== EXPLAIN ANALYZE: %s ==========%n"
+                        + "Options: ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON%n"
+                        + "%s"
+                        + "Execution Time: %.3f ms%n"
+                        + "===============================================%n",
+                label,
+                metrics.planTree(),
+                metrics.executionTimeMillis()
+        );
+    }
+
+    private String formatPlanTree(JsonNode plan) {
+        StringBuilder output = new StringBuilder();
+        appendPlanNode(output, plan, 0);
+        return output.toString();
+    }
+
+    private void appendPlanNode(StringBuilder output, JsonNode node, int depth) {
+        String indent = "  ".repeat(depth);
+        output.append(indent)
+                .append("-> ")
+                .append(node.path("Node Type").asText("Unknown"));
+
+        if (node.has("Relation Name")) {
+            output.append(" on ").append(node.get("Relation Name").asText());
+        }
+        if (node.has("Index Name")) {
+            output.append(" using ").append(node.get("Index Name").asText());
+        }
+
+        output.append(" (actual rows=")
+                .append(node.path("Actual Rows").asLong())
+                .append(" loops=")
+                .append(node.path("Actual Loops").asLong())
+                .append(")")
+                .append(System.lineSeparator());
+
+        appendPlanDetail(output, indent, node, "Index Cond");
+        appendPlanDetail(output, indent, node, "Filter");
+
+        long rowsRemovedByFilter = node.path("Rows Removed by Filter").asLong();
+        if (rowsRemovedByFilter > 0) {
+            output.append(indent)
+                    .append("   Rows Removed by Filter: ")
+                    .append(rowsRemovedByFilter)
+                    .append(System.lineSeparator());
+        }
+
+        long sharedHitBlocks = node.path("Shared Hit Blocks").asLong();
+        long sharedReadBlocks = node.path("Shared Read Blocks").asLong();
+        if (sharedHitBlocks > 0 || sharedReadBlocks > 0) {
+            output.append(indent)
+                    .append("   Buffers: shared hit=")
+                    .append(sharedHitBlocks)
+                    .append(" read=")
+                    .append(sharedReadBlocks)
+                    .append(System.lineSeparator());
+        }
+
+        for (JsonNode child : node.path("Plans")) {
+            appendPlanNode(output, child, depth + 1);
+        }
+    }
+
+    private void appendPlanDetail(
+            StringBuilder output,
+            String indent,
+            JsonNode node,
+            String fieldName
+    ) {
+        if (node.has(fieldName)) {
+            output.append(indent)
+                    .append("   ")
+                    .append(fieldName)
+                    .append(": ")
+                    .append(node.get(fieldName).asText())
+                    .append(System.lineSeparator());
         }
     }
 
@@ -328,7 +414,8 @@ class BTreePartialIndexBufferEfficiencyTest {
             long actualRows,
             long rowsRemovedByFilter,
             double executionTimeMillis,
-            List<String> indexNames
+            List<String> indexNames,
+            String planTree
     ) {
     }
 }

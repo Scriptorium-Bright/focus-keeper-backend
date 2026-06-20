@@ -31,7 +31,7 @@ public interface TimeboxRepository extends JpaRepository<Timebox, String> {
         select t
         from Timebox t
         where t.userId = :userId
-          and t.status = com.focuskeeper.reboot.recovery.planning.TimeboxStatus.PLANNED
+          and t.status = com.focuskeeper.reboot.recovery.planning.constant.TimeboxStatus.PLANNED
           and t.startAt < :newEnd
           and t.endAt > :newStart
         """)

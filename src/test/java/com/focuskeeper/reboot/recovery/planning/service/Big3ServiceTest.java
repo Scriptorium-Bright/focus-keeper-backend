@@ -32,6 +32,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class Big3ServiceTest {
 
@@ -46,28 +49,44 @@ class Big3ServiceTest {
     private final DailyBig3BoardRepository dailyBig3BoardRepository = mock(DailyBig3BoardRepository.class);
     private final DailyBig3EntryRepository dailyBig3EntryRepository = mock(DailyBig3EntryRepository.class);
     private final Big3ItemRepository big3ItemRepository = mock(Big3ItemRepository.class);
+    private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
     private final Big3Service big3Service = new Big3Service(
             inboxItemRepository,
             dailyBig3BoardRepository,
             dailyBig3EntryRepository,
-            big3ItemRepository
+            big3ItemRepository,
+            transactionTemplate
     );
 
     @Test
     void weeklySweepExpiresPastOpenItemsAtCurrentTime() {
-        Big3Item pastOpenItem = createItem("past-open-item", LAST_WEEK_START);
-        when(big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, CURRENT_WEEK_START))
-                .thenReturn(List.of(pastOpenItem));
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<Integer> callback = invocation.getArgument(0);
+            return callback.doInTransaction(mock(TransactionStatus.class));
+        });
+        when(big3ItemRepository.expirePastOpenItem(
+                FIXED_NOW,
+                OPEN.name(),
+                EXPIRED.name(),
+                CURRENT_WEEK_START,
+                100_000
+        )).thenReturn(42);
 
+        int processedItems;
         try (MockedStatic<OffsetDateTime> mockedTime = mockStatic(OffsetDateTime.class)) {
             mockedTime.when(OffsetDateTime::now).thenReturn(FIXED_NOW);
 
-            big3Service.expireLastWeekTasks();
+            processedItems = big3Service.expireLastWeekTasks();
         }
 
-        assertThat(pastOpenItem.getStatus()).isEqualTo(EXPIRED);
-        assertThat(pastOpenItem.getExpiredAt()).isEqualTo(FIXED_NOW);
-        verify(big3ItemRepository).findAllByStatusAndWeekStartBefore(OPEN, CURRENT_WEEK_START);
+        assertThat(processedItems).isEqualTo(42);
+        verify(big3ItemRepository).expirePastOpenItem(
+                FIXED_NOW,
+                OPEN.name(),
+                EXPIRED.name(),
+                CURRENT_WEEK_START,
+                100_000
+        );
     }
 
     @Test

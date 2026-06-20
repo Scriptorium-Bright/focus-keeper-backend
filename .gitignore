@@ -28,6 +28,7 @@ local.properties
 
 ### Local Docs ###
 /docs/
+/AGENTS.md
 
 ### K6 Load Test ###
 perf/k6/load-test.js

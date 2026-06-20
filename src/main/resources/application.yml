@@ -10,9 +10,21 @@ spring:
       enabled: false
 
 server:
-  port: 8080
+  port: 10080
 
 management:
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 25ms,50ms,100ms,250ms,500ms,1s,2s,5s
   endpoints:
     web:
       exposure:

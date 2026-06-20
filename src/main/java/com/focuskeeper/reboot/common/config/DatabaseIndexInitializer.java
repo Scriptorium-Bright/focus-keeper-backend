@@ -35,22 +35,50 @@ public class DatabaseIndexInitializer {
         WHERE removed_at is NULL
         """);
 
-        jdbcTemplate.execute("""  
-        ALTER TABLE recovery_timeboxes  
-        ADD CONSTRAINT chk_recovery_timeboxes_valid_period  
-        CHECK (start_at < end_at)  
-        NOT VALID;  
-          
-        ALTER TABLE recovery_timeboxes  
-        VALIDATE CONSTRAINT chk_recovery_timeboxes_valid_period;  
+        jdbcTemplate.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'chk_recovery_timeboxes_valid_period'
+                  AND conrelid = 'recovery_timeboxes'::regclass
+            ) THEN
+                ALTER TABLE recovery_timeboxes
+                    ADD CONSTRAINT chk_recovery_timeboxes_valid_period
+                    CHECK (start_at < end_at)
+                    NOT VALID;
+            END IF;
+        END
+        $$;
+
+        ALTER TABLE recovery_timeboxes
+            VALIDATE CONSTRAINT chk_recovery_timeboxes_valid_period;
         """);
 
-        jdbcTemplate.execute("""  
-        ALTER TABLE recovery_timeboxes  
-        ADD CONSTRAINT ex_recovery_timeboxes_user_planned_period  
-        EXCLUDE USING gist (  
-                user_id WITH =,        tstzrange(start_at, end_at, '[)') WITH &&)  
-        WHERE (timebox_status = 'PLANNED');  
+        jdbcTemplate.execute("""
+        CREATE EXTENSION IF NOT EXISTS btree_gist;
+        """);
+
+        jdbcTemplate.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'ex_recovery_timeboxes_user_planned_period'
+                  AND conrelid = 'recovery_timeboxes'::regclass
+            ) THEN
+                ALTER TABLE recovery_timeboxes
+                    ADD CONSTRAINT ex_recovery_timeboxes_user_planned_period
+                    EXCLUDE USING gist (
+                        user_id WITH =,
+                        tstzrange(start_at, end_at, '[)') WITH &&
+                    )
+                    WHERE (timebox_status = 'PLANNED');
+            END IF;
+        END
+        $$;
         """);
 
     }

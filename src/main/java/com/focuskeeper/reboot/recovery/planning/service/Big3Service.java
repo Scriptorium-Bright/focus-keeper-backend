@@ -4,6 +4,7 @@ import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
+import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.constant.SelectionSource;
 import com.focuskeeper.reboot.recovery.planning.dto.Big3ItemResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.DailyBig3BoardResponse;
@@ -32,7 +33,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus.*;
 
@@ -49,17 +52,20 @@ public class Big3Service {
     private final DailyBig3BoardRepository dailyBig3BoardRepository;
     private final DailyBig3EntryRepository dailyBig3EntryRepository;
     private final Big3ItemRepository big3ItemRepository;
+    private final TransactionTemplate transactionTemplate;
+    private static int BATCH_SIZE = 100_000;
 
     public Big3Service(
             InboxItemRepository inboxItemRepository,
             DailyBig3BoardRepository dailyBig3BoardRepository,
             DailyBig3EntryRepository dailyBig3EntryRepository,
-            Big3ItemRepository big3ItemRepository
+            Big3ItemRepository big3ItemRepository, TransactionTemplate transactionTemplate
     ) {
         this.inboxItemRepository = inboxItemRepository;
         this.dailyBig3BoardRepository = dailyBig3BoardRepository;
         this.dailyBig3EntryRepository = dailyBig3EntryRepository;
         this.big3ItemRepository = big3ItemRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /**
@@ -275,7 +281,7 @@ public class Big3Service {
             newEntries.add(newEntry);
         }
 
-        validateSlotOrder(activeEntries, newEntries);
+        validateSlotOrder(newEntries);
 
         dailyBig3EntryRepository.saveAll(newEntries);
 
@@ -284,26 +290,58 @@ public class Big3Service {
 
     /**
      * 지난 주 작업을 만료시킨다.
-     * scheduling vs batch
      */
-    @Transactional
-    // critical
+//    @Transactional
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int expireLastWeekTasks() {
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate currentWeekStart = now.toLocalDate()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        return big3ItemRepository.expirePastOpenItem(
-                now,
-                OPEN,
-                EXPIRED,
-                currentWeekStart
+/*        Integer updated = transactionTemplate.execute(status ->
+                big3ItemRepository.expirePastOpenItemWithoutChunk(
+                        now,
+                        OPEN,
+                        EXPIRED,
+                        currentWeekStart
+                )
         );
+        return updated != null ? updated : 0;*/
+
+/*        List<Big3Item> allByStatusAndWeekStartBefore = big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, currentWeekStart);
+
+        for (Big3Item big3Item : allByStatusAndWeekStartBefore) {
+            big3Item.expire(now);
+        }
+
+        return 0;*/
+        int totalChunkCount = 0;
+        while(true) {
+
+            Integer execute = transactionTemplate.execute(status ->
+                    big3ItemRepository.expirePastOpenItem(
+                            now,
+                            OPEN.name(),
+                            EXPIRED.name(),
+                            currentWeekStart,
+                            BATCH_SIZE
+                    )
+            );
+
+            int chunkCount = (execute != null) ? execute : 0;
+            totalChunkCount += chunkCount;
+
+            if(chunkCount < BATCH_SIZE) break;
+
+        }
+
+        return totalChunkCount;
     }
 
     // high
-    private static void validateSlotOrder(List<DailyBig3Entry> activeEntries, List<DailyBig3Entry> newEntries) {
-        for(int pivot = 1; pivot <= activeEntries.size(); pivot++) {
+    private static void validateSlotOrder(List<DailyBig3Entry> newEntries) {
+        for(int pivot = 1; pivot <= newEntries.size(); pivot++) {
             int slotOrder = newEntries.get(pivot - 1).getSlotOrder();
 
             if(pivot != slotOrder) {
@@ -477,7 +515,7 @@ public class Big3Service {
             ));
         }
 
-        validateSlotOrder(activeEntries, replacementEntries);
+        validateSlotOrder(replacementEntries);
 
         return dailyBig3EntryRepository.saveAll(replacementEntries);
     }

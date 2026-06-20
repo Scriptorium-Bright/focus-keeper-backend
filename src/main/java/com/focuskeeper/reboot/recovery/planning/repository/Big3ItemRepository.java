@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 /**
  * Big3 선택 항목을 기준으로 하위 실행 단위를 만들 때 사용하는 저장소다.
@@ -23,6 +24,34 @@ public interface Big3ItemRepository extends JpaRepository<Big3Item, String> {
     List<Big3Item> findAllByIdInAndUserId(Collection<String> ids, String userId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+        WITH targets AS (
+            SELECT id
+            FROM big3_items
+            WHERE status = :openStatusStr
+              AND week_start < :currentWeekStart
+            ORDER BY week_start, id
+            LIMIT :batchSize
+            FOR UPDATE SKIP LOCKED
+        )
+        UPDATE big3_items item
+        SET status = :expiredStatusStr,
+            expired_at = :now,
+            updated_at = :now,
+            version = version + 1
+        FROM targets
+        WHERE item.id = targets.id
+          AND item.status = :openStatusStr
+        """, nativeQuery = true)
+    int expirePastOpenItem(
+            @Param("now") OffsetDateTime now,
+            @Param("openStatusStr") String openStatusStr,       // "OPEN" 문자열 전달
+            @Param("expiredStatusStr") String expiredStatusStr,   // "EXPIRED" 문자열 전달
+            @Param("currentWeekStart") LocalDate currentWeekStart,
+            @Param("batchSize") int batchSize
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update Big3Item b
                     set b.expiredAt = :now,
@@ -31,12 +60,15 @@ public interface Big3ItemRepository extends JpaRepository<Big3Item, String> {
                         b.version = b.version + 1
                         where b.status = :open and b.weekStart < :currentWeekStart
             """)
-    int expirePastOpenItem(
+    int expirePastOpenItemWithoutChunk(
             OffsetDateTime now,
             Big3ItemStatus open,
             Big3ItemStatus expired,
             LocalDate currentWeekStart
     );
+
+
+
 
     // user,week/originInboxItem 기준 big3Item 조회
     @EntityGraph(attributePaths = "originInboxItem")

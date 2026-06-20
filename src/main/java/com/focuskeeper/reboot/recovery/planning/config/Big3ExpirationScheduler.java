@@ -14,6 +14,6 @@ public class Big3ExpirationScheduler {
 
     @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Seoul")
     public void expirePastOpenItems() {
-        expirationJob.run();
+        expirationJob.run("scheduled");
     }
 }

@@ -1,9 +1,12 @@
 package com.focuskeeper.reboot.common.observability;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -25,9 +28,31 @@ public class OperationsMetricRecorder {
     private final MeterRegistry meterRegistry;
     private final ConcurrentMap<String, AtomicInteger> dqIssueGaugeByUser = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, AtomicLong> processingLagGaugeByUser = new ConcurrentHashMap<>();
+    private final AtomicInteger expirationRunning = new AtomicInteger();
+    private final AtomicLong expirationLastSuccessTimestampSeconds = new AtomicLong();
+    private final AtomicLong expirationLastDurationNanos = new AtomicLong();
 
     public OperationsMetricRecorder(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
+        Gauge.builder("reboot_expiration_running", expirationRunning, AtomicInteger::get)
+                .description("Whether the Big3 expiration job is currently running")
+                .register(meterRegistry);
+        Gauge.builder(
+                        "reboot_expiration_last_success_timestamp_seconds",
+                        expirationLastSuccessTimestampSeconds,
+                        AtomicLong::get
+                )
+                .description("Unix timestamp of the last successful Big3 expiration run")
+                .baseUnit(TimeUnit.SECONDS.name().toLowerCase())
+                .register(meterRegistry);
+        Gauge.builder(
+                        "reboot_expiration_last_duration_seconds",
+                        expirationLastDurationNanos,
+                        value -> value.get() / 1_000_000_000.0
+                )
+                .description("Duration in seconds of the last completed Big3 expiration run")
+                .baseUnit(TimeUnit.SECONDS.name().toLowerCase())
+                .register(meterRegistry);
     }
 
     /**
@@ -139,6 +164,53 @@ public class OperationsMetricRecorder {
                 .tag("result", result)
                 .register(meterRegistry)
                 .increment();
+    }
+
+    public void setExpirationRunning(boolean running) {
+        expirationRunning.set(running ? 1 : 0);
+    }
+
+    public void recordExpirationSuccess(Timer.Sample sample, int processedItems) {
+        recordExpirationRun(sample, "success");
+        DistributionSummary.builder("reboot_expiration_processed_items")
+                .description("Number of Big3 items processed per successful expiration run")
+                .register(meterRegistry)
+                .record(processedItems);
+        expirationLastSuccessTimestampSeconds.set(Instant.now().getEpochSecond());
+    }
+
+    public void recordExpirationFailure(Timer.Sample sample) {
+        recordExpirationRun(sample, "failure");
+    }
+
+    public void recordExpirationSkipped(String reason) {
+        Counter.builder("reboot_expiration_skipped_runs_total")
+                .description("Skipped Big3 expiration run count")
+                .tag("reason", reason)
+                .register(meterRegistry)
+                .increment();
+    }
+
+    private void recordExpirationRun(Timer.Sample sample, String status) {
+        Counter.builder("reboot_expiration_runs_total")
+                .description("Big3 expiration run count")
+                .tag("status", status)
+                .register(meterRegistry)
+                .increment();
+
+        Timer timer = Timer.builder("reboot_expiration_duration")
+                .description("Big3 expiration job duration")
+                .tag("status", status)
+                .publishPercentileHistogram()
+                .serviceLevelObjectives(
+                        Duration.ofSeconds(30),
+                        Duration.ofMinutes(1),
+                        Duration.ofMinutes(3),
+                        Duration.ofMinutes(5),
+                        Duration.ofMinutes(10)
+                )
+                .register(meterRegistry);
+        expirationLastDurationNanos.set(sample.stop(timer));
     }
 
     /**

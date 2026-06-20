@@ -1,13 +1,18 @@
 package com.focuskeeper.reboot.recovery.planning.config;
 
-public class ExpirationJobResult {
+import com.focuskeeper.reboot.recovery.planning.constant.ExpirationJobStatus;
 
+public record ExpirationJobResult(
+        ExpirationJobStatus expirationJobStatus,
+        int processedItems,
+        String reason
+) {
 
-    public static ExpirationJobResult skipped(String alreadyRunning) {
-        return null;
+    public static ExpirationJobResult skipped(String reason) {
+        return new ExpirationJobResult(ExpirationJobStatus.SKIPPED, 0, reason);
     }
 
-    public static ExpirationJobResult successed(int expireLastWeekTasks) {
-        return null;
+    public static ExpirationJobResult succeeded(int processedItems) {
+        return new ExpirationJobResult(ExpirationJobStatus.SUCCEEDED, processedItems, null);
     }
 }

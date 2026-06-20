@@ -50,7 +50,14 @@ public class OperationsOverviewService {
             "reboot_batch_failed_runs_total",
             "reboot_dq_issue_count",
             "reboot_batch_processing_lag_seconds",
-            "reboot_backfill_processed_days"
+            "reboot_backfill_processed_days",
+            "reboot_expiration_runs_total",
+            "reboot_expiration_skipped_runs_total",
+            "reboot_expiration_duration",
+            "reboot_expiration_processed_items",
+            "reboot_expiration_last_success_timestamp_seconds",
+            "reboot_expiration_last_duration_seconds",
+            "reboot_expiration_running"
     );
 
     private final DailyKpiMetricRepository dailyKpiMetricRepository;
