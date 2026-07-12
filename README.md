@@ -1,4 +1,4 @@
-# FocusLoop
+# Focus-Loop
 
 계획 후보를 수집하고, 오늘 실행할 작업으로 구조화한 뒤, 실제 실행·실패·재시작 이력을 보존하는 Spring Boot/PostgreSQL 백엔드입니다.
 
