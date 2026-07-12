@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.controller;
 
-import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
+import com.focuskeeper.reboot.common.metrics.CoreMetricRecorder;
 import com.focuskeeper.reboot.common.response.ApiResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartRecoveryRequest;
 import com.focuskeeper.reboot.recovery.execution.dto.RestartRecoveryResponse;
@@ -25,14 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class RestartController {
 
     private final RestartService restartService;
-    private final OperationsMetricRecorder operationsMetricRecorder;
+    private final CoreMetricRecorder coreMetricRecorder;
 
     public RestartController(
             RestartService restartService,
-            OperationsMetricRecorder operationsMetricRecorder
+            CoreMetricRecorder coreMetricRecorder
     ) {
         this.restartService = restartService;
-        this.operationsMetricRecorder = operationsMetricRecorder;
+        this.coreMetricRecorder = coreMetricRecorder;
     }
 
     /**
@@ -43,7 +43,7 @@ public class RestartController {
     public ApiResponse<RestartRecoveryResponse> restart(
             @Valid @RequestBody RestartRecoveryRequest request
     ) {
-        Timer.Sample sample = operationsMetricRecorder.startSample();
+        Timer.Sample sample = coreMetricRecorder.startSample();
         try {
             RestartService.RestartRecoveryResult result = restartService.restart(request.userId(), request.failureEventId());
             RestartRecoveryResponse response = new RestartRecoveryResponse(
@@ -51,10 +51,10 @@ public class RestartController {
                     result.recoverySession(),
                     result.restartSuggestion()
             );
-            operationsMetricRecorder.recordRecoveryLoopAction(sample, "restart_recovery", "success");
+            coreMetricRecorder.recordExecutionAction(sample, "restart_recovery", "success");
             return ApiResponse.success(response, "RECOVERY_RESTARTED");
         } catch (RuntimeException exception) {
-            operationsMetricRecorder.recordRecoveryLoopAction(sample, "restart_recovery", "failure");
+            coreMetricRecorder.recordExecutionAction(sample, "restart_recovery", "failure");
             throw exception;
         }
     }

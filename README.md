@@ -1,202 +1,134 @@
 # FocusLoop
 
-Daily Big3 실행 과정의 계획, 실행, 실패, 복귀, 완료 데이터를 수집하고 분석하는 Spring Boot 프로젝트입니다.
+계획 후보를 수집하고, 오늘 실행할 작업으로 구조화한 뒤, 실제 실행·실패·재시작 이력을 보존하는 Spring Boot/PostgreSQL 백엔드입니다.
 
-현재 코드는 legacy 명칭인 `Big3Selection`, `Big3SelectionItem`을 사용하고 있습니다. 목표 모델에서는 이를 각각 `DailyBig3Board`, `Big3Item`으로 바꾸고 날짜별 선택 관계인 `DailyBig3Entry`를 분리합니다. 같은 주의 `Big3Item`은 실제 작업 identity를 유지하며 category별 주간 분석의 기준이 됩니다.
-
-설계 기준:
+프로젝트 범위는 다음 네 계층으로 고정합니다.
 
 ```text
-DailyBig3Board
--> DailyBig3Entry
-   -> Big3Item
-      -> ExecutionUnit
-         -> Timebox
-            -> RecoverySession
+inbox      작업 후보 수집 도메인
+planning   작업 선택·분해·시간 배정 도메인
+execution  실제 실행 시도·실패·재시작 도메인
+common     세 도메인을 지원하는 기술 계층
 ```
 
-별도 `Big3Task` 엔티티는 추가하지 않습니다. 상세 기준은 `docs/README.md`와 `docs/spec/`을 따릅니다.
+analytics, friction, retrospective, 별도 ops API, 프론트엔드, Airflow orchestration은 제거했습니다.
 
-## Portfolio Positioning
+## Domain Model
 
-- 복귀 세션 시작, 완료, 중단과 실패 체크인, 재시작 이벤트를 별도 도메인 모델로 추적합니다.
-- Inbox, Daily Big3, ExecutionUnit, Timebox를 서로 다른 grain으로 관리합니다.
-- 기존 일간 KPI mart, quality report, backfill 자산을 보유하고 있습니다.
-- 목표 모델에서는 FailureEvent별 복귀 latency, 미복귀, 우측 절단을 category별 주간 fact/mart로 변환합니다.
-- PostgreSQL `ON CONFLICT` upsert와 `lastProcessedDate` 추적으로 재실행 안전성을 확보합니다.
-- 운영 개요, 알림, 런북, Prometheus 지표까지 포함해 관측 가능한 시스템을 지향합니다.
-
-## System Architecture
-
-```mermaid
-flowchart LR
-    Client[Client / Swagger UI]
-
-    subgraph API[Spring Boot API Layer]
-        PlanningAPI[Planning API]
-        ExecAPI[Recovery Execution API]
-        AnalyticsAPI[Analytics API]
-        OpsAPI[Ops Overview API]
-    end
-
-    subgraph Domain[Recovery Domain Events]
-        Inbox[Inbox / Big3 / Timebox]
-        Sessions[Recovery Sessions]
-        Failures[Failure Events]
-        Restarts[Restart Events]
-        Retro[Weekly Retrospective]
-    end
-
-    subgraph Batch[Analytics Processing]
-        KPI[Daily KPI Pipeline]
-        Quality[Quality Validation]
-        LastProcessedDate[lastProcessedDate Advance]
-        Friction[Friction Analytics]
-    end
-
-    subgraph Ops[Operational Layer]
-        Metrics[Prometheus Metrics]
-        Alerts[Alert / Runbook Flow]
-        Airflow[Airflow Rough DAGs]
-    end
-
-    DB[(PostgreSQL)]
-
-    Client --> PlanningAPI
-    Client --> ExecAPI
-    Client --> AnalyticsAPI
-    Client --> OpsAPI
-
-    PlanningAPI --> Inbox
-    ExecAPI --> Sessions
-    ExecAPI --> Failures
-    ExecAPI --> Restarts
-    Retro --> DB
-
-    Sessions --> KPI
-    Failures --> KPI
-    Restarts --> KPI
-    Inbox --> KPI
-
-    Failures --> Friction
-    Restarts --> Friction
-
-    KPI --> Quality
-    KPI --> LastProcessedDate
-    KPI --> DB
-    Quality --> DB
-    LastProcessedDate --> DB
-    Friction --> DB
-
-    AnalyticsAPI --> DB
-    OpsAPI --> DB
-    DB --> Metrics
-    Metrics --> Alerts
-
-    Airflow --> AnalyticsAPI
-    Airflow --> OpsAPI
+```text
+InboxItem
+  ↓ origin
+Big3Item ← DailyBig3Entry → DailyBig3Board
+  ↓
+ExecutionUnit
+  ↓
+Timebox
+  ↓
+RecoverySession
+  ├─ FailureEvent
+  └─ RestartEvent
 ```
 
-## Backend Highlights
+### Inbox
 
-- Package-by-domain 구조로 `planning`, `execution`, `analytics`, `friction`, `retrospective`, `common` 책임을 분리했습니다.
-- Recovery session, failure event, restart event를 분리 저장해 복귀 lifecycle을 쿼리 가능한 데이터 모델로 구성했습니다.
-- 일간 KPI 파이프라인은 raw event를 읽어 mart 저장, quality report 생성, `lastProcessedDate` 갱신까지 한 흐름으로 묶었습니다.
-- PostgreSQL에서는 자연키(`user_id`, `metric_date`) 기준 `ON CONFLICT` upsert를 사용해 idempotent 저장을 처리합니다.
-- H2 기반 기본 테스트와 PostgreSQL 기반 analytics integration test를 분리해 속도와 런타임 검증을 같이 확보했습니다.
-- `Actuator`, `Prometheus`, `/api/v1/ops/**` API, Docker image artifact 생성까지 포함해 운영성과 배포 자동화를 같이 다뤘습니다.
+실행 구조에 넣기 전의 작업 후보를 append 중심으로 저장합니다. planning이나 execution 상태를 소유하지 않습니다.
 
-## Representative APIs
+- aggregate: `InboxItem`
+- 핵심 명령: 여러 후보 저장
+- 경계: 후보 내용과 생성 시각까지만 책임
 
-- Planning
+### Planning
+
+사용자의 실행 의도를 구조화합니다. 날짜별 배치, 주간 작업 identity, 실행 단위, 시간 범위를 서로 다른 grain으로 관리합니다.
+
+- aggregate/root: `DailyBig3Board`, `Big3Item`, `ExecutionUnit`, `Timebox`
+- history: `DailyBig3Entry.removedAt`
+- 핵심 불변식
+  - 사용자·날짜별 보드 하나
+  - 활성 slot/item 중복 금지
+  - carryover lineage 1:1
+  - Big3Item별 ExecutionUnit 최대 5개
+  - PLANNED timebox 시간 범위 겹침 금지
+
+### Execution
+
+계획이 실제로 수행된 한 번의 시도와 그 결과를 기록합니다. 계획 자체를 변경하지 않고 실행 lifecycle을 소유합니다.
+
+- aggregate/root: `RecoverySession`
+- event: `FailureEvent`, `RestartEvent`
+- 핵심 불변식
+  - 사용자별 활성 session 하나
+  - terminal session 재전이 금지
+  - failure별 restart event 하나
+
+### Common
+
+도메인 개념을 소유하지 않고 공통 기술만 제공합니다.
+
+- 표준 API 응답과 오류 taxonomy
+- constraint 이름 기반 HTTP 409 변환
+- trace id
+- OpenAPI 설정
+- PostgreSQL invariant 초기화
+- core write metric 기록
+
+planning은 execution repository를 직접 참조하지 않습니다. `ActiveSessionTerminator` port를 execution이 구현해 도메인 의존 방향을 단방향으로 유지합니다.
+
+## Consistency Strategy
+
+- active session: PostgreSQL partial unique index
+- active board entry: slot/item partial unique index
+- carryover lineage: nullable partial unique index
+- timebox period: check + GiST exclusion constraint
+- ExecutionUnit 최대 개수: parent row `PESSIMISTIC_WRITE`
+- lifecycle 경쟁: JPA `@Version`
+- 대량 만료: `FOR UPDATE SKIP LOCKED` + bounded set-based update
+
+## Measured Throughput
+
+2026-07-12, 로컬 단일 인스턴스, PostgreSQL 14.21, Hikari max 17 환경의 실측입니다.
+
+### Core write flow
+
+한 flow는 Inbox 3건 저장 → Daily Big3 3건 선택 → 각 Big3Item에 ExecutionUnit 2건 생성으로 구성됩니다.
+
+| 요청 부하 | 완료 처리량 | 성공률 | flow p95 | flow p99 | HTTP 처리량 |
+|---:|---:|---:|---:|---:|---:|
+| 40 flow/s | 40.01 flow/s | 100% | 68 ms | 375 ms | 200.07 req/s |
+| 100 flow/s | 99.89 flow/s | 100% | 535 ms | 765 ms | 499.46 req/s |
+| 150 flow/s | 130.37 flow/s | 100% | 2.73 s | 3.23 s | 651.86 req/s |
+
+150 flow/s에서는 384 iteration이 유실되고 300 VU 상한에 도달했습니다. 이 환경의 안정 운용 기준은 `100 flow/s, p95 < 1초`이며, 150 flow/s는 포화 구간입니다.
+
+### Weekly expiration
+
+- 대상: 과거 OPEN Big3Item 300,000건
+- 결과: 300,000건 EXPIRED, 남은 과거 OPEN 0건
+- 처리 시간: 4,417 ms
+- 처리량: 67,919 rows/s
+- peak heap 증가: 3.00 MiB
+- GC: 0회 / 0 ms
+
+상세 조건과 재현 명령은 `portfolio.md`와 `perf/results/core-throughput/README.md`에 기록합니다.
+
+## API
+
+- Inbox
   - `POST /api/v1/recovery/inbox-items`
+- Planning
   - `POST /api/v1/recovery/big3`
+  - `GET /api/v1/recovery/big3/today`
+  - `POST /api/v1/recovery/execution-units`
+  - `POST /api/v1/recovery/execution-units/multiple`
   - `POST /api/v1/recovery/timeboxes`
 - Execution
   - `POST /api/v1/recovery/sessions/start`
   - `POST /api/v1/recovery/sessions/complete`
-  - `POST /api/v1/recovery/sessions/interrupt`
   - `POST /api/v1/recovery/failures/check-in`
   - `POST /api/v1/recovery/restarts`
-- Analytics
-  - `POST /api/v1/recovery/analytics/kpis/daily`
-  - `GET /api/v1/recovery/analytics/kpis/daily`
-  - `GET /api/v1/recovery/analytics/kpis/daily/quality`
-  - `POST /api/v1/recovery/analytics/kpis/daily/backfill`
-  - `GET /api/v1/recovery/analytics/kpis/daily/last-processed-date`
-  - `POST /api/v1/recovery/analytics/failure-hours`
-  - `GET /api/v1/recovery/analytics/failure-hours`
-  - `POST /api/v1/recovery/analytics/friction-signals`
-  - `GET /api/v1/recovery/analytics/friction-signals`
-  - `GET /api/v1/recovery/analytics/friction-segments`
-- Ops
-  - `GET /api/v1/ops/overview/recovery-loop`
-  - `GET /api/v1/ops/overview/batch`
-  - `GET /api/v1/ops/alerts`
-  - `GET /api/v1/ops/runbooks`
 
-`/api/v1/ops/alerts`는 `activeOnly=true|false`로 현재 활성 incident만 볼지, resolved 이력까지 같이 볼지를 고를 수 있습니다. 응답에는 `status`, `firstSeenAt`, `lastSeenAt`, `resolvedAt`, `occurrenceCount`, `reopenCount`가 포함되어 alert lifecycle을 API만으로도 읽을 수 있습니다.
-
-## Realtime Ops Alert Webhook
-
-alert lifecycle event는 `OPENED`, `REOPENED`, `ESCALATED`, `RESOLVED` 네 종류로만 외부에 전달됩니다. 반복 refresh는 외부 알림을 보내지 않습니다.
-
-설정 예시:
-
-```yaml
-ops:
-  notifications:
-    webhook:
-      enabled: true
-      url: http://127.0.0.1:18081/hooks
-      connect-timeout-ms: 1000
-      read-timeout-ms: 1000
-      headers:
-        X-Ops-Token: local-phase4
-```
-
-sample payload:
-
-```json
-{
-  "eventType": "ESCALATED",
-  "service": "rebootfocus-api",
-  "emittedAt": "2026-05-08T10:00:00+09:00",
-  "previousStatus": "ACTIVE",
-  "previousSeverity": "WARNING",
-  "alert": {
-    "alertKey": "processing_lag:daily_kpi_pipeline:demo-user",
-    "pipelineKey": "daily_kpi_pipeline",
-    "stage": "processing_lag",
-    "userId": "demo-user",
-    "severity": "CRITICAL",
-    "active": true,
-    "status": "ACTIVE",
-    "summary": "Processing lag exceeded the configured threshold.",
-    "details": {
-      "lastProcessedDate": "2026-05-05",
-      "lagDays": "3"
-    },
-    "firstSeenAt": "2026-05-08T09:50:00+09:00",
-    "lastSeenAt": "2026-05-08T10:00:00+09:00",
-    "resolvedAt": null,
-    "occurrenceCount": 2,
-    "reopenCount": 0,
-    "lastChangedAt": "2026-05-08T10:00:00+09:00"
-  }
-}
-```
-
-로컬 검증은 간단한 HTTP 수신기를 띄운 뒤, alert를 발생시키고 수신 JSON을 확인하는 방식으로 할 수 있습니다.
-
-## Tech Stack
-
-- Java 21
-- Spring Boot 3.3.8
-- Spring Web, Validation, Data JPA, Batch, Actuator
-- PostgreSQL, H2, JdbcTemplate
-- Micrometer Prometheus, springdoc-openapi
-- Gradle, Docker Compose, GitHub Actions
+Swagger UI: `http://localhost:10080/swagger-ui.html`  
+OpenAPI JSON: `http://localhost:10080/api-docs`
 
 ## Run
 
@@ -205,27 +137,13 @@ docker compose up -d postgres
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 ```
 
-기본 로컬 프로필은 PostgreSQL을 사용합니다.
+기본값:
 
 - `DB_HOST=localhost`
 - `DB_PORT=5432`
-- `DB_NAME=rebootfocus`
+- `DB_NAME=rebootfocus_oom`
 - `DB_USERNAME=rebootfocus`
 - `DB_PASSWORD=rebootfocus`
-
-## Docs And Ops Endpoints
-
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- Alert webhook
-  - `ops.notifications.webhook.enabled`
-  - `ops.notifications.webhook.url`
-  - `ops.notifications.webhook.connect-timeout-ms`
-  - `ops.notifications.webhook.read-timeout-ms`
-  - `ops.notifications.webhook.headers.*`
-- OpenAPI JSON: `http://localhost:8080/api-docs`
-- App Health: `http://localhost:8080/api/v1/health`
-- Actuator Health: `http://localhost:8080/actuator/health`
-- Prometheus: `http://localhost:8080/actuator/prometheus`
 
 ## Test
 
@@ -233,12 +151,16 @@ JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew bootRun
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test --no-daemon
 ```
 
-- 기본 테스트 프로필은 H2 메모리 DB를 사용합니다.
-- CI는 PostgreSQL service container로 analytics integration test를 추가 검증합니다.
+## Reproduce Throughput
 
-## CI/CD
+```bash
+FLOW_RATE=100 DURATION=30s RUN_ID=local \
+  k6 run perf/k6/load-test.js
 
-- CI: `main`, `feature/**` push와 `main` 대상 PR에서 테스트 실행
-- CI: PostgreSQL-backed analytics integration test 별도 실행
-- CD: `main` push 시 `bootJar`와 Docker image artifact 생성
-- Release: `v*` 태그 push 시 jar와 Docker image tar를 릴리즈 자산으로 업로드
+PERF_EXPIRATION_ROWS=300000 \
+PERF_EXPIRATION_MAX_HEAP=512m \
+PERF_EXPIRATION_CONFIRM_DEDICATED_DB=true \
+  ./gradlew expirationMemoryHarness --no-daemon --rerun-tasks
+```
+
+수치는 로컬 단일 실행 결과이며 운영 SLA로 일반화하지 않습니다.

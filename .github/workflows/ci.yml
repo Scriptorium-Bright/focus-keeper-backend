@@ -79,9 +79,10 @@ jobs:
           echo "PostgreSQL did not become ready in time."
           exit 1
 
-      - name: Run PostgreSQL-backed integration tests
+      - name: Run PostgreSQL-backed core integration tests
         run: >
           ./gradlew test --no-daemon
           -Dspring.profiles.active=local
-          --tests com.focuskeeper.reboot.recovery.analytics.controller.DailyKpiControllerIntegrationTest
-          --tests com.focuskeeper.reboot.recovery.analytics.controller.DailyKpiBackfillControllerIntegrationTest
+          --tests com.focuskeeper.reboot.recovery.planning.service.Big3CarryoverConcurrencyReproductionTest
+          --tests com.focuskeeper.reboot.recovery.planning.service.ExecutionUnitMaxCountConcurrencyReproductionTest
+          --tests com.focuskeeper.reboot.recovery.execution.service.RecoverySessionServiceTest

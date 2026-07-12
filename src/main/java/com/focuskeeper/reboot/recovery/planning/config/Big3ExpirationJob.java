@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.planning.config;
 
-import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
+import com.focuskeeper.reboot.common.metrics.CoreMetricRecorder;
 import com.focuskeeper.reboot.recovery.planning.service.Big3Service;
 import io.micrometer.core.instrument.Timer;
 import java.util.UUID;
@@ -16,14 +16,14 @@ public class Big3ExpirationJob {
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final Big3Service big3Service;
-    private final OperationsMetricRecorder operationsMetricRecorder;
+    private final CoreMetricRecorder coreMetricRecorder;
 
     public Big3ExpirationJob(
             Big3Service big3Service,
-            OperationsMetricRecorder operationsMetricRecorder
+            CoreMetricRecorder coreMetricRecorder
     ) {
         this.big3Service = big3Service;
-        this.operationsMetricRecorder = operationsMetricRecorder;
+        this.coreMetricRecorder = coreMetricRecorder;
     }
 
     public ExpirationJobResult run() {
@@ -33,7 +33,7 @@ public class Big3ExpirationJob {
     public ExpirationJobResult run(String trigger) {
         String runId = UUID.randomUUID().toString();
         if (!running.compareAndSet(false, true)) {
-            operationsMetricRecorder.recordExpirationSkipped("already_running");
+            coreMetricRecorder.recordExpirationSkipped("already_running");
             log.info(
                     "job=big3_expiration runId={} trigger={} status=skipped reason=already_running",
                     runId,
@@ -42,12 +42,12 @@ public class Big3ExpirationJob {
             return ExpirationJobResult.skipped("already_running");
         }
 
-        Timer.Sample sample = operationsMetricRecorder.startSample();
-        operationsMetricRecorder.setExpirationRunning(true);
+        Timer.Sample sample = coreMetricRecorder.startSample();
+        coreMetricRecorder.setExpirationRunning(true);
         long startedAt = System.nanoTime();
         try {
             int processedItems = big3Service.expireLastWeekTasks();
-            operationsMetricRecorder.recordExpirationSuccess(sample, processedItems);
+            coreMetricRecorder.recordExpirationSuccess(sample, processedItems);
             log.info(
                     "job=big3_expiration runId={} trigger={} status=success processedItems={} durationMs={}",
                     runId,
@@ -57,7 +57,7 @@ public class Big3ExpirationJob {
             );
             return ExpirationJobResult.succeeded(processedItems);
         } catch (RuntimeException | Error exception) {
-            operationsMetricRecorder.recordExpirationFailure(sample);
+            coreMetricRecorder.recordExpirationFailure(sample);
             log.error(
                     "job=big3_expiration runId={} trigger={} status=failure durationMs={} errorCode={}",
                     runId,
@@ -68,7 +68,7 @@ public class Big3ExpirationJob {
             );
             throw exception;
         } finally {
-            operationsMetricRecorder.setExpirationRunning(false);
+            coreMetricRecorder.setExpirationRunning(false);
             running.set(false);
         }
     }

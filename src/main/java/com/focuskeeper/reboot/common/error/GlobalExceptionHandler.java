@@ -26,6 +26,8 @@ public class GlobalExceptionHandler {
             Map.of("resource", "dailyBig3Entry", "reason", "ACTIVE_SLOT_ALREADY_EXISTS"),
             "uq_daily_big3_entry_item",
             Map.of("resource", "dailyBig3Entry", "reason", "ACTIVE_ITEM_ALREADY_EXISTS"),
+            "uq_big3_items_derived_from_item",
+            Map.of("resource", "big3Item", "reason", "CARRYOVER_ALREADY_EXISTS"),
             "uk_daily_big3_boards_user_date",
             Map.of("resource", "dailyBig3Board", "reason", "BOARD_ALREADY_EXISTS")
     );

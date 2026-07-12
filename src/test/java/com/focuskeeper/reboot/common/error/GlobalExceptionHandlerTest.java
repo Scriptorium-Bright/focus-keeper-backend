@@ -38,4 +38,13 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.code").value("SYSTEM-500"))
                 .andExpect(jsonPath("$.traceId").isString());
     }
+
+    @Test
+    void carryoverUniqueConflictIsHandledAsConflict() throws Exception {
+        mockMvc.perform(get("/test/carryover-conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONFLICT-409"))
+                .andExpect(jsonPath("$.error.details.resource").value("big3Item"))
+                .andExpect(jsonPath("$.error.details.reason").value("CARRYOVER_ALREADY_EXISTS"));
+    }
 }

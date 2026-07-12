@@ -14,11 +14,15 @@ import java.time.OffsetDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,8 +44,8 @@ class Big3CarryoverConcurrencyReproductionTest {
     private TransactionTemplate transactionTemplate;
 
     @Test
-    @DisplayName("P-05: derived_from_item_id unique가 없으면 같은 source item에서 carryover item이 중복 생성된다")
-    void reproduceDuplicateCarryoverItemsFromSameSourceItem() throws Exception {
+    @DisplayName("P-05: 같은 source item의 동시 carryover는 DB 제약으로 하나만 커밋된다")
+    void preventsDuplicateCarryoverItemsFromSameSourceItem() throws Exception {
         String userId = "carryover-race-" + UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         InboxItem inboxItem = inboxItemRepository.save(
@@ -60,8 +64,7 @@ class Big3CarryoverConcurrencyReproductionTest {
 
         try {
             String sourceItemId = sourceItem.getId();
-            for (int index = 0; index < 2; index++) {
-                executor.submit(() -> {
+            Future<?> first = executor.submit(() -> {
                     await(start);
                     transactionTemplate.executeWithoutResult(status -> {
                         boolean alreadyContinued = big3ItemRepository.existsByDerivedFromItem_Id(sourceItemId);
@@ -75,12 +78,35 @@ class Big3CarryoverConcurrencyReproductionTest {
                         big3ItemRepository.save(derivedItem);
                     });
                 });
-            }
+            Future<?> second = executor.submit(() -> {
+                await(start);
+                transactionTemplate.executeWithoutResult(status -> {
+                    boolean alreadyContinued = big3ItemRepository.existsByDerivedFromItem_Id(sourceItemId);
+                    assertThat(alreadyContinued).isFalse();
+                    bothChecked.countDown();
+                    await(bothChecked);
+
+                    Big3Item reloadedSource = big3ItemRepository.findById(sourceItemId).orElseThrow();
+                    Big3Item derivedItem = Big3Item.create(userId, now.toLocalDate(), inboxItem, now);
+                    derivedItem.putDerivedFromItem(reloadedSource);
+                    big3ItemRepository.save(derivedItem);
+                });
+            });
 
             start.countDown();
             await(bothChecked);
-            executor.shutdown();
-            assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+            Throwable firstFailure = getThrowable(first);
+            Throwable secondFailure = getThrowable(second);
+
+            assertThat(Stream.of(firstFailure, secondFailure).filter(failure -> failure == null).count())
+                    .isEqualTo(1);
+            assertThat(Stream.of(firstFailure, secondFailure).filter(failure -> failure != null).count())
+                    .isEqualTo(1);
+            assertThat(Stream.of(firstFailure, secondFailure)
+                    .filter(failure -> failure != null)
+                    .findFirst()
+                    .orElseThrow())
+                    .isInstanceOf(DataIntegrityViolationException.class);
 
             Long duplicateCount = jdbcTemplate.queryForObject(
                     "select count(*) from big3_items where derived_from_item_id = ? and status = ?",
@@ -88,10 +114,21 @@ class Big3CarryoverConcurrencyReproductionTest {
                     sourceItem.getId(),
                     OPEN.name()
             );
-            assertThat(duplicateCount).isEqualTo(2);
+            assertThat(duplicateCount).isEqualTo(1);
             assertThat(sourceItem.getStatus()).isEqualTo(EXPIRED);
         } finally {
             executor.shutdownNow();
+        }
+    }
+
+    private static Throwable getThrowable(Future<?> future) {
+        try {
+            future.get(10, TimeUnit.SECONDS);
+            return null;
+        } catch (ExecutionException exception) {
+            return exception.getCause();
+        } catch (Exception exception) {
+            return exception;
         }
     }
 

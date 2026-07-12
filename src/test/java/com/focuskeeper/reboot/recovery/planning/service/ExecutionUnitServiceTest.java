@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
+import com.focuskeeper.reboot.recovery.planning.port.ActiveSessionTerminator;
 import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import com.focuskeeper.reboot.recovery.planning.repository.Big3ItemRepository;
@@ -21,11 +21,11 @@ class ExecutionUnitServiceTest {
 
     private final Big3ItemRepository big3ItemRepository = mock(Big3ItemRepository.class);
     private final ExecutionUnitRepository executionUnitRepository = mock(ExecutionUnitRepository.class);
-    private final RecoverySessionRepository recoverySessionRepository = mock(RecoverySessionRepository.class);
+    private final ActiveSessionTerminator activeSessionTerminator = mock(ActiveSessionTerminator.class);
     private final ExecutionUnitService executionUnitService = new ExecutionUnitService(
             big3ItemRepository,
             executionUnitRepository,
-            recoverySessionRepository
+            activeSessionTerminator
     );
 
     @ParameterizedTest
@@ -35,7 +35,7 @@ class ExecutionUnitServiceTest {
     )
     void createExecutionUnitRejectsTerminalBig3Item(Big3ItemStatus status) {
         Big3Item big3Item = mock(Big3Item.class);
-        when(big3ItemRepository.findByIdAndUserId("item-id", "user-id"))
+        when(big3ItemRepository.findByIdAndUserIdForUpdate("item-id", "user-id"))
                 .thenReturn(Optional.of(big3Item));
         when(big3Item.getId()).thenReturn("item-id");
         when(big3Item.getStatus()).thenReturn(status);

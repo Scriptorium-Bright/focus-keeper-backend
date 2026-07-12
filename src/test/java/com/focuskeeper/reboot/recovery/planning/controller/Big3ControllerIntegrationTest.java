@@ -47,7 +47,7 @@ class Big3ControllerIntegrationTest {
                 .andExpect(header().exists("X-Trace-Id"))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("BIG3_SELECTED"))
-                .andExpect(jsonPath("$.data.selectedCount").value(3))
+                .andExpect(jsonPath("$.data.selectedItems.length()").value(3))
                 .andExpect(jsonPath("$.data.selectedDate").isString())
                 .andExpect(jsonPath("$.data.selectedAt").isString())
                 .andExpect(jsonPath("$.data.selectedItems[0].big3ItemId").isString())

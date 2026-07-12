@@ -16,8 +16,6 @@ import java.time.OffsetDateTime;
 )
 /**
  * 복귀 세션이 왜 끊겼는지를 남기는 원천 failure event 엔티티다.
- *
- * analytics와 friction 계층은 이후 이 원천 이벤트를 기준으로 복귀율과 실패 패턴을 다시 계산한다.
  */
 @Getter
 public class FailureEvent {

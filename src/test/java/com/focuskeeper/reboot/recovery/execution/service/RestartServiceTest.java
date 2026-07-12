@@ -24,6 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.concurrent.*;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,37 +58,38 @@ class RestartServiceTest {
 
     @Test
     void 재시작_요청에서_시작이_두개이상이면_안된다() {
+        String userId = "restart-race-" + UUID.randomUUID();
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
 
         // 0. 테스트용 InboxItem 생성
-        InboxItem inboxItem = InboxItem.create("test-user", "테스트 작업 원본", OffsetDateTime.now());
+        InboxItem inboxItem = InboxItem.create(userId, "테스트 작업 원본", OffsetDateTime.now());
         inboxItem = inboxItemRepository.save(inboxItem);
 
         // 1. 테스트용 부모 Big3Item 생성
-        Big3Item big3Item = Big3Item.create("test-user", LocalDate.now(), inboxItem, null);
+        Big3Item big3Item = Big3Item.create(userId, LocalDate.now(), inboxItem, null);
         big3Item = big3ItemRepository.save(big3Item);
 
         // 2. 테스트용 ExecutionUnit 생성
         ExecutionUnit unit = ExecutionUnit.create(big3Item, "활성 Session 중복 생성 문제를 해결해봅시다", OffsetDateTime.now());
         unit = executionUnitRepository.save(unit);
 
-        Timebox timebox = Timebox.create("test-user", unit, TimeboxType.WORK, OffsetDateTime.now(), OffsetDateTime.now().plusHours(6L), true, OffsetDateTime.now());
+        Timebox timebox = Timebox.create(userId, unit, TimeboxType.WORK, OffsetDateTime.now(), OffsetDateTime.now().plusHours(6L), true, OffsetDateTime.now());
         timebox = timeboxRepository.save(timebox);
 
         Timebox finalTimebox = timebox;
         log.info("timebox Id = {}", timebox.getId());
 
 
-        RecoverySession recoverySession = RecoverySession.start("test-user", timebox.getId(), OffsetDateTime.now());
+        RecoverySession recoverySession = RecoverySession.start(userId, timebox.getId(), OffsetDateTime.now());
         recoverySession.stopped(OffsetDateTime.now().plusMinutes(5L));
         RecoverySession savedSession = recoverySessionRepository.saveAndFlush(recoverySession);
         log.info("session Id = {}", savedSession.getId());
 
 
-        FailureEvent failureEvent = FailureEvent.create("test-user", savedSession.getId(), timebox.getId(), FailureReason.INTERRUPTION, "hihihi", OffsetDateTime.now());
+        FailureEvent failureEvent = FailureEvent.create(userId, savedSession.getId(), timebox.getId(), FailureReason.INTERRUPTION, "hihihi", OffsetDateTime.now());
         FailureEvent savedFailureEvent = failureEventRepository.saveAndFlush(failureEvent);
         log.info("failureEvent Id = {}", failureEvent.getId());
         Callable<Void> task = () -> {
@@ -95,7 +97,7 @@ class RestartServiceTest {
             awaitLatch(ready);
             awaitLatch(start);
 
-            restartService.restart("test-user", savedFailureEvent.getId());
+            restartService.restart(userId, savedFailureEvent.getId());
 
             return null;
         };
@@ -122,7 +124,7 @@ class RestartServiceTest {
 
         long activeSessionCount =
                 recoverySessionRepository.countByUserIdAndStatus(
-                        "test-user",
+                        userId,
                         RecoverySessionStatus.STARTED
                 );
 

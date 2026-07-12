@@ -149,73 +149,6 @@ public class Big3Service {
     }
 
     /**
-     * 이전에 하지못했던 (금주 big3) 를 다시 할 수 있게 넘겨준다.
-     * @param userId
-     * @param big3ItemId
-     * @return
-     */
-/*    @Transactional
-    public DailyBig3BoardResponse carryOverBig3Item(String userId, String big3ItemId) {
-
-        OffsetDateTime nowAt = OffsetDateTime.now();
-        LocalDate today = nowAt.toLocalDate();
-
-        Big3Item big3Item = big3ItemRepository.findByIdAndUserId(big3ItemId, userId)
-                .orElseThrow(() -> new BusinessException(
-                ErrorCode.RESOURCE_NOT_FOUND,
-                Map.of(
-                        "big3ItemId", big3ItemId,
-                        "userId", userId
-                )
-        ));
-
-        if(big3Item.getStatus() == COMPLETED ||big3Item.getStatus() == ABANDONED) {
-            throw new BusinessException(ErrorCode.SYSTEM_INTERNAL_ERROR, "이미 완료되거나, 포기된 작업입니다.");
-        }
-
-        LocalDate curr = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        LocalDate thisWeek = big3Item.getWeekStart().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-
-        if(!thisWeek.isEqual(curr)) {
-            throw new BusinessException(ErrorCode.SYSTEM_INTERNAL_ERROR, "이번주 작업이 아닙니다.");
-        }
-
-        DailyBig3Board dailyBig3Board = resolveDailyBoard(userId, today, big3Item.getCreatedAt());
-
-        List<DailyBig3Entry> activeEntries = dailyBig3EntryRepository.findAllByDailyBig3Board_IdAndRemovedAtIsNullOrderBySlotOrderAsc(dailyBig3Board.getId());
-
-        if(activeEntries.size() >= 3) {
-            throw new BusinessException(ErrorCode.SYSTEM_INTERNAL_ERROR, "big3의 개수는 3개까지 가능합니다.");
-        }
-
-        for (DailyBig3Entry activeEntry : activeEntries) {
-            if(activeEntry.getBig3Item().getId().equals(big3ItemId)) {
-                throw new BusinessException(
-                        ErrorCode.COMMON_BAD_REQUEST,
-                        Map.of("message", "이미 오늘 보드에 추가된 작업입니다.")
-                );
-            }
-        }
-
-        int nextSlotOrder = activeEntries.size() + 1;
-        DailyBig3Entry newEntry = DailyBig3Entry.create(
-                dailyBig3Board,
-                big3Item,
-                nextSlotOrder,
-                SelectionSource.CARRYOVER,
-                nowAt
-        );
-        dailyBig3EntryRepository.save(newEntry);
-        // 응답을 위해 리스트에 추가
-        List<DailyBig3Entry> updatedEntries = new ArrayList<>(activeEntries);
-        updatedEntries.add(newEntry);
-
-
-        return DailyBig3BoardResponse.from(dailyBig3Board, updatedEntries);
-
-    }*/
-
-    /**
      * 지난주에 하지못했던 Big3를 이번주로 넘긴다.
      * @param userId
      * @param big3ItemIds
@@ -281,41 +214,24 @@ public class Big3Service {
             newEntries.add(newEntry);
         }
 
-        validateSlotOrder(newEntries);
-
         dailyBig3EntryRepository.saveAll(newEntries);
 
-        return DailyBig3BoardResponse.from(dailyBig3Board, newEntries);
+        List<DailyBig3Entry> finalEntries = new ArrayList<>(activeEntries);
+        finalEntries.addAll(newEntries);
+        validateSlotOrder(finalEntries);
+
+        return DailyBig3BoardResponse.from(dailyBig3Board, finalEntries);
     }
 
     /**
-     * 지난 주 작업을 만료시킨다.
+     * 지난 주 OPEN 작업을 bounded set-based update로 만료시킨다.
      */
-//    @Transactional
-
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int expireLastWeekTasks() {
         OffsetDateTime now = OffsetDateTime.now();
         LocalDate currentWeekStart = now.toLocalDate()
                 .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-/*        Integer updated = transactionTemplate.execute(status ->
-                big3ItemRepository.expirePastOpenItemWithoutChunk(
-                        now,
-                        OPEN,
-                        EXPIRED,
-                        currentWeekStart
-                )
-        );
-        return updated != null ? updated : 0;*/
-
-/*        List<Big3Item> allByStatusAndWeekStartBefore = big3ItemRepository.findAllByStatusAndWeekStartBefore(OPEN, currentWeekStart);
-
-        for (Big3Item big3Item : allByStatusAndWeekStartBefore) {
-            big3Item.expire(now);
-        }
-
-        return 0;*/
         int totalChunkCount = 0;
         while(true) {
 
@@ -496,7 +412,8 @@ public class Big3Service {
                         savedBoard.getId()
                 );
         activeEntries.forEach(entry -> entry.remove(selectedAt));
-        dailyBig3EntryRepository.saveAll(activeEntries);
+        // Partial unique index가 새 active row를 검사하기 전에 removed_at 변경을 DB에 반영한다.
+        dailyBig3EntryRepository.saveAllAndFlush(activeEntries);
 
         List<DailyBig3Entry> replacementEntries = new ArrayList<>();
         for (int index = 0; index < selectedBig3Items.size(); index++) {

@@ -1,6 +1,6 @@
 package com.focuskeeper.reboot.recovery.execution.controller;
 
-import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
+import com.focuskeeper.reboot.common.metrics.CoreMetricRecorder;
 import com.focuskeeper.reboot.common.response.ApiResponse;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureCheckInRequest;
 import com.focuskeeper.reboot.recovery.execution.dto.FailureCheckInResponse;
@@ -30,14 +30,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class FailureCheckInController {
 
     private final FailureEventService failureEventService;
-    private final OperationsMetricRecorder operationsMetricRecorder;
+    private final CoreMetricRecorder coreMetricRecorder;
 
     public FailureCheckInController(
             FailureEventService failureEventService,
-            OperationsMetricRecorder operationsMetricRecorder
+            CoreMetricRecorder coreMetricRecorder
     ) {
         this.failureEventService = failureEventService;
-        this.operationsMetricRecorder = operationsMetricRecorder;
+        this.coreMetricRecorder = coreMetricRecorder;
     }
 
     /**
@@ -48,7 +48,7 @@ public class FailureCheckInController {
     public ApiResponse<FailureCheckInResponse> checkIn(
             @Valid @RequestBody FailureCheckInRequest request
     ) {
-        Sample sample = operationsMetricRecorder.startSample();
+        Sample sample = coreMetricRecorder.startSample();
         try {
             FailureCheckInResult result = failureEventService.checkIn(
                     request.userId(),
@@ -67,10 +67,10 @@ public class FailureCheckInController {
                     result.recoverySession().status(),
                     result.restartSuggestion()
             );
-            operationsMetricRecorder.recordRecoveryLoopAction(sample, "failure_check_in", "success");
+            coreMetricRecorder.recordExecutionAction(sample, "failure_check_in", "success");
             return ApiResponse.success(response, "FAILURE_CHECKED_IN");
         } catch (RuntimeException exception) {
-            operationsMetricRecorder.recordRecoveryLoopAction(sample, "failure_check_in", "failure");
+            coreMetricRecorder.recordExecutionAction(sample, "failure_check_in", "failure");
             throw exception;
         }
     }

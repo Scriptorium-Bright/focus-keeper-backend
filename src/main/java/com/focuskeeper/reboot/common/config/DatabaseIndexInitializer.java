@@ -35,6 +35,13 @@ public class DatabaseIndexInitializer {
         WHERE removed_at is NULL
         """);
 
+        // 하나의 지난주 item에서 파생되는 다음 주 item은 최대 하나다.
+        jdbcTemplate.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_big3_items_derived_from_item
+        ON big3_items (derived_from_item_id)
+        WHERE derived_from_item_id IS NOT NULL
+        """);
+
         jdbcTemplate.execute("""
         DO $$
         BEGIN

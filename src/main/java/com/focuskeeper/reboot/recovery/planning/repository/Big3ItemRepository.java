@@ -1,14 +1,15 @@
 package com.focuskeeper.reboot.recovery.planning.repository;
 
-import com.focuskeeper.reboot.recovery.planning.constant.Big3ItemStatus;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +21,17 @@ public interface Big3ItemRepository extends JpaRepository<Big3Item, String> {
 
     // user가 소유한 big3Item 조회
     Optional<Big3Item> findByIdAndUserId(String id, String userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select b
+            from Big3Item b
+            where b.id = :id and b.userId = :userId
+            """)
+    Optional<Big3Item> findByIdAndUserIdForUpdate(
+            @Param("id") String id,
+            @Param("userId") String userId
+    );
 
     List<Big3Item> findAllByIdInAndUserId(Collection<String> ids, String userId);
 
@@ -51,50 +63,12 @@ public interface Big3ItemRepository extends JpaRepository<Big3Item, String> {
             @Param("batchSize") int batchSize
     );
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
-            update Big3Item b
-                    set b.expiredAt = :now,
-                        b.updatedAt = :now,
-                        b.status = :expired,
-                        b.version = b.version + 1
-                        where b.status = :open and b.weekStart < :currentWeekStart
-            """)
-    int expirePastOpenItemWithoutChunk(
-            OffsetDateTime now,
-            Big3ItemStatus open,
-            Big3ItemStatus expired,
-            LocalDate currentWeekStart
-    );
-
-
-
-
     // user,week/originInboxItem 기준 big3Item 조회
     @EntityGraph(attributePaths = "originInboxItem")
     List<Big3Item> findAllByUserIdAndWeekStartAndOriginInboxItem_IdIn(
             String userId,
             LocalDate weekStart,
             Collection<String> inboxItemIds
-    );
-
-    long countById(String id);
-
-    @Query("""
-    select b
-    from Big3Item b
-    where b.userId = :userId AND b.status IN :statuses AND b.weekStart < :weekStart
-        """)
-    List<Big3Item> findPastUnfinishedItems(
-            String userId,
-            Collection<Big3ItemStatus> statuses,
-            LocalDate weekStart
-    );
-
-
-    List<Big3Item> findAllByStatusAndWeekStartBefore(
-            Big3ItemStatus status,
-            LocalDate currentWeekStart
     );
 
     boolean existsByDerivedFromItem_Id(String derivedFromItemId);

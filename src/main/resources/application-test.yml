@@ -7,10 +7,6 @@ spring:
     hikari:
       maximum-pool-size: 17
 
-  batch:
-    job:
-      enabled: false
-
   jpa:
     show-sql: false
     hibernate:

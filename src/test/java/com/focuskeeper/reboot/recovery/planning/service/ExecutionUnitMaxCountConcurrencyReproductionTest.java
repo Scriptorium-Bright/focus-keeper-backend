@@ -1,9 +1,7 @@
 package com.focuskeeper.reboot.recovery.planning.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-
+import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.recovery.inbox.entity.InboxItem;
 import com.focuskeeper.reboot.recovery.inbox.repository.InboxItemRepository;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -19,11 +17,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 
 @SpringBootTest
 class ExecutionUnitMaxCountConcurrencyReproductionTest {
@@ -37,12 +35,12 @@ class ExecutionUnitMaxCountConcurrencyReproductionTest {
     @Autowired
     private Big3ItemRepository big3ItemRepository;
 
-    @SpyBean
+    @Autowired
     private ExecutionUnitRepository executionUnitRepository;
 
     @Test
-    @DisplayName("P-11: 최대 5개 검증이 count 후 insert라서 동시 생성 시 6개까지 저장될 수 있다")
-    void reproduceExecutionUnitMaxCountWriteSkew() throws Exception {
+    @DisplayName("P-11: 부모 row lock이 동시 생성을 직렬화해 최대 5개를 유지한다")
+    void preventsExecutionUnitMaxCountWriteSkew() throws Exception {
         String userId = "execution-unit-max-race-" + UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
         InboxItem inboxItem = inboxItemRepository.save(
@@ -57,39 +55,58 @@ class ExecutionUnitMaxCountConcurrencyReproductionTest {
             );
         }
 
-        CountDownLatch bothPassedValidation = new CountDownLatch(2);
-        doAnswer(invocation -> {
-            ExecutionUnit executionUnit = invocation.getArgument(0);
-            if (executionUnit.getTitle().startsWith("race-")) {
-                bothPassedValidation.countDown();
-                await(bothPassedValidation);
-            }
-            return invocation.callRealMethod();
-        }).when(executionUnitRepository).save(any(ExecutionUnit.class));
-
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
-            Future<?> first = executor.submit(() ->
-                    executionUnitService.singleInsertUnit(userId, big3Item.getId(), "race-1")
-            );
-            Future<?> second = executor.submit(() ->
-                    executionUnitService.singleInsertUnit(userId, big3Item.getId(), "race-2")
-            );
+            Future<?> first = executor.submit(() -> {
+                ready.countDown();
+                await(start);
+                return executionUnitService.singleInsertUnit(userId, big3Item.getId(), "race-1");
+            });
+            Future<?> second = executor.submit(() -> {
+                ready.countDown();
+                await(start);
+                return executionUnitService.singleInsertUnit(userId, big3Item.getId(), "race-2");
+            });
 
-            first.get(10, TimeUnit.SECONDS);
-            second.get(10, TimeUnit.SECONDS);
+            await(ready);
+            start.countDown();
+            Throwable firstFailure = getThrowable(first);
+            Throwable secondFailure = getThrowable(second);
+
+            assertThat(Stream.of(firstFailure, secondFailure).filter(failure -> failure == null).count())
+                    .isEqualTo(1);
+            assertThat(Stream.of(firstFailure, secondFailure).filter(failure -> failure != null).count())
+                    .isEqualTo(1);
+            assertThat(Stream.of(firstFailure, secondFailure)
+                    .filter(failure -> failure != null)
+                    .findFirst()
+                    .orElseThrow())
+                    .isInstanceOf(BusinessException.class);
 
             List<ExecutionUnit> savedUnits =
                     executionUnitRepository.findAllByBig3Item_IdAndBig3Item_UserIdOrderByCreatedAtAsc(
                             big3Item.getId(),
                             userId
                     );
-            assertThat(savedUnits).hasSize(6);
+            assertThat(savedUnits).hasSize(5);
             assertThat(savedUnits)
                     .extracting(ExecutionUnit::getTitle)
-                    .contains("race-1", "race-2");
+                    .anyMatch(title -> title.equals("race-1") || title.equals("race-2"));
         } finally {
             executor.shutdownNow();
+        }
+    }
+
+    private static Throwable getThrowable(Future<?> future) {
+        try {
+            future.get(10, TimeUnit.SECONDS);
+            return null;
+        } catch (java.util.concurrent.ExecutionException exception) {
+            return exception.getCause();
+        } catch (Exception exception) {
+            return exception;
         }
     }
 

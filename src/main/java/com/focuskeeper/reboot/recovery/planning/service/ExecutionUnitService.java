@@ -2,8 +2,7 @@ package com.focuskeeper.reboot.recovery.planning.service;
 
 import com.focuskeeper.reboot.common.error.BusinessException;
 import com.focuskeeper.reboot.common.error.ErrorCode;
-import com.focuskeeper.reboot.recovery.execution.constant.RecoverySessionStatus;
-import com.focuskeeper.reboot.recovery.execution.repository.RecoverySessionRepository;
+import com.focuskeeper.reboot.recovery.planning.port.ActiveSessionTerminator;
 import com.focuskeeper.reboot.recovery.planning.dto.ExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.dto.MultipleExecutionUnitResponse;
 import com.focuskeeper.reboot.recovery.planning.entity.Big3Item;
@@ -32,22 +31,22 @@ public class ExecutionUnitService {
 
     private final Big3ItemRepository big3ItemRepository;
     private final ExecutionUnitRepository executionUnitRepository;
-    private final RecoverySessionRepository recoverySessionRepository;
+    private final ActiveSessionTerminator activeSessionTerminator;
 
     public ExecutionUnitService(
             Big3ItemRepository big3ItemRepository,
             ExecutionUnitRepository executionUnitRepository,
-            RecoverySessionRepository recoverySessionRepository
+            ActiveSessionTerminator activeSessionTerminator
     ) {
         this.big3ItemRepository = big3ItemRepository;
         this.executionUnitRepository = executionUnitRepository;
-        this.recoverySessionRepository = recoverySessionRepository;
+        this.activeSessionTerminator = activeSessionTerminator;
     }
 
     @Transactional
     // high
     public List<MultipleExecutionUnitResponse> createUnit(String userId, String big3ItemId, List<String> titles) {
-        Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
+        Big3Item big3Item = requireBig3ItemForUnitCreation(userId, big3ItemId);
 
         validateItemAcceptsExecutionUnits(big3Item);
         validateUnitExceed(titles.size(), big3Item.getUnits().size());
@@ -61,7 +60,7 @@ public class ExecutionUnitService {
     // high
     public ExecutionUnitResponse singleInsertUnit(String userId, String big3ItemId, String title) {
 
-        Big3Item big3Item = getBig3ItemId(userId, big3ItemId);
+        Big3Item big3Item = requireBig3ItemForUnitCreation(userId, big3ItemId);
         validateItemAcceptsExecutionUnits(big3Item);
         validateUnitExceed(1, big3Item.getUnits().size());
 
@@ -72,9 +71,9 @@ public class ExecutionUnitService {
         return toResponse(executionUnit);
     }
 
-    private Big3Item getBig3ItemId(String userId, String big3ItemId) {
+    private Big3Item requireBig3ItemForUnitCreation(String userId, String big3ItemId) {
         return big3ItemRepository
-                .findByIdAndUserId(big3ItemId, userId)
+                .findByIdAndUserIdForUpdate(big3ItemId, userId)
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RESOURCE_NOT_FOUND,
                         Map.of("big3ItemId", big3ItemId)
@@ -134,21 +133,9 @@ public class ExecutionUnitService {
         }
 
         for (Timebox t : executionUnit.getTimeboxes()) {
-            recoverySessionRepository.findByTimeboxIdAndUserIdAndStatus(
-                    t.getId(),
-                    t.getUserId(),
-                    RecoverySessionStatus.STARTED
-            ).ifPresent(session -> session.complete(now));
+            activeSessionTerminator.completeIfActive(t.getId(), t.getUserId(), now);
         }
-         executionUnit.complete(now);
-        // 조건부 쿼리 vs Version Optimisitic Lock
-/*
-        int updatedCount = executionUnitRepository.updateExeucutionUnitStatus(COMPLETED, now, PLANNED, executionUnitId);
-
-        if(updatedCount == 0) {
-            throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "Update Failure");
-        }
-*/
+        executionUnit.complete(now);
 
         for (Timebox t : executionUnit.getTimeboxes()) {
             t.cancelledBySystem(OffsetDateTime.now());
@@ -171,12 +158,10 @@ public class ExecutionUnitService {
                 ));
     }
 
-    // 추후 exception으로 이관예정
-    // high
     private static void validateUnitExceed(int newCount, int currentCount) {
         if (currentCount + newCount > 5) {
             throw new BusinessException(
-                    ErrorCode.COMMON_BAD_REQUEST,
+                    ErrorCode.CONFLICT,
                     Map.of("titles", "ExecutionUnit 아이템은 총 5개까지만 생성할 수 있습니다. (현재 " + currentCount + "개 존재)")
             );
         }

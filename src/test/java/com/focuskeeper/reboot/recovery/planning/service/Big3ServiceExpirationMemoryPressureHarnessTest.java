@@ -96,6 +96,9 @@ class Big3ServiceExpirationMemoryPressureHarnessTest {
         long peakHeapBytes = sampler.peakBytes();
 
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+        double rowsPerSecond = elapsedMillis == 0
+                ? Double.POSITIVE_INFINITY
+                : targetRows * 1_000.0 / elapsedMillis;
         long heapAfterBytes = memory.getHeapMemoryUsage().getUsed();
         GcSnapshot gcAfter = captureGc();
 
@@ -123,12 +126,13 @@ class Big3ServiceExpirationMemoryPressureHarnessTest {
         );
 
         System.out.printf(
-                "EXPIRATION_MEMORY rows=%d elapsedMs=%d "
+                "EXPIRATION_MEMORY rows=%d elapsedMs=%d rowsPerSecond=%.2f "
                         + "heapBytes[max=%d,before=%d,peak=%d,after=%d,peakIncrease=%d] "
                         + "gc[countDelta=%d,timeMsDelta=%d] "
                         + "final[expired=%d,pastOpen=%d]%n",
                 targetRows,
                 elapsedMillis,
+                rowsPerSecond,
                 maxHeapBytes,
                 heapBeforeBytes,
                 peakHeapBytes,

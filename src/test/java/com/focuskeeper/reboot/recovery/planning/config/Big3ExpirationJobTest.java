@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.focuskeeper.reboot.common.observability.OperationsMetricRecorder;
+import com.focuskeeper.reboot.common.metrics.CoreMetricRecorder;
 import com.focuskeeper.reboot.recovery.planning.constant.ExpirationJobStatus;
 import com.focuskeeper.reboot.recovery.planning.service.Big3Service;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -32,17 +32,17 @@ class Big3ExpirationJobTest {
         assertThat(result.expirationJobStatus()).isEqualTo(ExpirationJobStatus.SUCCEEDED);
         assertThat(result.processedItems()).isEqualTo(42);
         assertThat(result.reason()).isNull();
-        assertThat(counter(meterRegistry, "reboot_expiration_runs_total", "status", "success"))
+        assertThat(counter(meterRegistry, "focusloop_expiration_runs_total", "status", "success"))
                 .isEqualTo(1.0);
-        assertThat(meterRegistry.get("reboot_expiration_duration").tag("status", "success").timer().count())
+        assertThat(meterRegistry.get("focusloop_expiration_duration").tag("status", "success").timer().count())
                 .isEqualTo(1);
-        assertThat(meterRegistry.get("reboot_expiration_processed_items").summary().totalAmount())
+        assertThat(meterRegistry.get("focusloop_expiration_processed_items").summary().totalAmount())
                 .isEqualTo(42.0);
-        assertThat(meterRegistry.get("reboot_expiration_last_success_timestamp_seconds").gauge().value())
+        assertThat(meterRegistry.get("focusloop_expiration_last_success_timestamp_seconds").gauge().value())
                 .isPositive();
-        assertThat(meterRegistry.get("reboot_expiration_last_duration_seconds").gauge().value())
+        assertThat(meterRegistry.get("focusloop_expiration_last_duration_seconds").gauge().value())
                 .isGreaterThanOrEqualTo(0.0);
-        assertThat(meterRegistry.get("reboot_expiration_running").gauge().value()).isZero();
+        assertThat(meterRegistry.get("focusloop_expiration_running").gauge().value()).isZero();
     }
 
     @Test
@@ -56,13 +56,13 @@ class Big3ExpirationJobTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("database unavailable");
 
-        assertThat(counter(meterRegistry, "reboot_expiration_runs_total", "status", "failure"))
+        assertThat(counter(meterRegistry, "focusloop_expiration_runs_total", "status", "failure"))
                 .isEqualTo(1.0);
-        assertThat(meterRegistry.get("reboot_expiration_duration").tag("status", "failure").timer().count())
+        assertThat(meterRegistry.get("focusloop_expiration_duration").tag("status", "failure").timer().count())
                 .isEqualTo(1);
-        assertThat(meterRegistry.get("reboot_expiration_last_duration_seconds").gauge().value())
+        assertThat(meterRegistry.get("focusloop_expiration_last_duration_seconds").gauge().value())
                 .isGreaterThanOrEqualTo(0.0);
-        assertThat(meterRegistry.get("reboot_expiration_running").gauge().value()).isZero();
+        assertThat(meterRegistry.get("focusloop_expiration_running").gauge().value()).isZero();
     }
 
     @Test
@@ -85,7 +85,7 @@ class Big3ExpirationJobTest {
         try {
             Future<ExpirationJobResult> firstRun = executor.submit(() -> job.run("test"));
             assertThat(enteredService.await(5, TimeUnit.SECONDS)).isTrue();
-            assertThat(meterRegistry.get("reboot_expiration_running").gauge().value()).isEqualTo(1.0);
+            assertThat(meterRegistry.get("focusloop_expiration_running").gauge().value()).isEqualTo(1.0);
 
             ExpirationJobResult skipped = job.run("test");
             assertThat(skipped.expirationJobStatus()).isEqualTo(ExpirationJobStatus.SKIPPED);
@@ -98,13 +98,13 @@ class Big3ExpirationJobTest {
             verify(big3Service).expireLastWeekTasks();
             assertThat(counter(
                     meterRegistry,
-                    "reboot_expiration_skipped_runs_total",
+                    "focusloop_expiration_skipped_runs_total",
                     "reason",
                     "already_running"
             )).isEqualTo(1.0);
-            assertThat(counter(meterRegistry, "reboot_expiration_runs_total", "status", "success"))
+            assertThat(counter(meterRegistry, "focusloop_expiration_runs_total", "status", "success"))
                     .isEqualTo(1.0);
-            assertThat(meterRegistry.get("reboot_expiration_running").gauge().value()).isZero();
+            assertThat(meterRegistry.get("focusloop_expiration_running").gauge().value()).isZero();
         } finally {
             releaseService.countDown();
             executor.shutdownNow();
@@ -115,7 +115,7 @@ class Big3ExpirationJobTest {
     private Big3ExpirationJob job(Big3Service big3Service, SimpleMeterRegistry meterRegistry) {
         return new Big3ExpirationJob(
                 big3Service,
-                new OperationsMetricRecorder(meterRegistry)
+                new CoreMetricRecorder(meterRegistry)
         );
     }
 
